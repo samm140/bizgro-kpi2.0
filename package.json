@@ -1,5 +1,4 @@
-// File: package.json
-const packageJson = `{
+{
   "name": "bizgro-kpi2",
   "private": true,
   "version": "2.0.0",
@@ -26,4 +25,4 @@ const packageJson = `{
     "tailwindcss": "^3.3.3",
     "vite": "^4.4.5"
   }
-}`;
+}
