@@ -1,7 +1,26 @@
 /* App specific styles */
-.App {
-  min-height: 100vh;
-  background-color: #f3f4f6;
+body {
+  background-color: #020617;
+  color: #f3f4f6;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Add any additional custom styles here */
+/* Custom focus styles for form inputs */
+.form-input:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: #3b82f6;
+}
+
+/* Ensure proper text colors in dark theme */
+input::placeholder {
+  color: #6b7280;
+}
+
+input {
+  color: #f3f4f6;
+}
