@@ -1,4 +1,3 @@
-// File: src/components/KpiCard.jsx
 import React from 'react';
 
 const KpiCard = ({ title, value, icon, iconColor, trendText, trendColor, footerText }) => {
@@ -7,9 +6,13 @@ const KpiCard = ({ title, value, icon, iconColor, trendText, trendColor, footerT
       <div className="flex justify-between items-start">
         <div>
           <p className="text-gray-400 text-sm">{title}</p>
-          <p className="text-3xl font-bold">{value}</p>
-          {trendText && <p className={`${trendColor} text-xs mt-2`}>{trendText}</p>}
-          {footerText && <p className="text-gray-400 text-xs mt-2">{footerText}</p>}
+          <p className="text-3xl font-bold text-gray-100">{value}</p>
+          {trendText && (
+            <p className={`${trendColor} text-xs mt-2`}>{trendText}</p>
+          )}
+          {footerText && (
+            <p className="text-gray-400 text-xs mt-2">{footerText}</p>
+          )}
         </div>
         <i className={`fas ${icon} ${iconColor} text-xl`}></i>
       </div>
