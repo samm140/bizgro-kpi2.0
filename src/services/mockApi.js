@@ -1,67 +1,61 @@
 // File: src/services/mockApi.js
-const mockApiJs = `// Mock API for GitHub Pages
 class MockApi {
   constructor() {
     this.initData();
   }
 
   initData() {
-    if (!localStorage.getItem('bizgro_kpi_data')) {
-      localStorage.setItem('bizgro_kpi_data', JSON.stringify({
-        entries: [],
-        dashboard: {
-          revenueYTD: 14204274,
-          gpmAverage: 34.08,
-          activeProjects: 23,
-          cashPosition: 1044957,
-          weeks: ['W31', 'W32', 'W33', 'W34', 'W35', 'W36'],
-          weeklyRevenue: [60929, 574503, 227737, 167973, 8828, 593209],
-          weeklyCollections: [206426, 151413, 337294, 323508, 259749, 527147],
-          gpmTrend: [28.5, 26.3, 31.2, 29.8, 30.5, 47.42]
-        }
+    if (!localStorage.getItem('bizgro_kpi_data_preview')) {
+      localStorage.setItem('bizgro_kpi_data_preview', JSON.stringify({
+        revenueYTD: 14204274,
+        gpmAverage: 34.08,
+        activeProjects: 23,
+        cashPosition: 1044957,
+        weeks: ['W31', 'W32', 'W33', 'W34', 'W35', 'W36'],
+        weeklyRevenue: [60929, 574503, 227737, 167973, 8828, 593209],
+        weeklyCollections: [206426, 151413, 337294, 323508, 259749, 527147],
+        gpmTrend: [28.5, 26.3, 31.2, 29.8, 30.5, 47.42]
       }));
     }
   }
 
-  async getDashboardData() {
-    return new Promise((resolve) => {
+  getDashboardData() {
+    return new Promise(resolve => {
       setTimeout(() => {
-        const data = JSON.parse(localStorage.getItem('bizgro_kpi_data'));
-        resolve(data.dashboard);
+        const data = JSON.parse(localStorage.getItem('bizgro_kpi_data_preview'));
+        resolve(data);
       }, 300);
     });
   }
 
-  async submitWeeklyData(formData) {
-    return new Promise((resolve) => {
+  submitWeeklyData(formData) {
+    return new Promise(resolve => {
       setTimeout(() => {
-        const data = JSON.parse(localStorage.getItem('bizgro_kpi_data'));
-        const entry = {
-          ...formData,
-          id: Date.now(),
-          timestamp: new Date().toISOString()
+        const data = JSON.parse(localStorage.getItem('bizgro_kpi_data_preview'));
+        
+        const updateMetric = (array, value) => {
+          const numValue = parseFloat(value);
+          if (!isNaN(numValue) && value.trim() !== '') {
+            array.push(numValue);
+            array.shift();
+          }
         };
-        data.entries.push(entry);
-        
-        // Update dashboard with new data
-        if (formData.revenueBilled) {
-          data.dashboard.weeklyRevenue.push(parseFloat(formData.revenueBilled));
-          data.dashboard.weeklyRevenue.shift();
-        }
-        if (formData.collections) {
-          data.dashboard.weeklyCollections.push(parseFloat(formData.collections));
-          data.dashboard.weeklyCollections.shift();
-        }
-        if (formData.gpmAccrual) {
-          data.dashboard.gpmTrend.push(parseFloat(formData.gpmAccrual));
-          data.dashboard.gpmTrend.shift();
-        }
-        
-        localStorage.setItem('bizgro_kpi_data', JSON.stringify(data));
-        resolve({ success: true, entry });
+
+        updateMetric(data.weeklyRevenue, formData.revenueBilled);
+        updateMetric(data.weeklyCollections, formData.collections);
+        updateMetric(data.gpmTrend, formData.gpmAccrual);
+
+        // Update week labels
+        const lastWeekLabel = data.weeks[data.weeks.length - 1];
+        const lastWeekNum = parseInt(lastWeekLabel.replace('W', ''));
+        data.weeks.push(`W${lastWeekNum + 1}`);
+        data.weeks.shift();
+
+        localStorage.setItem('bizgro_kpi_data_preview', JSON.stringify(data));
+        resolve({ success: true });
       }, 500);
     });
   }
 }
 
-export const mockApi = new MockApi();`;
+export const mockApi = new MockApi();
