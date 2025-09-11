@@ -1,5 +1,5 @@
-/ File: vite.config.js
-const viteConfig = `import { defineConfig } from 'vite'
+// File: vite.config.js
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
@@ -9,4 +9,4 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
   }
-})`;
+})
