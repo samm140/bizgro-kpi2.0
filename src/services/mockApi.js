@@ -1,10 +1,6 @@
-// File: src/services/mockApi.js
-class MockApi {
-  constructor() {
-    this.initData();
-  }
-
-  initData() {
+// Mock API service to simulate backend operations
+export const mockApi = {
+  initData: () => {
     if (!localStorage.getItem('bizgro_kpi_data_preview')) {
       localStorage.setItem('bizgro_kpi_data_preview', JSON.stringify({
         revenueYTD: 14204274,
@@ -17,19 +13,19 @@ class MockApi {
         gpmTrend: [28.5, 26.3, 31.2, 29.8, 30.5, 47.42]
       }));
     }
-  }
+  },
 
-  getDashboardData() {
-    return new Promise(resolve => {
+  getDashboardData: () => {
+    return new Promise((resolve) => {
       setTimeout(() => {
         const data = JSON.parse(localStorage.getItem('bizgro_kpi_data_preview'));
         resolve(data);
       }, 300);
     });
-  }
+  },
 
-  submitWeeklyData(formData) {
-    return new Promise(resolve => {
+  submitWeeklyData: (formData) => {
+    return new Promise((resolve) => {
       setTimeout(() => {
         const data = JSON.parse(localStorage.getItem('bizgro_kpi_data_preview'));
         
@@ -41,6 +37,7 @@ class MockApi {
           }
         };
 
+        // Update metrics
         updateMetric(data.weeklyRevenue, formData.revenueBilled);
         updateMetric(data.weeklyCollections, formData.collections);
         updateMetric(data.gpmTrend, formData.gpmAccrual);
@@ -51,11 +48,10 @@ class MockApi {
         data.weeks.push(`W${lastWeekNum + 1}`);
         data.weeks.shift();
 
+        // Save updated data
         localStorage.setItem('bizgro_kpi_data_preview', JSON.stringify(data));
         resolve({ success: true });
       }, 500);
     });
   }
-}
-
-export const mockApi = new MockApi();
+};
