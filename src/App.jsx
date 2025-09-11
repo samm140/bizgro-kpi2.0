@@ -1,43 +1,60 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
+import Header from './components/Header';
+import Dashboard from './components/Dashboard';
+import WeeklyEntry from './components/WeeklyEntry';
+import { mockApi } from './services/api';
 
 function App() {
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [loading, setLoading] = useState(false);
+  const [dashboardData, setDashboardData] = useState(null);
+
+  useEffect(() => {
+    // Initialize mock data on app load
+    mockApi.initData();
+    if (currentView === 'dashboard') {
+      loadDashboardData();
+    }
+  }, [currentView]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const data = await mockApi.getDashboardData();
+      setDashboardData(data);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFormSubmit = async (formData) => {
+    await mockApi.submitWeeklyData(formData);
+    setCurrentView('dashboard');
+  };
+
   return (
-    <div className="App">
-      <header className="bg-blue-600 text-white p-4">
-        <div className="container mx-auto">
-          <h1 className="text-3xl font-bold">BizGro KPI 2.0</h1>
-          <p className="text-sm mt-2">Financial Dashboard</p>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
+      <Header 
+        currentView={currentView} 
+        setCurrentView={setCurrentView}
+      />
       
-      <main className="container mx-auto p-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-2">Revenue</h2>
-            <p className="text-3xl font-bold text-green-600">$125,000</p>
-            <p className="text-sm text-gray-600 mt-2">+12% from last month</p>
+      <main className="container mx-auto px-4 py-8">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-biz-primary mx-auto mb-4"></div>
+              <p className="text-gray-300">Loading Dashboard...</p>
+            </div>
           </div>
-          
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-2">Expenses</h2>
-            <p className="text-3xl font-bold text-red-600">$45,000</p>
-            <p className="text-sm text-gray-600 mt-2">+5% from last month</p>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-2">Profit</h2>
-            <p className="text-3xl font-bold text-blue-600">$80,000</p>
-            <p className="text-sm text-gray-600 mt-2">+18% from last month</p>
-          </div>
-        </div>
-        
-        <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-2xl font-semibold mb-4">Dashboard Status</h2>
-          <p className="text-gray-700">
-            Welcome to BizGro KPI 2.0. Your financial dashboard is ready.
-          </p>
-        </div>
+        ) : currentView === 'dashboard' ? (
+          <Dashboard data={dashboardData} />
+        ) : (
+          <WeeklyEntry onSubmit={handleFormSubmit} />
+        )}
       </main>
     </div>
   );
