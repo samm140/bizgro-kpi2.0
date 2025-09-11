@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard';
 import WeeklyEntry from './components/WeeklyEntry';
 import LoadingSpinner from './components/LoadingSpinner';
 import { mockApi } from './services/mockApi';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 
 function App() {
   const [currentView, setCurrentView] = useState('dashboard');
