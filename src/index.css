@@ -1,0 +1,10 @@
+// File: src/index.css
+const indexCss = `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-biz-darker text-gray-100;
+  }
+}`;
