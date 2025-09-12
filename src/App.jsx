@@ -3,15 +3,19 @@ import './App.css';
 import { AuthProvider, AuthContext, LoginForm, UserProfile } from './components/Authentication';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
+import EnhancedDashboard from './components/EnhancedDashboard';
+import InsightsBoard from './components/InsightsBoard';
+import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
-// Mock API for data management
+// Enhanced Mock API with all required fields
 const mockApi = {
   initData: () => {
     if (!localStorage.getItem('bizgro_kpi_data')) {
       localStorage.setItem('bizgro_kpi_data', JSON.stringify({
         revenueYTD: 14204274,
+        priorYearRevenue: 12680000,
         gpmAverage: 34.08,
         activeProjects: 23,
         cashPosition: 1044957,
@@ -23,15 +27,110 @@ const mockApi = {
         currentAP: 845000,
         cashOnHand: 445000,
         backlog: 21800000,
-        cashFlowData: {
-          cashPosition: [1000000, 1100000, 1050000, 1200000, 1150000, 1044957],
-          arBalance: [2100000, 2000000, 2150000, 2050000, 2200000, 2145000],
-          apBalance: [800000, 850000, 820000, 870000, 840000, 845000]
-        },
-        backlogData: {
-          backlog: [20000000, 20500000, 21000000, 21300000, 21500000, 21800000],
-          jobsInProgress: [20, 21, 22, 23, 23, 23]
-        }
+        allEntries: [
+          { 
+            weekEnding: '2025-08-23', 
+            currentAR: '1900000', 
+            retentionReceivables: '200000', 
+            currentAP: '1100000', 
+            cashInBank: '1300000', 
+            cashOnHand: '8000', 
+            grossProfitAccrual: '120000', 
+            revenueBilledToDate: '450000', 
+            retention: '50000', 
+            collections: '400000', 
+            jobsWonNumber: '3', 
+            invitesExistingGC: '6', 
+            invitesNewGC: '3', 
+            totalEstimates: '1800000', 
+            newEstimatedJobs: '5', 
+            jobsWonDollar: '900000', 
+            jobsStartedDollar: '600000', 
+            jobsStartedNumber: '2', 
+            upcomingJobsDollar: '3800000', 
+            wipDollar: '22000000', 
+            revLeftToBill: '10000000', 
+            fieldEmployees: '34', 
+            supervisors: '5', 
+            office: '6', 
+            newHires: '2', 
+            employeesFired: '1',
+            cogsAccrual: '330000',
+            grossWagesAccrual: '280000',
+            jobsCompleted: '1',
+            changeOrders: '45000',
+            overdueAR: '150000',
+            concentrationRisk: '35'
+          },
+          { 
+            weekEnding: '2025-08-30', 
+            currentAR: '2000000', 
+            retentionReceivables: '220000', 
+            currentAP: '1200000', 
+            cashInBank: '1400000', 
+            cashOnHand: '10000', 
+            grossProfitAccrual: '140000', 
+            revenueBilledToDate: '480000', 
+            retention: '55000', 
+            collections: '460000', 
+            jobsWonNumber: '2', 
+            invitesExistingGC: '5', 
+            invitesNewGC: '2', 
+            totalEstimates: '1500000', 
+            newEstimatedJobs: '4', 
+            jobsWonDollar: '700000', 
+            jobsStartedDollar: '800000', 
+            jobsStartedNumber: '2', 
+            upcomingJobsDollar: '4000000', 
+            wipDollar: '22500000', 
+            revLeftToBill: '10500000', 
+            fieldEmployees: '35', 
+            supervisors: '5', 
+            office: '6', 
+            newHires: '1', 
+            employeesFired: '0',
+            cogsAccrual: '340000',
+            grossWagesAccrual: '290000',
+            jobsCompleted: '0',
+            changeOrders: '30000',
+            overdueAR: '180000',
+            concentrationRisk: '32'
+          },
+          { 
+            weekEnding: '2025-09-06', 
+            currentAR: '2300000', 
+            retentionReceivables: '250000', 
+            currentAP: '1500000', 
+            cashInBank: '1700000', 
+            cashOnHand: '12000', 
+            grossProfitAccrual: '200000', 
+            revenueBilledToDate: '700000', 
+            retention: '60000', 
+            collections: '650000', 
+            jobsWonNumber: '1', 
+            invitesExistingGC: '4', 
+            invitesNewGC: '1', 
+            totalEstimates: '1200000', 
+            newEstimatedJobs: '3', 
+            jobsWonDollar: '500000', 
+            jobsStartedDollar: '400000', 
+            jobsStartedNumber: '1', 
+            upcomingJobsDollar: '4100000', 
+            wipDollar: '23000000', 
+            revLeftToBill: '11000000', 
+            fieldEmployees: '36', 
+            supervisors: '5', 
+            office: '6', 
+            newHires: '1', 
+            employeesFired: '0',
+            cogsAccrual: '500000',
+            grossWagesAccrual: '310000',
+            jobsCompleted: '2',
+            changeOrders: '60000',
+            overdueAR: '200000',
+            concentrationRisk: '30'
+          }
+        ]
       }));
     }
   },
@@ -48,17 +147,22 @@ const mockApi = {
       setTimeout(() => {
         const data = JSON.parse(localStorage.getItem('bizgro_kpi_data'));
         
-        // Update metrics
-        if (formData.revenueBilled) {
-          data.weeklyRevenue.push(parseFloat(formData.revenueBilled));
+        // Add to allEntries array
+        data.allEntries.push(formData);
+        if (data.allEntries.length > 10) data.allEntries.shift();
+        
+        // Update summary metrics
+        if (formData.revenueBilledToDate) {
+          data.weeklyRevenue.push(parseFloat(formData.revenueBilledToDate));
           data.weeklyRevenue.shift();
         }
         if (formData.collections) {
           data.weeklyCollections.push(parseFloat(formData.collections));
           data.weeklyCollections.shift();
         }
-        if (formData.gpmAccrual) {
-          data.gpmTrend.push(parseFloat(formData.gpmAccrual));
+        if (formData.grossProfitAccrual) {
+          const gpm = (parseFloat(formData.grossProfitAccrual) / parseFloat(formData.revenueBilledToDate)) * 100;
+          data.gpmTrend.push(gpm);
           data.gpmTrend.shift();
         }
         
@@ -74,6 +178,89 @@ const mockApi = {
   }
 };
 
+// Metrics Catalog Component
+const MetricsCatalog = () => {
+  const [activeTab, setActiveTab] = useState('liquidity');
+  
+  const metricsData = {
+    liquidity: [
+      { name: "Current Ratio", formula: "(Cash + AR) / AP", target: "1.5-2.0x", description: "Measures ability to pay short-term obligations." },
+      { name: "Quick Ratio", formula: "(Cash + (AR - Retention)) / AP", target: ">1.0x", description: "More conservative liquidity measure." },
+      { name: "Cash Runway", formula: "Cash / Weekly Burn Rate", target: ">12 weeks", description: "Weeks of operation with current cash." }
+    ],
+    ar: [
+      { name: "DSO", formula: "(AR / Revenue) × 7", target: "<45 days", description: "Average days to collect payment." },
+      { name: "Collection Efficiency", formula: "Collections / Billings", target: ">95%", description: "Collection effectiveness." }
+    ],
+    profitability: [
+      { name: "Gross Margin %", formula: "GP / Revenue", target: ">30%", description: "Profitability before operating expenses." },
+      { name: "Operating Margin", formula: "(GP - OpEx) / Revenue", target: ">10%", description: "True operational profitability." }
+    ],
+    workforce: [
+      { name: "Revenue per Employee", formula: "Revenue / Total Employees", target: "Industry avg", description: "Overall productivity measure." },
+      { name: "Turnover Rate", formula: "Departures / Total", target: "<10%", description: "Retention health indicator." }
+    ]
+  };
+  
+  return (
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-6 bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700">
+        <h2 className="text-2xl font-bold mb-2">Metrics Catalog & Glossary</h2>
+        <p className="text-gray-400 text-sm">Complete reference guide for all 85 financial metrics tracked in BizGro KPI 2.0</p>
+      </div>
+      
+      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+        <div className="flex flex-wrap gap-2 mb-6 pb-4 border-b border-slate-700">
+          <button 
+            onClick={() => setActiveTab('liquidity')} 
+            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'liquidity' ? 'bg-biz-primary' : 'bg-slate-700'}`}
+          >
+            Liquidity
+          </button>
+          <button 
+            onClick={() => setActiveTab('ar')} 
+            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'ar' ? 'bg-biz-primary' : 'bg-slate-700'}`}
+          >
+            AR/Collections
+          </button>
+          <button 
+            onClick={() => setActiveTab('profitability')} 
+            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'profitability' ? 'bg-biz-primary' : 'bg-slate-700'}`}
+          >
+            Profitability
+          </button>
+          <button 
+            onClick={() => setActiveTab('workforce')} 
+            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'workforce' ? 'bg-biz-primary' : 'bg-slate-700'}`}
+          >
+            Workforce
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {metricsData[activeTab] && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4 text-blue-400 capitalize">{activeTab} Metrics</h3>
+              <div className="grid gap-3">
+                {metricsData[activeTab].map((metric, idx) => (
+                  <div key={idx} className="p-3 bg-slate-900/50 rounded-lg">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-semibold">{metric.name}</h4>
+                      <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded">Target: {metric.target}</span>
+                    </div>
+                    <p className="text-sm text-gray-400 mb-2">Formula: {metric.formula}</p>
+                    <p className="text-xs text-gray-500">{metric.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 function App() {
   const { user, isAuthenticated, logout } = useContext(AuthContext);
@@ -83,6 +270,7 @@ function App() {
   const [historicalData, setHistoricalData] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const [useGoogleSheets, setUseGoogleSheets] = useState(false);
+  const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
 
   // Function to fetch latest data
   const fetchLatestData = async () => {
@@ -119,11 +307,29 @@ function App() {
     if (isAuthenticated && currentView === 'dashboard') {
       const interval = setInterval(() => {
         fetchLatestData();
-      }, 30000); // Poll every 30 seconds
+      }, 30000);
       
       return () => clearInterval(interval);
     }
   }, [currentView, isAuthenticated]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.altKey) {
+        switch(e.key) {
+          case 'd': setCurrentView('dashboard'); break;
+          case 'e': setCurrentView('entry'); break;
+          case 'i': setCurrentView('insights'); break;
+          case 'm': setCurrentView('metrics'); break;
+          case 'h': setCurrentView('historical'); break;
+        }
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // If not authenticated, show login
   if (!isAuthenticated) {
@@ -211,6 +417,16 @@ function App() {
                 <i className="fas fa-edit mr-2"></i>Weekly Entry
               </button>
               <button 
+                onClick={() => setCurrentView('insights')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'insights' 
+                    ? 'bg-biz-primary text-white' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                }`}
+              >
+                <i className="fas fa-lightbulb mr-2"></i>Insights
+              </button>
+              <button 
                 onClick={() => setCurrentView('historical')}
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   currentView === 'historical' 
@@ -219,6 +435,16 @@ function App() {
                 }`}
               >
                 <i className="fas fa-history mr-2"></i>Historical
+              </button>
+              <button 
+                onClick={() => setCurrentView('metrics')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  currentView === 'metrics' 
+                    ? 'bg-biz-primary text-white' 
+                    : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+                }`}
+              >
+                <i className="fas fa-book mr-2"></i>Metrics
               </button>
               
               {/* User Menu */}
@@ -235,6 +461,17 @@ function App() {
                 {showProfile && (
                   <div className="absolute right-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-xl border border-slate-700 p-4">
                     <UserProfile />
+                    <div className="mt-4 pt-4 border-t border-slate-700">
+                      <label className="flex items-center justify-between cursor-pointer">
+                        <span className="text-sm text-gray-300">Enhanced Dashboard</span>
+                        <input 
+                          type="checkbox" 
+                          checked={useEnhancedDashboard}
+                          onChange={(e) => setUseEnhancedDashboard(e.target.checked)}
+                          className="form-checkbox h-5 w-5 text-biz-primary"
+                        />
+                      </label>
+                    </div>
                   </div>
                 )}
               </div>
@@ -284,200 +521,38 @@ function App() {
               </div>
             </div>
             
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-gray-400 text-sm">Revenue YTD</p>
-                    <p className="text-3xl font-bold text-gray-100">
-                      ${dashboardData ? (dashboardData.revenueYTD / 1000000).toFixed(1) : '14.2'}M
-                    </p>
-                    <p className="text-green-400 text-xs mt-2">↑ 12% vs last year</p>
-                  </div>
-                  <i className="fas fa-dollar-sign text-green-400 text-xl"></i>
-                </div>
-              </div>
-              
-              <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-gray-400 text-sm">GPM Average</p>
-                    <p className="text-3xl font-bold text-gray-100">
-                      {dashboardData ? dashboardData.gpmAverage : '34.08'}%
-                    </p>
-                    <p className="text-green-400 text-xs mt-2">Above 30% target</p>
-                  </div>
-                  <i className="fas fa-percentage text-blue-400 text-xl"></i>
-                </div>
-              </div>
-              
-              <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-gray-400 text-sm">Active Projects</p>
-                    <p className="text-3xl font-bold text-gray-100">
-                      {dashboardData ? dashboardData.activeProjects : '23'}
-                    </p>
-                    <p className="text-gray-400 text-xs mt-2">
-                      ${dashboardData ? (dashboardData.backlog / 1000000).toFixed(1) : '21.8'}M in WIP
-                    </p>
-                  </div>
-                  <i className="fas fa-building text-purple-400 text-xl"></i>
-                </div>
-              </div>
-              
-              <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-gray-400 text-sm">Cash Position</p>
-                    <p className="text-3xl font-bold text-gray-100">
-                      ${dashboardData ? (dashboardData.cashPosition / 1000000).toFixed(2) : '1.04'}M
-                    </p>
-                    <p className="text-gray-400 text-xs mt-2">DSO: 40 days</p>
-                  </div>
-                  <i className="fas fa-wallet text-orange-400 text-xl"></i>
-                </div>
-              </div>
-            </div>
-
-            {/* Charts */}
-            {dashboardData && <ChartVisualization data={dashboardData} />}
+            {/* Render Enhanced or Original Dashboard based on toggle */}
+            {useEnhancedDashboard ? (
+              <EnhancedDashboard data={dashboardData} />
+            ) : (
+              dashboardData && <ChartVisualization data={dashboardData} />
+            )}
           </div>
         ) : currentView === 'entry' ? (
-          <WeeklyEntryForm onSubmit={handleWeeklySubmit} onCancel={() => setCurrentView('dashboard')} />
+          <EnhancedWeeklyEntry 
+            onSubmit={handleWeeklySubmit} 
+            onCancel={() => setCurrentView('dashboard')} 
+          />
+        ) : currentView === 'insights' ? (
+          <InsightsBoard data={dashboardData} />
         ) : currentView === 'historical' ? (
           <div>
             <h2 className="text-2xl font-bold mb-6 text-gray-200">Historical Data Analysis</h2>
             <HistoricalDataView 
-              data={historicalData.length > 0 ? historicalData : generateSampleHistoricalData()}
+              data={historicalData.length > 0 ? historicalData : dashboardData?.allEntries || []}
               onEdit={handleHistoricalEdit}
               onDelete={handleHistoricalDelete}
             />
           </div>
+        ) : currentView === 'metrics' ? (
+          <MetricsCatalog />
         ) : null}
       </main>
-    </div>
-  );
-}
-
-// Generate sample historical data if no real data available
-function generateSampleHistoricalData() {
-  const data = [];
-  const currentDate = new Date();
-  
-  for (let i = 11; i >= 0; i--) {
-    const weekDate = new Date(currentDate);
-    weekDate.setDate(weekDate.getDate() - (i * 7));
-    
-    data.push({
-      id: `week-${i}`,
-      weekEndDate: weekDate.toISOString().split('T')[0],
-      weekNumber: 52 - i,
-      year: weekDate.getFullYear(),
-      revenueBilled: Math.floor(Math.random() * 500000) + 100000,
-      collections: Math.floor(Math.random() * 400000) + 100000,
-      gpmAccrual: (Math.random() * 20 + 25).toFixed(2),
-      backlog: 20000000 + (Math.random() * 2000000),
-      currentAR: 2000000 + (Math.random() * 200000),
-      currentAP: 800000 + (Math.random() * 100000),
-      jobsWon: Math.floor(Math.random() * 1000000) + 100000,
-      jobsInProgress: Math.floor(Math.random() * 5) + 20
-    });
-  }
-  
-  return data;
-}
-
-// Weekly Entry Form Component (simplified version - you can replace with your full version)
-function WeeklyEntryForm({ onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({
-    weekEndDate: new Date().toISOString().split('T')[0],
-    revenueBilled: '',
-    collections: '',
-    gpmAccrual: '',
-    currentAR: '',
-    currentAP: '',
-    backlog: ''
-  });
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  return (
-    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-      <h2 className="text-2xl font-bold mb-6 text-gray-200">Weekly Data Entry</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Week Ending</label>
-            <input
-              type="date"
-              name="weekEndDate"
-              value={formData.weekEndDate}
-              onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-gray-200"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Revenue Billed</label>
-            <input
-              type="number"
-              name="revenueBilled"
-              value={formData.revenueBilled}
-              onChange={handleChange}
-              placeholder="0.00"
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-gray-200"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Collections</label>
-            <input
-              type="number"
-              name="collections"
-              value={formData.collections}
-              onChange={handleChange}
-              placeholder="0.00"
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-gray-200"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">GPM %</label>
-            <input
-              type="number"
-              name="gpmAccrual"
-              value={formData.gpmAccrual}
-              onChange={handleChange}
-              placeholder="0.00"
-              step="0.01"
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded text-gray-200"
-            />
-          </div>
-        </div>
-        
-        <div className="flex justify-end space-x-2 pt-4">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-gray-200 rounded transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 bg-biz-primary hover:bg-blue-600 text-white rounded transition-colors"
-          >
-            Submit Data
-          </button>
-        </div>
-      </form>
+      
+      {/* Footer with keyboard shortcuts hint */}
+      <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
+        Keyboard shortcuts: Alt+D (Dashboard), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
+      </footer>
     </div>
   );
 }
