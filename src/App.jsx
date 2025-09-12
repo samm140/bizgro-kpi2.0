@@ -5,6 +5,8 @@ import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
+// Replace the cat line with proper import
+import Authentication from './components/Authentication.jsx';
 
 // Mock API for data management
 const mockApi = {
