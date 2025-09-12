@@ -13,7 +13,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
             </div>
             <div className="ml-3">
               <h1 className="text-lg font-semibold text-gray-200">BizGro KPI 2.0</h1>
-              <p className="text-xs text-gray-400">DiamondBack Financial System</p>
+              <p className="text-xs text-gray-400">KPI-2.0 Financial System</p>
             </div>
           </div>
           
