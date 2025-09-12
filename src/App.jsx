@@ -1,5 +1,20 @@
 import React from 'react';
 import './App.css';
+import React, { useState, useEffect } from 'react';
+import { AuthProvider, AuthContext, LoginForm } from './components/Authentication';
+import ChartVisualization from './components/ChartVisualization';
+import HistoricalDataView from './components/HistoricalDataView';
+import { googleSheetsService } from './services/googleSheets';
+import { dataExportService } from './services/dataExport';
+
+// Wrap your App with AuthProvider
+function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <App />
+    </AuthProvider>
+  );
+}
 
 function App() {
   return (
