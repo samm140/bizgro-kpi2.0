@@ -1,4 +1,3 @@
-cat > src/components/ChartVisualization.jsx << 'EOF'
 import React, { useEffect, useRef } from 'react';
 import Chart from 'chart.js/auto';
 
@@ -146,4 +145,3 @@ const ChartVisualization = ({ data }) => {
 };
 
 export default ChartVisualization;
-EOF
