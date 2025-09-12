@@ -1,17 +1,27 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import config from '../config';
 
 // Auth Context
 const AuthContext = createContext(null);
 
 // Mock auth service - replace with real API
 const authService = {
-  users: JSON.parse(localStorage.getItem('kpi2_users') || '[]'),
-  currentUser: JSON.parse(localStorage.getItem('kpi2_current_user') || 'null'),
+  users: JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'users') || '[]'),
+  currentUser: JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'current_user') || 'null'),
   
   register: function(email, password, name, role = 'user') {
     if (this.users.find(u => u.email === email)) {
-      throw new Error('User already exists');
+      throw new Error(config.errors.auth.accountExists);
     }
+    
+    // Validate email domain
+    const isValidDomain = config.auth.google.allowedDomains.some(domain => 
+      email.endsWith('@' + domain)
+    );
+    if (!isValidDomain) {
+      throw new Error(config.errors.auth.domainNotAllowed);
+    }
+    
     const user = {
       id: Date.now().toString(),
       email,
@@ -21,17 +31,17 @@ const authService = {
       createdAt: new Date().toISOString()
     };
     this.users.push(user);
-    localStorage.setItem('kpi2_users', JSON.stringify(this.users));
+    localStorage.setItem(config.auth.session.storagePrefix + 'users', JSON.stringify(this.users));
     return user;
   },
   
   login: function(email, password) {
     const user = this.users.find(u => u.email === email && u.password === password);
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new Error(config.errors.auth.invalidCredentials);
     }
     this.currentUser = user;
-    localStorage.setItem('kpi2_current_user', JSON.stringify(user));
+    localStorage.setItem(config.auth.session.storagePrefix + 'current_user', JSON.stringify(user));
     return user;
   },
   
@@ -49,16 +59,16 @@ const authService = {
         createdAt: new Date().toISOString()
       };
       this.users.push(user);
-      localStorage.setItem('kpi2_users', JSON.stringify(this.users));
+      localStorage.setItem(config.auth.session.storagePrefix + 'users', JSON.stringify(this.users));
     }
     this.currentUser = user;
-    localStorage.setItem('kpi2_current_user', JSON.stringify(user));
+    localStorage.setItem(config.auth.session.storagePrefix + 'current_user', JSON.stringify(user));
     return user;
   },
   
   logout: function() {
     this.currentUser = null;
-    localStorage.removeItem('kpi2_current_user');
+    localStorage.removeItem(config.auth.session.storagePrefix + 'current_user');
   },
   
   getCurrentUser: function() {
@@ -66,44 +76,47 @@ const authService = {
   }
 };
 
-// Initialize demo user for KPI-2.0
-if (!localStorage.getItem('kpi2_users')) {
-  authService.register('demo@bizgropartners.com', 'kpi2024', 'Demo User', 'admin');
+// Initialize demo user for KPI-2.0 if enabled
+if (config.auth.demo.enabled && !localStorage.getItem(config.auth.session.storagePrefix + 'users')) {
+  authService.register(config.auth.demo.email, config.auth.demo.password, 'Demo User', 'admin');
 }
 
 // Logo Component
-const KPI2Logo = ({ size = 'normal' }) => {
+const KPI2Logo = ({ size = 'normal', className = '' }) => {
   const sizeClasses = {
-    small: 'h-8 w-auto',
-    normal: 'h-12 w-auto',
-    large: 'h-20 w-auto'
+    small: 'h-10',
+    normal: 'h-14',
+    large: 'h-20',
+    xlarge: 'h-24'
   };
   
   return (
-    <div className={`${sizeClasses[size]} flex items-center`}>
-      {/* If you have a logo image, replace this with: */}
-      {/* <img src="/path-to-your-logo.png" alt="KPI-2.0" className={sizeClasses[size]} /> */}
-      
-      {/* For now, using a styled text logo */}
-      <div className="flex items-center gap-2">
-        <div className="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg p-2 shadow-lg">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        </div>
-        <div>
-          <div className="text-xl font-bold text-gray-100">KPI-2.0</div>
-          <div className="text-xs text-gray-400">Financial System</div>
-        </div>
-      </div>
-    </div>
+    <img 
+      src={config.app.logo} 
+      alt={config.app.fullName} 
+      className={`${sizeClasses[size]} w-auto object-contain ${className}`}
+      onError={(e) => {
+        // Fallback if image fails to load
+        e.target.style.display = 'none';
+        e.target.parentElement.innerHTML = `
+          <div class="flex items-center gap-2">
+            <div class="text-3xl font-bold">
+              <span class="text-blue-500">Biz</span>
+              <span class="text-green-500">Gro</span>
+            </div>
+            <div class="text-sm text-gray-400">${config.app.name}</div>
+          </div>
+        `;
+      }}
+    />
   );
 };
 
 // Google OAuth Button Component
 const GoogleSignInButton = ({ onSuccess }) => {
   useEffect(() => {
+    if (!config.features.googleOAuth) return;
+    
     // Load Google Sign-In API
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
@@ -114,11 +127,10 @@ const GoogleSignInButton = ({ onSuccess }) => {
     script.onload = () => {
       if (window.google) {
         window.google.accounts.id.initialize({
-          // Replace with your actual Google Client ID
-          client_id: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+          client_id: config.auth.google.clientId,
           callback: handleGoogleResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true,
+          auto_select: config.auth.google.autoSelect,
+          cancel_on_tap_outside: config.auth.google.cancelOnTapOutside,
         });
         
         window.google.accounts.id.renderButton(
@@ -142,21 +154,30 @@ const GoogleSignInButton = ({ onSuccess }) => {
   }, []);
   
   const handleGoogleResponse = (response) => {
-    // Decode the JWT token
-    const userData = JSON.parse(atob(response.credential.split('.')[1]));
-    const googleUser = {
-      email: userData.email,
-      name: userData.name,
-      picture: userData.picture,
-      id: userData.sub
-    };
-    
-    // Only allow bizgropartners.com domain
-    if (googleUser.email.endsWith('@bizgropartners.com')) {
-      authService.loginWithGoogle(googleUser);
-      onSuccess(googleUser);
-    } else {
-      alert('Please use your @bizgropartners.com email address');
+    try {
+      // Decode the JWT token
+      const userData = JSON.parse(atob(response.credential.split('.')[1]));
+      const googleUser = {
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture,
+        id: userData.sub
+      };
+      
+      // Check if email domain is allowed
+      const isValidDomain = config.auth.google.allowedDomains.some(domain => 
+        googleUser.email.endsWith('@' + domain)
+      );
+      
+      if (isValidDomain) {
+        authService.loginWithGoogle(googleUser);
+        onSuccess(googleUser);
+      } else {
+        alert(config.errors.auth.domainNotAllowed);
+      }
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      alert(config.errors.auth.googleSignInFailed);
     }
   };
   
@@ -194,8 +215,12 @@ const LoginForm = ({ onSuccess }) => {
     
     try {
       if (isRegistering) {
-        if (!email.endsWith('@bizgropartners.com')) {
-          setError('Please use a @bizgropartners.com email address');
+        // Validate email domain
+        const isValidDomain = config.auth.google.allowedDomains.some(domain => 
+          email.endsWith('@' + domain)
+        );
+        if (!isValidDomain) {
+          setError(config.errors.auth.domainNotAllowed);
           return;
         }
         authService.register(email, password, name);
@@ -224,18 +249,22 @@ const LoginForm = ({ onSuccess }) => {
           </div>
 
           {/* Google Sign In */}
-          <div className="mb-6">
-            <GoogleSignInButton onSuccess={onSuccess} />
-          </div>
+          {config.features.googleOAuth && (
+            <>
+              <div className="mb-6">
+                <GoogleSignInButton onSuccess={onSuccess} />
+              </div>
 
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-700"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-slate-800/50 text-gray-400">Or continue with email</span>
-            </div>
-          </div>
+              <div className="relative mb-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-700"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-slate-800/50 text-gray-400">Or continue with email</span>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Email/Password Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -264,7 +293,7 @@ const LoginForm = ({ onSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="you@bizgropartners.com"
+                placeholder={`you@${config.auth.google.allowedDomains[0]}`}
                 required
               />
             </div>
@@ -310,16 +339,18 @@ const LoginForm = ({ onSuccess }) => {
           </div>
           
           {/* Demo Account Info */}
-          <div className="mt-6 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
-            <p className="text-xs text-gray-400 text-center">
-              Demo Account: demo@bizgropartners.com / kpi2024
-            </p>
-          </div>
+          {config.auth.demo.enabled && (
+            <div className="mt-6 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
+              <p className="text-xs text-gray-400 text-center">
+                Demo Account: {config.auth.demo.email} / {config.auth.demo.password}
+              </p>
+            </div>
+          )}
         </div>
         
         {/* Footer */}
         <div className="mt-4 text-center text-xs text-gray-500">
-          © 2025 BizGro Partners. All rights reserved.
+          {config.app.copyright}
         </div>
       </div>
     </div>
