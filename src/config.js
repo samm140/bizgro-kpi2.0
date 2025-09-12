@@ -6,7 +6,7 @@ const config = {
     name: 'KPI 2.0',
     fullName: 'KPI 2.0 Financial System',
     company: 'BizGro Partners',
-    logo: '/bizgro-kpi2.0-logo.png',
+    logo: 'bizgro-kpi2.0-logo.png',
     favicon: '/favicon.ico',
     copyright: '© 2025 BizGro Partners, Inc. All rights reserved.'
   },
