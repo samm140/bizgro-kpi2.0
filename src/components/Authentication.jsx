@@ -138,7 +138,7 @@ const GoogleSignInButton = ({ onSuccess }) => {
           { 
             theme: 'filled_black',
             size: 'large',
-            width: '100%',
+            width: 280,  // Use a number, not "100%"
             text: 'continue_with',
             shape: 'rectangular',
             logo_alignment: 'left'
