@@ -1,4 +1,6 @@
-cat > src/components/Authentication.jsx << 'EOF'
+// CORRECT - Just JavaScript code
+   const Ro = React.createContext(null);
+   // ... rest of your Authentication component code
 import React, { useState, useEffect } from 'react';
 
 // Authentication Context
