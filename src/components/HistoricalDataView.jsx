@@ -1,4 +1,3 @@
-cat > src/components/HistoricalDataView.jsx << 'EOF'
 import React, { useState, useEffect } from 'react';
 
 const HistoricalDataView = ({ data = [], onEdit, onDelete }) => {
@@ -178,4 +177,3 @@ const HistoricalDataView = ({ data = [], onEdit, onDelete }) => {
 };
 
 export default HistoricalDataView;
-EOF
