@@ -8,7 +8,7 @@ const config = {
     company: 'BizGro Partners',
     logo: '/bizgro-kpi2.0-logo.png',
     favicon: '/favicon.ico',
-    copyright: '© 2025 BizGro Partners. All rights reserved.'
+    copyright: '© 2025 BizGro Partners, Inc. All rights reserved.'
   },
 
   // Authentication Settings
