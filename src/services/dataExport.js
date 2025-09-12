@@ -1,4 +1,3 @@
-cat > src/services/dataExport.js << 'EOF'
 // Data Export Service
 class DataExportService {
   convertToCSV(data, headers) {
@@ -63,4 +62,3 @@ class DataExportService {
 }
 
 export const dataExportService = new DataExportService();
-EOF
