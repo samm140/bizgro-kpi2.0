@@ -1,4 +1,3 @@
-cat > src/services/googleSheets.js << 'EOF'
 // Google Sheets API Service (Simplified version)
 class GoogleSheetsService {
   constructor() {
@@ -35,4 +34,3 @@ class GoogleSheetsService {
 }
 
 export const googleSheetsService = new GoogleSheetsService();
-EOF
