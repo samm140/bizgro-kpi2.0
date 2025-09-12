@@ -482,13 +482,5 @@ function WeeklyEntryForm({ onSubmit, onCancel }) {
   );
 }
 
-// Wrap App with AuthProvider
-function AppWithAuth() {
-  return (
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  );
-}
-
-export default AppWithAuth;
+// Export App directly (without auth wrapper for now)
+export default App;
