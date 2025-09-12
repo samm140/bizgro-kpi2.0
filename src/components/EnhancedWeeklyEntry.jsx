@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
 const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -55,37 +55,42 @@ const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
 
   const [validationErrors, setValidationErrors] = useState({});
 
-  const handleChange = (e) => {
+  // Use useCallback to prevent function recreation on every render
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     // Clear validation error for this field
     if (validationErrors[name]) {
-      setValidationErrors(prev => ({ ...prev, [name]: null }));
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
     }
-  };
+  }, [validationErrors]);
 
-  const toggleSection = (section) => {
+  const toggleSection = useCallback((section) => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
+  }, []);
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     const errors = {};
     if (!formData.weekEnding) errors.weekEnding = 'Week ending date is required';
     if (!formData.revenueBilledToDate) errors.revenueBilledToDate = 'Revenue is required';
     if (!formData.collections) errors.collections = 'Collections is required';
-    // Add more validation as needed
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
-  };
+  }, [formData]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     if (validateForm()) {
       onSubmit(formData);
     }
-  };
+  }, [formData, validateForm, onSubmit]);
 
-  const calculateQuickMetrics = () => {
+  // Memoize calculations to prevent unnecessary recalculation
+  const quickMetrics = useMemo(() => {
     const pFloat = (val) => parseFloat(val) || 0;
     const cashTotal = pFloat(formData.cashInBank) + pFloat(formData.cashOnHand);
     const currentRatio = formData.currentAP ? 
@@ -94,70 +99,11 @@ const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
       ((pFloat(formData.grossProfitAccrual) / pFloat(formData.revenueBilledToDate)) * 100).toFixed(1) : 'N/A';
     
     return { cashTotal, currentRatio, grossMargin };
-  };
+  }, [formData.cashInBank, formData.cashOnHand, formData.currentAR, formData.currentAP, 
+      formData.grossProfitAccrual, formData.revenueBilledToDate]);
 
-  const quickMetrics = calculateQuickMetrics();
-
-  const FormInput = ({ name, label, type = 'number', step = 'any', placeholder = '0', required = false, prefix = '' }) => (
-    <div>
-      <label htmlFor={name} className="block text-sm text-gray-400 mb-1">
-        {label} {required && <span className="text-rose-400">*</span>}
-      </label>
-      <div className="relative">
-        {prefix && (
-          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-            {prefix}
-          </span>
-        )}
-        <input 
-          type={type} 
-          id={name} 
-          name={name}
-          value={formData[name]}
-          onChange={handleChange}
-          step={step} 
-          required={required}
-          className={`
-            form-input w-full px-3 py-2 bg-slate-900 border rounded-lg 
-            placeholder:text-gray-500 hover:border-slate-600 
-            focus:border-biz-primary focus:outline-none transition-colors
-            ${prefix ? 'pl-8' : ''}
-            ${validationErrors[name] ? 'border-rose-500' : 'border-slate-700'}
-          `}
-          placeholder={placeholder}
-        />
-      </div>
-      {validationErrors[name] && (
-        <p className="text-xs text-rose-400 mt-1">{validationErrors[name]}</p>
-      )}
-    </div>
-  );
-
-  const FormSection = ({ title, color, icon, fields, sectionKey }) => (
-    <div className="border border-slate-700 rounded-xl hover:border-slate-600 transition-colors">
-      <button 
-        type="button"
-        onClick={() => toggleSection(sectionKey)}
-        className="w-full flex justify-between items-center p-4 text-left hover:bg-slate-800/30 transition-colors"
-      >
-        <h3 className={`text-lg font-semibold ${color} flex items-center gap-2`}>
-          {icon} {title}
-        </h3>
-        <i className={`fas transition-transform ${expandedSections[sectionKey] ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
-      </button>
-      {expandedSections[sectionKey] && (
-        <div className="p-4 border-t border-slate-700">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
-            {fields.map(field => (
-              <FormInput key={field.name} {...field} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const sections = [
+  // Define sections data outside of render to prevent recreation
+  const sections = useMemo(() => [
     { 
       title: 'Accounting & Cash', 
       color: 'text-green-400',
@@ -242,10 +188,10 @@ const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
       icon: '⚠️',
       sectionKey: 'risk',
       fields: [
-        { name: 'concentrationRisk', label: 'Top Customer Concentration', type: 'number', step: '0.01', placeholder: '35' }
+        { name: 'concentrationRisk', label: 'Top Customer Concentration %', type: 'number', step: '0.01', placeholder: '35' }
       ]
     }
-  ];
+  ], []);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -288,12 +234,28 @@ const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
         {/* Week Ending Date - Always Visible */}
         <div className="mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-            <FormInput 
-              name="weekEnding" 
-              label="Week Ending Date" 
-              type="date" 
-              required={true} 
-            />
+            <div>
+              <label htmlFor="weekEnding" className="block text-sm text-gray-400 mb-1">
+                Week Ending Date <span className="text-rose-400">*</span>
+              </label>
+              <input 
+                type="date" 
+                id="weekEnding" 
+                name="weekEnding"
+                value={formData.weekEnding}
+                onChange={handleChange}
+                required
+                className={`
+                  form-input w-full px-3 py-2 bg-slate-900 border rounded-lg 
+                  placeholder:text-gray-500 hover:border-slate-600 
+                  focus:border-biz-primary focus:outline-none transition-colors
+                  ${validationErrors.weekEnding ? 'border-rose-500' : 'border-slate-700'}
+                `}
+              />
+              {validationErrors.weekEnding && (
+                <p className="text-xs text-rose-400 mt-1">{validationErrors.weekEnding}</p>
+              )}
+            </div>
           </div>
         </div>
         
@@ -314,7 +276,58 @@ const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
         {/* Form Sections */}
         <div className="space-y-4">
           {sections.map(section => (
-            <FormSection key={section.sectionKey} {...section} />
+            <div key={section.sectionKey} className="border border-slate-700 rounded-xl hover:border-slate-600 transition-colors">
+              <button 
+                type="button"
+                onClick={() => toggleSection(section.sectionKey)}
+                className="w-full flex justify-between items-center p-4 text-left hover:bg-slate-800/30 transition-colors"
+              >
+                <h3 className={`text-lg font-semibold ${section.color} flex items-center gap-2`}>
+                  {section.icon} {section.title}
+                </h3>
+                <i className={`fas transition-transform ${expandedSections[section.sectionKey] ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+              </button>
+              {expandedSections[section.sectionKey] && (
+                <div className="p-4 border-t border-slate-700">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+                    {section.fields.map(field => (
+                      <div key={field.name}>
+                        <label htmlFor={field.name} className="block text-sm text-gray-400 mb-1">
+                          {field.label} {field.required && <span className="text-rose-400">*</span>}
+                        </label>
+                        <div className="relative">
+                          {field.prefix && (
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                              {field.prefix}
+                            </span>
+                          )}
+                          <input 
+                            type={field.type || 'number'} 
+                            id={field.name} 
+                            name={field.name}
+                            value={formData[field.name]}
+                            onChange={handleChange}
+                            step={field.step || 'any'} 
+                            required={field.required}
+                            className={`
+                              form-input w-full px-3 py-2 bg-slate-900 border rounded-lg 
+                              placeholder:text-gray-500 hover:border-slate-600 
+                              focus:border-biz-primary focus:outline-none transition-colors
+                              ${field.prefix ? 'pl-8' : ''}
+                              ${validationErrors[field.name] ? 'border-rose-500' : 'border-slate-700'}
+                            `}
+                            placeholder={field.placeholder || '0'}
+                          />
+                        </div>
+                        {validationErrors[field.name] && (
+                          <p className="text-xs text-rose-400 mt-1">{validationErrors[field.name]}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
         </div>
         
