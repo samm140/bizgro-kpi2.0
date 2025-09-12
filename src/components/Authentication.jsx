@@ -1,6 +1,30 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import config from '../config';
 
+// Debug logging to diagnose authentication issues
+console.log('=== Authentication Debug ===');
+console.log('Config loaded:', config);
+console.log('Demo enabled?', config.auth.demo.enabled);
+console.log('Storage prefix:', config.auth.session.storagePrefix);
+console.log('Existing users:', localStorage.getItem('kpi2_users'));
+
+// Force create demo user if it doesn't exist
+if (!localStorage.getItem('kpi2_users')) {
+  const demoUser = {
+    id: Date.now().toString(),
+    email: 'demo@bizgropartners.com',
+    password: 'kpi2024',
+    name: 'Demo User',
+    role: 'admin',
+    createdAt: new Date().toISOString()
+  };
+  localStorage.setItem('kpi2_users', JSON.stringify([demoUser]));
+  console.log('Demo user created!');
+  console.log('Verify creation:', localStorage.getItem('kpi2_users'));
+} else {
+  console.log('Users already exist:', JSON.parse(localStorage.getItem('kpi2_users')));
+}
+
 // Auth Context
 const AuthContext = createContext(null);
 
@@ -10,6 +34,7 @@ const authService = {
   currentUser: JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'current_user') || 'null'),
   
   register: function(email, password, name, role = 'user') {
+    console.log('Register attempt:', { email, name, role });
     if (this.users.find(u => u.email === email)) {
       throw new Error(config.errors.auth.accountExists);
     }
@@ -32,16 +57,26 @@ const authService = {
     };
     this.users.push(user);
     localStorage.setItem(config.auth.session.storagePrefix + 'users', JSON.stringify(this.users));
+    console.log('User registered successfully:', user);
     return user;
   },
   
   login: function(email, password) {
+    console.log('Login attempt:', { email, password });
+    console.log('Available users:', this.users);
+    
+    // Reload users from localStorage in case they were created after initialization
+    this.users = JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'users') || '[]');
+    console.log('Reloaded users from localStorage:', this.users);
+    
     const user = this.users.find(u => u.email === email && u.password === password);
     if (!user) {
+      console.log('Login failed - user not found or password mismatch');
       throw new Error(config.errors.auth.invalidCredentials);
     }
     this.currentUser = user;
     localStorage.setItem(config.auth.session.storagePrefix + 'current_user', JSON.stringify(user));
+    console.log('Login successful:', user);
     return user;
   },
   
@@ -76,9 +111,15 @@ const authService = {
   }
 };
 
-// Initialize demo user for KPI-2.0 if enabled
+// Initialize demo user for KPI-2.0 if enabled (backup initialization)
 if (config.auth.demo.enabled && !localStorage.getItem(config.auth.session.storagePrefix + 'users')) {
-  authService.register(config.auth.demo.email, config.auth.demo.password, 'Demo User', 'admin');
+  console.log('Attempting to register demo user via authService...');
+  try {
+    authService.register(config.auth.demo.email, config.auth.demo.password, 'Demo User', 'admin');
+    console.log('Demo user registered via authService');
+  } catch (err) {
+    console.log('Demo user registration error (might already exist):', err.message);
+  }
 }
 
 // Logo Component
@@ -213,6 +254,8 @@ const LoginForm = ({ onSuccess }) => {
     e.preventDefault();
     setError('');
     
+    console.log('Form submit:', { email, password, isRegistering });
+    
     try {
       if (isRegistering) {
         // Validate email domain
@@ -230,6 +273,7 @@ const LoginForm = ({ onSuccess }) => {
       }
       onSuccess();
     } catch (err) {
+      console.error('Authentication error:', err);
       setError(err.message);
     }
   };
