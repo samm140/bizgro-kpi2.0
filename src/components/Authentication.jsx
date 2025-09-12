@@ -288,4 +288,3 @@ export function UserProfile() {
 if (!localStorage.getItem('bizgro_users')) {
   authService.register('demo@diamondback.com', 'demo123', 'Demo User', 'admin');
 }
-EOF
