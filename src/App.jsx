@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
 import { AuthProvider, AuthContext, LoginForm, UserProfile } from './components/Authentication';
+import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
+import DynamicDashboard from './components/DynamicDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
-import MetricsCatalog from './components/MetricsCatalog'; // Import the comprehensive version
+import MetricsCatalog from './components/MetricsCatalog';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
@@ -295,6 +297,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
 function App() {
   const { user, isAuthenticated, logout } = useContext(AuthContext);
   const [currentView, setCurrentView] = useState('dashboard');
+  const [dashboardView, setDashboardView] = useState('dynamic'); // New state for dashboard view
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
@@ -302,11 +305,19 @@ function App() {
   const [useGoogleSheets, setUseGoogleSheets] = useState(false);
   const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
 
+  // Get updateWeeklyData from context if available
+  const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
+
   // Function to fetch latest data
   const fetchLatestData = async () => {
     try {
       const data = await mockApi.getDashboardData();
       setDashboardData(data);
+      
+      // Update metrics context if available
+      if (metricsContext && metricsContext.updateWeeklyData) {
+        metricsContext.updateWeeklyData(data);
+      }
       
       // If Google Sheets is enabled and configured
       if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
@@ -462,11 +473,39 @@ function App() {
               </div>
             </div>
             
-            {/* Render Enhanced or Original Dashboard based on toggle */}
-            {useEnhancedDashboard ? (
-              <EnhancedDashboard data={dashboardData} />
+            {/* Add tabs for different dashboard views */}
+            <div className="flex gap-2 mb-4">
+              <button 
+                onClick={() => setDashboardView('dynamic')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  dashboardView === 'dynamic' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                }`}
+              >
+                <i className="fas fa-th-large mr-2"></i>Dynamic Metrics
+              </button>
+              <button 
+                onClick={() => setDashboardView('charts')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  dashboardView === 'charts' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                }`}
+              >
+                <i className="fas fa-chart-bar mr-2"></i>Charts View
+              </button>
+            </div>
+            
+            {/* Conditional rendering based on dashboard view */}
+            {dashboardView === 'dynamic' ? (
+              <DynamicDashboard />
             ) : (
-              dashboardData && <ChartVisualization data={dashboardData} />
+              useEnhancedDashboard ? (
+                <EnhancedDashboard data={dashboardData} />
+              ) : (
+                dashboardData && <ChartVisualization data={dashboardData} />
+              )
             )}
           </div>
         ) : currentView === 'entry' ? (
@@ -486,7 +525,7 @@ function App() {
             />
           </div>
         ) : currentView === 'metrics' ? (
-          <MetricsCatalog />  // Now using the comprehensive imported version
+          <MetricsCatalog />
         ) : null}
       </main>
       
@@ -498,11 +537,13 @@ function App() {
   );
 }
 
-// Wrap App with AuthProvider
+// Wrap App with AuthProvider and MetricsProvider
 function AppWithAuth() {
   return (
     <AuthProvider>
-      <App />
+      <MetricsProvider>
+        <App />
+      </MetricsProvider>
     </AuthProvider>
   );
 }
