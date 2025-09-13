@@ -195,7 +195,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               <img src="bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
             </div>
             <div className="ml-3">
-              <h1 className="text-lg font-semibold text-gray-200">KPI-2.0</h1>
+              <h1 className="text-lg font-semibold text-gray-200">KPI 2.0</h1>
               <p className="text-xs text-gray-400">Financial System</p>
             </div>
           </div>
@@ -499,16 +499,6 @@ function App() {
                 <i className="fas fa-chart-bar mr-2"></i>Charts View
               </button>
 
-              {/* NEW: Configure metrics */}
-              <div className="flex-1"></div>
-              <button
-                onClick={() => setCurrentView('metrics')}
-                className="px-4 py-2 rounded-lg bg-slate-700 text-gray-200 hover:bg-slate-600"
-                title="Alt+M"
-              >
-                <i className="fas fa-sliders-h mr-2"></i>Configure Metrics
-              </button>
-            </div>
             
             {/* Conditional rendering based on dashboard view */}
             {dashboardView === 'dynamic' ? (
