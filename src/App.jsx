@@ -189,7 +189,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="text-3xl font-bold italic">
-              <img src="/bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
+              <img src="bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
             </div>
             <div className="ml-3">
               <h1 className="text-lg font-semibold text-gray-200">BizGro</h1>
