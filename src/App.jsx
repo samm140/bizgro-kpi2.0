@@ -12,9 +12,6 @@ import MetricsCatalog from './components/MetricsCatalog';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
-// ▼ NEW: render Dynamic Metrics cards on Dashboard
-import DynamicMetrics from './components/dashboard/DynamicMetrics';
-
 // Enhanced Mock API with all required fields
 const mockApi = {
   initData: () => {
@@ -195,7 +192,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               <img src="bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
             </div>
             <div className="ml-3">
-              <h1 className="text-lg font-semibold text-gray-200">KPI 2.0</h1>
+              <h1 className="text-lg font-semibold text-gray-200">KPI-2.0</h1>
               <p className="text-xs text-gray-400">Financial System</p>
             </div>
           </div>
@@ -365,7 +362,7 @@ function App() {
           case 'd': setCurrentView('dashboard'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
-          case 'm': setCurrentView('metrics'); break;  // already present
+          case 'm': setCurrentView('metrics'); break;
           case 'h': setCurrentView('historical'); break;
         }
       }
@@ -477,7 +474,7 @@ function App() {
             </div>
             
             {/* Add tabs for different dashboard views */}
-            <div className="flex gap-2 mb-4 items-center">
+            <div className="flex gap-2 mb-4">
               <button 
                 onClick={() => setDashboardView('dynamic')}
                 className={`px-4 py-2 rounded-lg transition-colors ${
@@ -498,12 +495,11 @@ function App() {
               >
                 <i className="fas fa-chart-bar mr-2"></i>Charts View
               </button>
-
+            </div>
             
             {/* Conditional rendering based on dashboard view */}
             {dashboardView === 'dynamic' ? (
-              // ▼ UPDATED: use DynamicMetrics instead of DynamicDashboard
-              <DynamicMetrics />
+              <DynamicDashboard />
             ) : (
               useEnhancedDashboard ? (
                 <EnhancedDashboard data={dashboardData} />
