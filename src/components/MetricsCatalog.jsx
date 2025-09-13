@@ -1,7 +1,25 @@
-import React, { useState, useMemo } from 'react';
-import { useMetrics } from './MetricsContext';
+import React, { useState, useMemo, useEffect, createContext, useContext } from 'react';
 
-// Complete metrics data from CSV - all 85 metrics
+// Formatters from second version
+const formatters = {
+  pct: (v) => (v == null ? '—' : `${(v * 100).toFixed(2)}%`),
+  money: (v) =>
+    v == null
+      ? '—'
+      : Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v),
+  days: (v) => (v == null ? '—' : `${Math.round(v)} days`),
+};
+
+// Create a simple metrics context
+const MetricsContext = createContext({
+  registry: {},
+  setRegistry: () => {},
+  selectedForDashboard: [],
+  addToDashboard: () => {},
+  removeFromDashboard: () => {}
+});
+
+// Complete metrics data from first version - all 85 metrics
 const ALL_METRICS_DATA = [
   // Liquidity Metrics (8)
   { id: 'LIQ001', category: 'Liquidity', title: 'Current Ratio (Ops)', formula: '=(CashBank + CashQB + CurrentAR) / CurrentAP', fields: 'Cash in Bank, Cash on Hand (QuickBooks), Current AR $, Current AP $', visual: 'KPI Card + sparkline; Bullet vs 1.5–2.0', grain: 'Weekly', benchmark: 'Target: 1.5-2.0', enabled: true },
@@ -129,24 +147,44 @@ const MetricsCatalog = () => {
   const [expandedMetric, setExpandedMetric] = useState(null);
   const [showRecommendationModal, setShowRecommendationModal] = useState(false);
   
-  // Get context functions
-  const { 
-    dashboardMetrics = [], 
-    addMetricToDashboard, 
-    removeMetricFromDashboard 
-  } = useMetrics();
+  // Local state for dashboard metrics
+  const [selectedForDashboard, setSelectedForDashboard] = useState([]);
+  const [registry, setRegistry] = useState({});
+
+  // Initialize registry with our metrics
+  useEffect(() => {
+    const reg = {};
+    for (const m of metrics) {
+      reg[m.id] = { 
+        ...m, 
+        key: m.id.toLowerCase(),
+        label: m.title,
+        formatter: m.formatterName ? formatters[m.formatterName] : null 
+      };
+    }
+    setRegistry(reg);
+  }, [metrics]);
+
+  // Dashboard management functions
+  const addToDashboard = (metricId) => {
+    setSelectedForDashboard(prev => [...prev, metricId]);
+  };
+
+  const removeFromDashboard = (metricId) => {
+    setSelectedForDashboard(prev => prev.filter(id => id !== metricId));
+  };
 
   // Check if metric is on dashboard
   const isOnDashboard = (metricId) => {
-    return dashboardMetrics.some(m => m.id === metricId);
+    return selectedForDashboard.includes(metricId);
   };
 
   // Toggle metric on dashboard
   const toggleDashboard = (metric) => {
     if (isOnDashboard(metric.id)) {
-      removeMetricFromDashboard(metric.id);
+      removeFromDashboard(metric.id);
     } else {
-      addMetricToDashboard(metric);
+      addToDashboard(metric.id);
     }
   };
 
