@@ -12,6 +12,9 @@ import MetricsCatalog from './components/MetricsCatalog';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
+// ▼ NEW: render Dynamic Metrics cards on Dashboard
+import DynamicMetrics from './components/dashboard/DynamicMetrics';
+
 // Enhanced Mock API with all required fields
 const mockApi = {
   initData: () => {
@@ -362,7 +365,7 @@ function App() {
           case 'd': setCurrentView('dashboard'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
-          case 'm': setCurrentView('metrics'); break;
+          case 'm': setCurrentView('metrics'); break;  // already present
           case 'h': setCurrentView('historical'); break;
         }
       }
@@ -499,7 +502,8 @@ function App() {
             
             {/* Conditional rendering based on dashboard view */}
             {dashboardView === 'dynamic' ? (
-              <DynamicDashboard />
+              // ▼ UPDATED: use DynamicMetrics instead of DynamicDashboard
+              <DynamicMetrics />
             ) : (
               useEnhancedDashboard ? (
                 <EnhancedDashboard data={dashboardData} />
