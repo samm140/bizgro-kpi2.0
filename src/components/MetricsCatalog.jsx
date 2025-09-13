@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useMetrics } from './MetricsContext';
 
 // Complete metrics data from CSV - all 85 metrics
 const ALL_METRICS_DATA = [
@@ -126,22 +127,22 @@ const MetricsCatalog = () => {
   const [metrics, setMetrics] = useState(ALL_METRICS_DATA);
   const [showEnabledOnly, setShowEnabledOnly] = useState(false);
   const [expandedMetric, setExpandedMetric] = useState(null);
+  const [showRecommendationModal, setShowRecommendationModal] = useState(false);
+  
   // Get context functions
   const { 
     dashboardMetrics = [], 
     addMetricToDashboard, 
     removeMetricFromDashboard 
-  } = useMetrics ? useMetrics() : {};
+  } = useMetrics();
 
   // Check if metric is on dashboard
   const isOnDashboard = (metricId) => {
-    return dashboardMetrics && dashboardMetrics.some(m => m.id === metricId);
+    return dashboardMetrics.some(m => m.id === metricId);
   };
 
   // Toggle metric on dashboard
   const toggleDashboard = (metric) => {
-    if (!addMetricToDashboard || !removeMetricFromDashboard) return;
-    
     if (isOnDashboard(metric.id)) {
       removeMetricFromDashboard(metric.id);
     } else {
@@ -232,18 +233,31 @@ const MetricsCatalog = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => toggleDashboard(metric)}
+              className={`p-2 rounded-lg transition-colors ${
+                isOnDashboard(metric.id)
+                  ? 'bg-blue-900/30 text-blue-400 hover:bg-blue-900/50' 
+                  : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
+              }`}
+              title={isOnDashboard(metric.id) ? 'Remove from dashboard' : 'Add to dashboard'}
+            >
+              {isOnDashboard(metric.id) ? <i className="fas fa-star"></i> : <i className="far fa-star"></i>}
+            </button>
+            <button
               onClick={() => toggleMetric(metric.id)}
               className={`p-2 rounded-lg transition-colors ${
                 metric.enabled 
                   ? 'bg-green-900/30 text-green-400 hover:bg-green-900/50' 
                   : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
               }`}
+              title={metric.enabled ? 'Disable metric' : 'Enable metric'}
             >
               {metric.enabled ? <i className="fas fa-eye"></i> : <i className="fas fa-eye-slash"></i>}
             </button>
             <button
               onClick={() => setExpandedMetric(isExpanded ? null : metric.id)}
               className="p-2 rounded-lg bg-slate-700 text-gray-400 hover:bg-slate-600 transition-colors"
+              title="Expand details"
             >
               {isExpanded ? <i className="fas fa-chevron-up"></i> : <i className="fas fa-chevron-down"></i>}
             </button>
