@@ -1,25 +1,69 @@
 // src/components/MetricsCatalog.jsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { useMetricsStore } from '../state/metricsStore'; // relative path to avoid Vite alias issues
+import { useMetricsStore } from '../state/metricsStore'; // relative path keeps Vite happy
 
-const formatters = {
-  pct: (v) => (v == null ? '—' : `${(v * 100).toFixed(2)}%`),
-  money: (v) =>
-    v == null
-      ? '—'
-      : Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v),
-  days: (v) => (v == null ? '—' : `${Math.round(v)} days`),
-};
+// ---------- Formatters (labels only for Catalog; Dynamic uses utils/computeMetric) ----------
+const FORMATTER_NAMES = ['pct', 'days', 'money', 'number'];
 
-// Helper to create a simple key for metrics that don't have one
+// ---------- Helpers: key & benchmark parsing ----------
 const slugify = (s) =>
   (s || '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 
+// Parses strings like:
+// "Target: 1.5-2.0", ">95%", "Healthy if >0.5", "<45 days", "Keep <80%"
+// Returns { target: {min?,max?} | null, formatterName?: 'pct'|'days'|'number' }
+function parseBenchmark(benchmark = '', title = '') {
+  const out = { target: null, formatterName: null };
+  if (!benchmark) return out;
+
+  const str = benchmark.toLowerCase();
+  const isPct = str.includes('%');
+  const isDays = str.includes('day');
+
+  // Range: e.g., "1.5-2.0"
+  const range = str.match(/(\d+(\.\d+)?)\s*[-–]\s*(\d+(\.\d+)?)/);
+  if (range) {
+    let min = parseFloat(range[1]);
+    let max = parseFloat(range[3]);
+    if (isPct) { min /= 100; max /= 100; }
+    out.target = { min, max };
+    out.formatterName = isPct ? 'pct' : isDays ? 'days' : null;
+    return out;
+  }
+
+  // Comparators: <, >, ≤, ≥ etc (pick the first occurrence)
+  // Examples: "<45 days", "> 1.0", "healthy if >0.5", "keep <80%"
+  const lt = str.match(/(?:^|[\s:])<(=?)(\s*)(\d+(\.\d+)?)/);
+  const gt = str.match(/(?:^|[\s:])>(=?)(\s*)(\d+(\.\d+)?)/);
+
+  if (lt) {
+    let max = parseFloat(lt[3]);
+    if (isPct) max /= 100;
+    out.target = { max };
+    out.formatterName = isPct ? 'pct' : isDays ? 'days' : null;
+    return out;
+  }
+  if (gt) {
+    let min = parseFloat(gt[3]);
+    if (isPct) min /= 100;
+    out.target = { min };
+    out.formatterName = isPct ? 'pct' : isDays ? 'days' : null;
+    return out;
+  }
+
+  // Fallback heuristics by title if benchmark doesn't specify units
+  if (!out.formatterName) {
+    if (/%/.test(title)) out.formatterName = 'pct';
+    else if (/days?|dso|dpo/i.test(title)) out.formatterName = 'days';
+  }
+  return out;
+}
+
 // ---------------------------------------------------------
-// Complete metrics data - all 85 metrics (from your message)
+// Complete metrics data - all 85 metrics (from your spec)
 // ---------------------------------------------------------
 const ALL_METRICS_DATA = [
   // Liquidity Metrics (8)
@@ -138,7 +182,7 @@ const ALL_METRICS_DATA = [
   { id: 'UX006', category: 'Board UX', title: 'Performance Index', formula: '=CompositeScore(AllCategories)', fields: 'Category averages', visual: 'Spider chart', grain: 'Weekly', benchmark: 'Balanced scorecard', enabled: false }
 ];
 
-// --------- UI: Catalog card ----------
+// ---------- Catalog Card ----------
 function CatalogCard({ metric, isSelected, onToggle }) {
   return (
     <div className="bg-slate-800/60 rounded-xl p-4 border border-slate-700">
@@ -171,20 +215,22 @@ export default function MetricsCatalog() {
   const { registry, setRegistry, selectedForDashboard, addToDashboard, removeFromDashboard } = useMetricsStore();
   const [query, setQuery] = useState('');
 
-  // Build registry once from ALL_METRICS_DATA
+  // Build registry from ALL_METRICS_DATA, and PARSE benchmarks -> {target, formatterName}
   useEffect(() => {
     if (!registry || Object.keys(registry).length === 0) {
       const reg = {};
       for (const m of ALL_METRICS_DATA) {
+        const parsed = parseBenchmark(m.benchmark, m.title);
         reg[m.id] = {
           id: m.id,
           key: slugify(m.title || m.id),
           label: m.title || m.id,
           category: m.category,
-          formula: (m.formula || '').replace(/^=/, ''), // strip leading '=' if present
+          // Strip leading '=' for our evaluator
+          formula: (m.formula || '').replace(/^=/, ''),
           description: m.benchmark || '',
-          // NOTE: target/formatter not auto-parsed from 'benchmark' to keep logic simple & stable.
-          // You can later add target parsing if desired.
+          target: parsed.target || null,
+          formatterName: parsed.formatterName || null,
         };
       }
       setRegistry(reg);
@@ -240,5 +286,4 @@ export default function MetricsCatalog() {
     </div>
   );
 }
-
 
