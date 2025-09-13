@@ -1,6 +1,6 @@
-// App.jsx - Complete Integration
-import React, { useState, useEffect } from 'react';
-import { AuthProvider, AuthContext, useAuth } from './components/Authentication';
+// App.jsx - Fixed version without useAuth
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthProvider, AuthContext, LoginForm } from './components/Authentication';
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import DynamicDashboard from './components/DynamicDashboard';
 import MetricsCatalog from './components/MetricsCatalog';
@@ -150,30 +150,9 @@ const DashboardView = () => {
   );
 };
 
-// Metrics Catalog View with Add Functionality
-const MetricsCatalogView = ({ onClose }) => {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-white">Metrics Catalog</h2>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-          >
-            <i className="fas fa-times mr-2"></i>
-            Close
-          </button>
-        )}
-      </div>
-      <MetricsCatalog />
-    </div>
-  );
-};
-
 // Main App Component
 function MainApp() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useContext(AuthContext);
   const { updateWeeklyData, dashboardMetrics } = useMetrics();
   const [currentView, setCurrentView] = useState('dashboard');
   const [loading, setLoading] = useState(false);
@@ -349,7 +328,12 @@ function MainApp() {
         ) : (
           <>
             {currentView === 'dashboard' && <DashboardView />}
-            {currentView === 'metrics' && <MetricsCatalogView />}
+            {currentView === 'metrics' && (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold text-white">Metrics Catalog</h2>
+                <MetricsCatalog />
+              </div>
+            )}
             {currentView === 'entry' && (
               <div className="space-y-6">
                 <h2 className="text-2xl font-bold text-white">Weekly Data Entry</h2>
@@ -389,6 +373,17 @@ function MainApp() {
   );
 }
 
+// Auth Wrapper Component
+function AuthWrapper() {
+  const { isAuthenticated } = useContext(AuthContext);
+  
+  if (!isAuthenticated) {
+    return <LoginForm />;
+  }
+  
+  return <MainApp />;
+}
+
 // App Wrapper with Providers
 function App() {
   return (
@@ -400,17 +395,4 @@ function App() {
   );
 }
 
-// Auth Wrapper Component
-function AuthWrapper() {
-  const { isAuthenticated } = useAuth();
-  
-  if (!isAuthenticated) {
-    return <LoginForm />;
-  }
-  
-  return <MainApp />;
-}
-
-// Export both auth hook and main app
-export { useAuth };
 export default App;
