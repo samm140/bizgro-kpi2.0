@@ -408,112 +408,169 @@ export default function DynamicMetrics() {
   // Show catalog view if requested
   if (showCatalog) {
     return (
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Metrics Catalog</h2>
-            <p className="text-gray-400 text-sm">Select metrics to display on your dashboard</p>
-          </div>
-          <button
-            onClick={() => setShowCatalog(false)}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+      <div className="flex gap-4">
+        {/* Left Panel - Metrics Catalog */}
+        <div className="w-1/2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+          {/* Header */}
+          <div className="sticky top-0 bg-slate-900/95 backdrop-blur z-10 pb-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-white">Metrics Catalog</h2>
+                <p className="text-gray-400 text-xs">Drag metrics to the dashboard →</p>
+              </div>
+              <button
+                onClick={() => setShowCatalog(false)}
+                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm"
+              >
+                <i className="fas fa-times mr-1"></i>Close
+              </button>
+            </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Total Metrics</p>
-                <p className="text-2xl font-bold text-white">{stats.total}</p>
+            {/* Search and Filters */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">
+              <div className="flex flex-wrap gap-2 items-center">
+                <div className="flex-1 min-w-[150px]">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-white placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+                
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-3 py-1.5 text-sm bg-slate-700 border border-slate-600 rounded text-white"
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                
+                <label className="flex items-center gap-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showEnabledOnly}
+                    onChange={(e) => setShowEnabledOnly(e.target.checked)}
+                    className="rounded"
+                  />
+                  <span className="text-gray-300 text-sm">Active</span>
+                </label>
               </div>
-              <i className="fas fa-database text-2xl text-blue-400"></i>
             </div>
           </div>
-          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Active</p>
-                <p className="text-2xl font-bold text-green-400">{stats.enabled}</p>
-              </div>
-              <Eye className="w-6 h-6 text-green-400" />
-            </div>
-          </div>
-          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">On Dashboard</p>
-                <p className="text-2xl font-bold text-blue-400">{selectedForDashboard?.length || 0}</p>
-              </div>
-              <Star className="w-6 h-6 text-blue-400 fill-current" />
-            </div>
-          </div>
-          <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Coverage</p>
-                <p className="text-2xl font-bold text-blue-400">{stats.completion}%</p>
-              </div>
-              <i className="fas fa-chart-line text-2xl text-blue-400"></i>
-            </div>
-          </div>
-        </div>
 
-        {/* Search and Filters */}
-        <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700 mb-6">
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search metrics..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400"
-                />
-              </div>
-            </div>
-            
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white"
-            >
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showEnabledOnly}
-                onChange={(e) => setShowEnabledOnly(e.target.checked)}
-                className="rounded"
+          {/* Metrics List */}
+          <div className="space-y-3 mt-4">
+            {filteredMetrics.map(metric => (
+              <CatalogMetricCard 
+                key={metric.id} 
+                metric={metric}
+                isOnDashboard={isOnDashboard(metric.id)}
+                onToggleDashboard={toggleDashboard}
+                onToggleEnabled={toggleMetric}
+                expandedMetric={expandedMetric}
+                setExpandedMetric={setExpandedMetric}
               />
-              <span className="text-gray-300">Active only</span>
-            </label>
+            ))}
           </div>
         </div>
 
-        {/* Metrics Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredMetrics.map(metric => (
-            <CatalogMetricCard 
-              key={metric.id} 
-              metric={metric}
-              isOnDashboard={isOnDashboard(metric.id)}
-              onToggleDashboard={toggleDashboard}
-              onToggleEnabled={toggleMetric}
-              expandedMetric={expandedMetric}
-              setExpandedMetric={setExpandedMetric}
-            />
-          ))}
+        {/* Right Panel - Dashboard Preview */}
+        <div className="w-1/2 max-h-[calc(100vh-200px)] overflow-y-auto pl-2">
+          <div className="sticky top-0 bg-slate-900/95 backdrop-blur z-10 pb-4">
+            <h2 className="text-xl font-bold text-white mb-2">Dashboard Preview</h2>
+            <p className="text-gray-400 text-xs mb-3">
+              {selectedForDashboard?.length || 0} metrics selected
+            </p>
+          </div>
+
+          {/* Drop Zone or Metrics Grid */}
+          {!selectedForDashboard?.length ? (
+            <div 
+              className="text-center py-12 bg-slate-800/30 rounded-xl border-2 border-slate-700 border-dashed transition-all min-h-[300px] flex flex-col items-center justify-center"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                e.currentTarget.classList.add('border-blue-500', 'bg-slate-800/50');
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.classList.remove('border-blue-500', 'bg-slate-800/50');
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('border-blue-500', 'bg-slate-800/50');
+                const metricId = e.dataTransfer.getData('metricId');
+                if (metricId && !isOnDashboard(metricId)) {
+                  addToDashboard(metricId);
+                }
+              }}
+            >
+              <i className="fas fa-grip-lines text-5xl text-slate-600 mb-3"></i>
+              <h3 className="text-lg font-medium text-slate-300 mb-2">Drop Metrics Here</h3>
+              <p className="text-sm text-slate-400">
+                Drag metrics from the catalog to build your dashboard
+              </p>
+            </div>
+          ) : (
+            <div 
+              className="grid gap-3 md:grid-cols-1 lg:grid-cols-2"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const metricId = e.dataTransfer.getData('metricId');
+                if (metricId && !isOnDashboard(metricId)) {
+                  addToDashboard(metricId);
+                }
+              }}
+            >
+              {selectedForDashboard.map((metricId) => {
+                const metric = registry?.[metricId];
+                if (!metric) return null;
+
+                // Calculate metric value
+                let value = 0;
+                switch(metricId) {
+                  case 'LIQ001': // Current Ratio
+                    value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB + data.CurrentAR) / data.CurrentAP : 0;
+                    break;
+                  case 'LIQ002': // Quick Ratio
+                    value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB + (data.CurrentAR - data.Retention)) / data.CurrentAP : 0;
+                    break;
+                  case 'PROF001': // Gross Profit Margin
+                    value = data.Revenue > 0 ? (data.GrossProfit / data.Revenue) : 0;
+                    break;
+                  case 'SALES001': // Win Rate
+                    value = data.TotalBids > 0 ? (data.JobsWon / data.TotalBids) : 0;
+                    break;
+                  case 'WORK001': // Total Headcount
+                    value = data.TotalEmployees || 0;
+                    break;
+                  default:
+                    value = computeMetric(metric.formula, data);
+                }
+
+                const status = evaluateTarget(value, metric.target);
+                return (
+                  <MetricCard
+                    key={metricId}
+                    metric={metric}
+                    value={value}
+                    status={status}
+                    onRemove={removeFromDashboard}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
