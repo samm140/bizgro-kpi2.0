@@ -1,80 +1,61 @@
-// Formatters for different metric types
+// src/utils/computeMetric.js
+// Safe expression evaluator + helpers for targets & formatting.
+
 export const formatters = {
-  ratio: (v) => v == null ? '—' : v.toFixed(2),
-  percentage: (v) => v == null ? '—' : `${v.toFixed(1)}%`,
-  currency: (v) => v == null ? '—' : new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(v),
-  days: (v) => v == null ? '—' : `${Math.round(v)} days`,
-  months: (v) => v == null ? '—' : `${v.toFixed(1)} months`,
-  number: (v) => v == null ? '—' : new Intl.NumberFormat().format(Math.round(v))
+  number: (v) => (v == null || Number.isNaN(v) ? '—' :
+    Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(v)),
+  pct: (v) => (v == null || Number.isNaN(v) ? '—' :
+    `${(v * 100).toFixed(2)}%`),
+  days: (v) => (v == null || Number.isNaN(v) ? '—' : `${Math.round(v)} days`),
+  money: (v) => (v == null || Number.isNaN(v) ? '—' :
+    Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v)),
 };
 
+export function applyFormatter(value, formatterName) {
+  const f = formatters[formatterName] || formatters.number;
+  return f(value);
+}
+
+// Replace tokens in a simple arithmetic expression with numeric values and eval.
 export function computeMetric(formula, data = {}) {
   if (!formula) return null;
-  
+
+  // Replace tokens with values (longest keys first to avoid partial matches)
+  const tokens = Object.keys(data).sort((a, b) => b.length - a.length);
+  let expr = `(${formula})`;
+  for (const t of tokens) {
+    const val = Number(data[t]);
+    const safe = Number.isFinite(val) ? val : 0;
+    expr = expr.replace(new RegExp(`\\b${t}\\b`, 'g'), String(safe));
+  }
+
+  // Whitelist for safety
+  if (!/^[0-9+\-*/().\s]*$/.test(expr)) return null;
+
   try {
-    // Create a safe evaluation context
-    const safeData = {};
-    Object.keys(data).forEach(key => {
-      const value = Number(data[key]);
-      safeData[key] = Number.isFinite(value) ? value : 0;
-    });
-    
-    // Replace formula tokens with values
-    let expression = formula;
-    
-    // Sort keys by length (longest first) to avoid partial replacements
-    const keys = Object.keys(safeData).sort((a, b) => b.length - a.length);
-    
-    keys.forEach(key => {
-      const regex = new RegExp(`\\b${key}\\b`, 'g');
-      expression = expression.replace(regex, safeData[key]);
-    });
-    
-    // Validate expression contains only safe characters
-    if (!/^[0-9+\-*/().\s]*$/.test(expression)) {
-      console.warn('Unsafe formula expression:', expression);
-      return null;
-    }
-    
-    // Evaluate the expression
-    const result = Function('"use strict"; return (' + expression + ')')();
-    
+    // eslint-disable-next-line no-new-func
+    const fn = new Function(`return (${expr});`);
+    const result = fn();
     return Number.isFinite(result) ? result : null;
-  } catch (error) {
-    console.error('Metric computation error:', error, 'Formula:', formula);
+  } catch {
     return null;
   }
 }
 
+// Determine status vs target.
+// target may be {min?, max?} OR a function(value)=>boolean
 export function evaluateTarget(value, target) {
-  if (value == null || !target) return 'neutral';
-  
-  if (typeof target === 'function') {
-    return target(value) ? 'healthy' : 'warning';
+  if (value == null || Number.isNaN(value)) return 'neutral';
+  if (!target) return 'neutral';
+  if (typeof target === 'function') return target(value) ? 'healthy' : 'danger';
+
+  const { min, max } = target;
+  if (min != null && max != null) {
+    if (value < min) return 'warning';
+    if (value > max) return 'warning';
+    return 'healthy';
   }
-  
-  if (target.min !== undefined && target.max !== undefined) {
-    if (value >= target.min && value <= target.max) return 'healthy';
-    if (value < target.min * 0.8 || value > target.max * 1.2) return 'danger';
-    return 'warning';
-  }
-  
-  if (target.min !== undefined) {
-    if (value >= target.min) return 'healthy';
-    if (value < target.min * 0.8) return 'danger';
-    return 'warning';
-  }
-  
-  if (target.max !== undefined) {
-    if (value <= target.max) return 'healthy';
-    if (value > target.max * 1.2) return 'danger';
-    return 'warning';
-  }
-  
+  if (min != null) return value >= min ? 'healthy' : 'danger';
+  if (max != null) return value <= max ? 'healthy' : 'danger';
   return 'neutral';
 }
