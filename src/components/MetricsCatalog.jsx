@@ -126,7 +126,28 @@ const MetricsCatalog = () => {
   const [metrics, setMetrics] = useState(ALL_METRICS_DATA);
   const [showEnabledOnly, setShowEnabledOnly] = useState(false);
   const [expandedMetric, setExpandedMetric] = useState(null);
-  const [showRecommendationModal, setShowRecommendationModal] = useState(false);
+  // Get context functions
+  const { 
+    dashboardMetrics = [], 
+    addMetricToDashboard, 
+    removeMetricFromDashboard 
+  } = useMetrics ? useMetrics() : {};
+
+  // Check if metric is on dashboard
+  const isOnDashboard = (metricId) => {
+    return dashboardMetrics && dashboardMetrics.some(m => m.id === metricId);
+  };
+
+  // Toggle metric on dashboard
+  const toggleDashboard = (metric) => {
+    if (!addMetricToDashboard || !removeMetricFromDashboard) return;
+    
+    if (isOnDashboard(metric.id)) {
+      removeMetricFromDashboard(metric.id);
+    } else {
+      addMetricToDashboard(metric);
+    }
+  };
 
   // Calculate statistics
   const stats = useMemo(() => {
