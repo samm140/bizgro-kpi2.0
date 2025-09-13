@@ -6,6 +6,7 @@ import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
+import MetricsCatalog from './components/MetricsCatalog'; // Import the comprehensive version
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
@@ -186,10 +187,10 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="text-3xl font-bold italic">
-             <img src="bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
+              <img src="/bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
             </div>
             <div className="ml-3">
-              <h1 className="text-lg font-semibold text-gray-200"></h1>
+              <h1 className="text-lg font-semibold text-gray-200">BizGro</h1>
               <p className="text-xs text-gray-400">KPI-2.0 Financial System</p>
             </div>
           </div>
@@ -287,89 +288,6 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
         </div>
       </div>
     </header>
-  );
-};
-
-// Metrics Catalog Component
-const MetricsCatalog = () => {
-  const [activeTab, setActiveTab] = useState('liquidity');
-  
-  const metricsData = {
-    liquidity: [
-      { name: "Current Ratio", formula: "(Cash + AR) / AP", target: "1.5-2.0x", description: "Measures ability to pay short-term obligations." },
-      { name: "Quick Ratio", formula: "(Cash + (AR - Retention)) / AP", target: ">1.0x", description: "More conservative liquidity measure." },
-      { name: "Cash Runway", formula: "Cash / Weekly Burn Rate", target: ">12 weeks", description: "Weeks of operation with current cash." }
-    ],
-    ar: [
-      { name: "DSO", formula: "(AR / Revenue) × 7", target: "<45 days", description: "Average days to collect payment." },
-      { name: "Collection Efficiency", formula: "Collections / Billings", target: ">95%", description: "Collection effectiveness." }
-    ],
-    profitability: [
-      { name: "Gross Margin %", formula: "GP / Revenue", target: ">30%", description: "Profitability before operating expenses." },
-      { name: "Operating Margin", formula: "(GP - OpEx) / Revenue", target: ">10%", description: "True operational profitability." }
-    ],
-    workforce: [
-      { name: "Revenue per Employee", formula: "Revenue / Total Employees", target: "Industry avg", description: "Overall productivity measure." },
-      { name: "Turnover Rate", formula: "Departures / Total", target: "<10%", description: "Retention health indicator." }
-    ]
-  };
-  
-  return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-6 bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700">
-        <h2 className="text-2xl font-bold mb-2">Metrics Catalog & Glossary</h2>
-        <p className="text-gray-400 text-sm">Complete reference guide for all 85 financial metrics tracked in BizGro KPI 2.0</p>
-      </div>
-      
-      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-        <div className="flex flex-wrap gap-2 mb-6 pb-4 border-b border-slate-700">
-          <button 
-            onClick={() => setActiveTab('liquidity')} 
-            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'liquidity' ? 'bg-biz-primary' : 'bg-slate-700'}`}
-          >
-            Liquidity
-          </button>
-          <button 
-            onClick={() => setActiveTab('ar')} 
-            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'ar' ? 'bg-biz-primary' : 'bg-slate-700'}`}
-          >
-            AR/Collections
-          </button>
-          <button 
-            onClick={() => setActiveTab('profitability')} 
-            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'profitability' ? 'bg-biz-primary' : 'bg-slate-700'}`}
-          >
-            Profitability
-          </button>
-          <button 
-            onClick={() => setActiveTab('workforce')} 
-            className={`px-3 py-1 rounded text-sm transition-colors ${activeTab === 'workforce' ? 'bg-biz-primary' : 'bg-slate-700'}`}
-          >
-            Workforce
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          {metricsData[activeTab] && (
-            <div>
-              <h3 className="text-lg font-semibold mb-4 text-blue-400 capitalize">{activeTab} Metrics</h3>
-              <div className="grid gap-3">
-                {metricsData[activeTab].map((metric, idx) => (
-                  <div key={idx} className="p-3 bg-slate-900/50 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-semibold">{metric.name}</h4>
-                      <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded">Target: {metric.target}</span>
-                    </div>
-                    <p className="text-sm text-gray-400 mb-2">Formula: {metric.formula}</p>
-                    <p className="text-xs text-gray-500">{metric.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
   );
 };
 
@@ -568,7 +486,7 @@ function App() {
             />
           </div>
         ) : currentView === 'metrics' ? (
-          <MetricsCatalog />
+          <MetricsCatalog />  // Now using the comprehensive imported version
         ) : null}
       </main>
       
