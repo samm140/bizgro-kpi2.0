@@ -192,7 +192,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               <img src="bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
             </div>
             <div className="ml-3">
-              <h1 className="text-lg font-semibold text-gray-200">KPI-2.0</h1>
+              <h1 className="text-lg font-semibold text-gray-200">KPI 2.0</h1>
               <p className="text-xs text-gray-400">Financial System</p>
             </div>
           </div>
