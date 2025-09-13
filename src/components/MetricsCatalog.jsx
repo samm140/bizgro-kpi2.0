@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Eye, EyeOff, Plus, Download, Upload, Settings, BarChart2, TrendingUp, AlertCircle, CheckCircle, XCircle, ChevronDown, ChevronUp, FileText, Calculator, Database, Activity } from 'lucide-react';
 
 // Complete metrics data from CSV - all 85 metrics
 const ALL_METRICS_DATA = [
@@ -219,20 +218,20 @@ const MetricsCatalog = () => {
                   : 'bg-slate-700 text-gray-400 hover:bg-slate-600'
               }`}
             >
-              {metric.enabled ? <Eye size={16} /> : <EyeOff size={16} />}
+              {metric.enabled ? <i className="fas fa-eye"></i> : <i className="fas fa-eye-slash"></i>}
             </button>
             <button
               onClick={() => setExpandedMetric(isExpanded ? null : metric.id)}
               className="p-2 rounded-lg bg-slate-700 text-gray-400 hover:bg-slate-600 transition-colors"
             >
-              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              {isExpanded ? <i className="fas fa-chevron-up"></i> : <i className="fas fa-chevron-down"></i>}
             </button>
           </div>
         </div>
         
         <div className="space-y-2 text-sm">
           <div className="flex items-start gap-2">
-            <Calculator size={14} className="text-blue-400 mt-0.5" />
+            <i className="fas fa-calculator text-blue-400"></i>
             <code className="text-xs bg-slate-900 px-2 py-1 rounded text-blue-300 break-all">
               {metric.formula}
             </code>
@@ -240,7 +239,7 @@ const MetricsCatalog = () => {
           
           {metric.benchmark && (
             <div className="flex items-center gap-2">
-              <TrendingUp size={14} className="text-green-400" />
+              <i className="fas fa-chart-line text-green-400"></i>
               <span className="text-xs text-green-400">{metric.benchmark}</span>
             </div>
           )}
@@ -290,7 +289,7 @@ const MetricsCatalog = () => {
               Used by {viz.count} metrics
             </p>
             <div className="mt-4 flex items-center text-xs text-gray-500">
-              <Activity size={14} className="mr-1" />
+              <i className="fas fa-chart-line mr-1"></i>
               Click to see examples
             </div>
           </div>
@@ -352,7 +351,7 @@ const MetricsCatalog = () => {
           onClick={() => setShowRecommendationModal(true)}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
         >
-          <Plus size={20} />
+          <i className="fas fa-plus"></i>
           Recommend Metric
         </button>
       </div>
@@ -365,7 +364,7 @@ const MetricsCatalog = () => {
               <p className="text-gray-400 text-sm">Total Metrics</p>
               <p className="text-2xl font-bold text-white">{stats.total}</p>
             </div>
-            <Database size={24} className="text-blue-400" />
+            <i className="fas fa-database text-2xl text-blue-400"></i>
           </div>
         </div>
         <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
@@ -374,7 +373,7 @@ const MetricsCatalog = () => {
               <p className="text-gray-400 text-sm">Active</p>
               <p className="text-2xl font-bold text-green-400">{stats.enabled}</p>
             </div>
-            <Eye size={24} className="text-green-400" />
+            <i className="fas fa-eye text-2xl text-green-400"></i>
           </div>
         </div>
         <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
@@ -383,7 +382,7 @@ const MetricsCatalog = () => {
               <p className="text-gray-400 text-sm">Categories</p>
               <p className="text-2xl font-bold text-white">{stats.categories}</p>
             </div>
-            <Filter size={24} className="text-purple-400" />
+            <i className="fas fa-filter text-2xl text-purple-400"></i>
           </div>
         </div>
         <div className="bg-slate-800/50 backdrop-blur rounded-lg p-4 border border-slate-700">
@@ -392,7 +391,7 @@ const MetricsCatalog = () => {
               <p className="text-gray-400 text-sm">Coverage</p>
               <p className="text-2xl font-bold text-blue-400">{stats.completion}%</p>
             </div>
-            <Activity size={24} className="text-blue-400" />
+            <i className="fas fa-chart-line text-2xl text-blue-400"></i>
           </div>
         </div>
       </div>
@@ -430,7 +429,7 @@ const MetricsCatalog = () => {
             <div className="flex flex-wrap gap-4 items-center">
               <div className="flex-1 min-w-[200px]">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                   <input
                     type="text"
                     placeholder="Search metrics..."
@@ -472,7 +471,7 @@ const MetricsCatalog = () => {
           
           {filteredMetrics.length === 0 && (
             <div className="text-center py-12">
-              <AlertCircle size={48} className="text-gray-600 mx-auto mb-4" />
+              <i className="fas fa-exclamation-circle text-5xl text-gray-600 mb-4"></i>
               <p className="text-gray-400">No metrics found matching your criteria</p>
             </div>
           )}
@@ -497,7 +496,7 @@ const MetricsCatalog = () => {
                 onClick={exportConfig}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
               >
-                <Download size={20} />
+                <i className="fas fa-download"></i>
                 Export Configuration
               </button>
             </div>
@@ -506,7 +505,7 @@ const MetricsCatalog = () => {
               <h4 className="font-semibold text-white mb-2">Import Configuration</h4>
               <p className="text-sm text-gray-400 mb-4">Upload a previously exported configuration file</p>
               <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2">
-                <Upload size={20} />
+                <i className="fas fa-upload"></i>
                 Import Configuration
               </button>
             </div>
