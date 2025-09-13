@@ -17,7 +17,21 @@ const Navigation = ({ currentView, setCurrentView, user, onLogout }) => {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-white">BizGro KPI 2.0</h1>
+            <div className="flex items-center gap-3">
+              <img 
+  src="bizgro-kpi2.0-logo.png" 
+  alt="BizGro Logo" 
+  className="h-12 w-auto"
+/>
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg">
+                <span className="text-white font-bold text-xl"></span>
+              </div>
+              {/* Title and Subtitle */}
+              <div>
+                <h1 className="text-xl font-bold text-white">KPI 2.0</h1>
+                <p className="text-xs text-gray-400">Financial System</p>
+              </div>
+            </div>
           </div>
           
           <nav className="flex items-center space-x-2">
