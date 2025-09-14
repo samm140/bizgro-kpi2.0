@@ -1,5 +1,5 @@
 // src/App.jsx
-// Updated to integrate the Enhanced Dynamic Dashboard and Executive Dashboard
+// Updated to integrate the Enhanced Dynamic Dashboard, Executive Dashboard, and QBO Integration
 
 import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
@@ -13,6 +13,7 @@ import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
+import QBOSync from './components/shared/QBOSync'; // NEW: QBO Sync Widget
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
@@ -67,7 +68,10 @@ const mockApi = {
             jobsCompleted: '1',
             changeOrders: '45000',
             overdueAR: '150000',
-            concentrationRisk: '35'
+            concentrationRisk: '35',
+            savingsAccount: '500000', // NEW: Added for QBO compatibility
+            locDrawn: '200000', // NEW: Added for QBO compatibility
+            locLimit: '1000000' // NEW: Added for QBO compatibility
           },
           { 
             weekEnding: '2025-08-30', 
@@ -101,7 +105,10 @@ const mockApi = {
             jobsCompleted: '0',
             changeOrders: '30000',
             overdueAR: '180000',
-            concentrationRisk: '32'
+            concentrationRisk: '32',
+            savingsAccount: '500000', // NEW
+            locDrawn: '250000', // NEW
+            locLimit: '1000000' // NEW
           },
           { 
             weekEnding: '2025-09-06', 
@@ -135,7 +142,10 @@ const mockApi = {
             jobsCompleted: '2',
             changeOrders: '60000',
             overdueAR: '200000',
-            concentrationRisk: '30'
+            concentrationRisk: '30',
+            savingsAccount: '550000', // NEW
+            locDrawn: '300000', // NEW
+            locLimit: '1000000' // NEW
           }
         ]
       }));
@@ -159,8 +169,8 @@ const mockApi = {
         if (data.allEntries.length > 10) data.allEntries.shift();
         
         // Update summary metrics
-        if (formData.revenueBilledToDate) {
-          data.weeklyRevenue.push(parseFloat(formData.revenueBilledToDate));
+        if (formData.revenueBilledToDate || formData.revenueBilledNet) {
+          data.weeklyRevenue.push(parseFloat(formData.revenueBilledToDate || formData.revenueBilledNet));
           data.weeklyRevenue.shift();
         }
         if (formData.collections) {
@@ -168,7 +178,8 @@ const mockApi = {
           data.weeklyCollections.shift();
         }
         if (formData.grossProfitAccrual) {
-          const gpm = (parseFloat(formData.grossProfitAccrual) / parseFloat(formData.revenueBilledToDate)) * 100;
+          const revenue = parseFloat(formData.revenueBilledToDate || formData.revenueBilledNet || 1);
+          const gpm = (parseFloat(formData.grossProfitAccrual) / revenue) * 100;
           data.gpmTrend.push(gpm);
           data.gpmTrend.shift();
         }
@@ -301,16 +312,29 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
 function App() {
   const { user, isAuthenticated, logout } = useContext(AuthContext);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [dashboardView, setDashboardView] = useState('agenda'); // CHANGED: Default to agenda
+  const [dashboardView, setDashboardView] = useState('agenda'); // Default to agenda
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
   const [showProfile, setShowProfile] = useState(false);
   const [useGoogleSheets, setUseGoogleSheets] = useState(false);
   const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
+  const [showSyncWidget, setShowSyncWidget] = useState(true); // NEW: State for QBO sync widget
 
   // Get updateWeeklyData from context if available
   const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
+
+  // NEW: QBO sync handler
+  const handleQBOSync = async () => {
+    try {
+      // Call your QBO sync API here
+      console.log('Syncing with QuickBooks Online...');
+      // await qboApi.syncWeeklyData();
+      await fetchLatestData();
+    } catch (error) {
+      console.error('QBO sync error:', error);
+    }
+  };
 
   // Function to fetch latest data
   const fetchLatestData = async () => {
@@ -368,13 +392,14 @@ function App() {
           case 'i': setCurrentView('insights'); break;
           case 'm': setCurrentView('metrics'); break;
           case 'h': setCurrentView('historical'); break;
+          case 'q': setShowSyncWidget(!showSyncWidget); break; // NEW: Alt+Q toggles QBO widget
         }
       }
     };
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [showSyncWidget]);
 
   // Navigation bridge: react to #hash and custom events
   useEffect(() => {
@@ -506,7 +531,7 @@ function App() {
               </div>
             </div>
             
-            {/* Dashboard view tabs - REORDERED with Agenda first */}
+            {/* Dashboard view tabs */}
             <div className="flex gap-2 mb-4">
               <button 
                 onClick={() => setDashboardView('agenda')}
@@ -550,7 +575,7 @@ function App() {
               </button>
             </div>
             
-            {/* Conditional rendering - UPDATED with agenda case */}
+            {/* Conditional rendering */}
             {dashboardView === 'agenda' ? (
               <ExecutiveDashboard data={dashboardData} />
             ) : dashboardView === 'dynamic' ? (
@@ -581,10 +606,36 @@ function App() {
           <MetricsCatalog />
         ) : null}
       </main>
+
+      {/* NEW: QBO Sync Widget */}
+      {showSyncWidget && (
+        <QBOSync 
+          position="fixed"
+          showDetails={true}
+          autoSync={false}
+          syncInterval={300000}
+          onSync={handleQBOSync}
+        />
+      )}
+      
+      {/* NEW: Toggle button for QBO sync widget */}
+      <button
+        onClick={() => setShowSyncWidget(!showSyncWidget)}
+        className="fixed bottom-6 left-6 z-50 p-3 bg-slate-800 hover:bg-slate-700 rounded-full shadow-lg transition-all"
+        title={showSyncWidget ? 'Hide QBO Sync Widget (Alt+Q)' : 'Show QBO Sync Widget (Alt+Q)'}
+      >
+        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {showSyncWidget ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+          )}
+        </svg>
+      </button>
       
       {/* Footer with keyboard shortcuts hint */}
       <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
-        Keyboard shortcuts: Alt+D (Dashboard), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
+        Keyboard shortcuts: Alt+D (Dashboard), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical), Alt+Q (QBO Widget)
       </footer>
     </div>
   );
