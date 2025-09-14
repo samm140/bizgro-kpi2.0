@@ -8,6 +8,7 @@ import EnhancedDashboard from './components/EnhancedDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
+import DynamicDashboard from './components/DynamicDashboard';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
@@ -366,39 +367,38 @@ function App() {
         }
       }
     };
-
-    // Navigation bridge: react to #hash and custom events
-useEffect(() => {
-  const applyHash = () => {
-    const h = (window.location.hash || '').replace('#', '').toLowerCase();
-    if (h === 'dashboard' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
-      setCurrentView(h);
-    }
-  };
-
-  const onHashChange = () => applyHash();
-
-  const onNavigate = (e) => {
-    const dest = (e.detail || '').toLowerCase();
-    if (!dest) return;
-    window.location.hash = `#${dest}`;
-    setCurrentView(dest);
-  };
-
-  // initialize from current hash
-  applyHash();
-
-  window.addEventListener('hashchange', onHashChange);
-  window.addEventListener('bg:navigate', onNavigate);
-  return () => {
-    window.removeEventListener('hashchange', onHashChange);
-    window.removeEventListener('bg:navigate', onNavigate);
-  };
-}, []);
-
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Navigation bridge: react to #hash and custom events
+  useEffect(() => {
+    const applyHash = () => {
+      const h = (window.location.hash || '').replace('#', '').toLowerCase();
+      if (h === 'dashboard' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
+        setCurrentView(h);
+      }
+    };
+
+    const onHashChange = () => applyHash();
+
+    const onNavigate = (e) => {
+      const dest = (e.detail || '').toLowerCase();
+      if (!dest) return;
+      window.location.hash = `#${dest}`;
+      setCurrentView(dest);
+    };
+
+    // initialize from current hash
+    applyHash();
+
+    window.addEventListener('hashchange', onHashChange);
+    window.addEventListener('bg:navigate', onNavigate);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('bg:navigate', onNavigate);
+    };
   }, []);
 
   // If not authenticated, show login
