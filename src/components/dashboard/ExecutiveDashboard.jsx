@@ -3,91 +3,47 @@ import ChartVisualization from '../ChartVisualization';
 import EnhancedDynamicDashboard from './EnhancedDynamicDashboard';
 import AgendaPanels from './AgendaPanels';
 import { TrendingUp, TrendingDown, AlertCircle, Clock, Users, Briefcase, DollarSign, Activity, Calendar } from 'lucide-react';
-import { getDashboardData } from '../../services/mockApi';
 
-// Debug log
-console.log('AgendaPanels component loaded:', AgendaPanels);
-
-export default function ExecutiveDashboard() {
+export default function ExecutiveDashboard({ data: propData }) {
   const [activeView, setActiveView] = useState('overview');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Debug log for active view
+  // Use prop data or get from localStorage
   useEffect(() => {
-    console.log('Active view changed to:', activeView);
-  }, [activeView]);
-
-  // Fetch your REAL data from LocalStorage via mockApi
-  useEffect(() => {
-    const fetchData = async () => {
+    if (propData) {
+      setData(propData);
+      setLoading(false);
+    } else {
+      // Fallback to localStorage if no prop data
       try {
-        setLoading(true);
-        const dashboardData = await getDashboardData();
-        
-        // Transform the data for the dashboard if needed
-        const transformedData = {
-          weeklyEntries: dashboardData.allEntries || [],
-          revenueYTD: dashboardData.revenueYTD || 0,
-          gpmAverage: dashboardData.gpmAverage || 0,
-          cashPosition: dashboardData.cashPosition || 0,
-          activeProjects: dashboardData.activeProjects || 0,
-          currentAR: dashboardData.currentAR || 0,
-          currentAP: dashboardData.currentAP || 0,
-          backlog: dashboardData.backlog || 0,
-          weeks: dashboardData.weeks || [],
-          weeklyRevenue: dashboardData.weeklyRevenue || [],
-          weeklyCollections: dashboardData.weeklyCollections || [],
-          gpmTrend: dashboardData.gpmTrend || [],
-          allEntries: dashboardData.allEntries || []
-        };
-        
-        setData(transformedData);
+        const storedData = localStorage.getItem('bizgro_kpi_data');
+        if (storedData) {
+          const parsedData = JSON.parse(storedData);
+          setData(parsedData);
+        }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        // Set default data to prevent crashes
-        setData({
-          weeklyEntries: [],
-          revenueYTD: 0,
-          gpmAverage: 0,
-          cashPosition: 0,
-          activeProjects: 0,
-          currentAR: 0,
-          currentAP: 0,
-          backlog: 0,
-          weeks: [],
-          weeklyRevenue: [],
-          weeklyCollections: [],
-          gpmTrend: [],
-          allEntries: []
-        });
-      } finally {
-        setLoading(false);
+        console.error('Error loading data:', error);
       }
-    };
-
-    fetchData();
-    
-    // Refresh data every 30 seconds (as per your docs)
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+      setLoading(false);
+    }
+  }, [propData]);
 
   // Calculate metrics from your real data
   const metrics = data ? {
-    revenue: data.revenueYTD,
+    revenue: data.revenueYTD || 0,
     revenueChange: calculateChange(data),
-    cashFlow: data.cashPosition,
+    cashFlow: data.cashPosition || 0,
     cashFlowChange: calculateCashChange(data),
-    activeProjects: data.activeProjects,
+    activeProjects: data.activeProjects || 0,
     projectsChange: calculateProjectChange(data),
     teamSize: calculateTeamSize(data),
     teamChange: calculateTeamChange(data),
-    gpm: data.gpmAverage,
-    gpmStatus: data.gpmAverage > 30 ? 'up' : 'down',
+    gpm: data.gpmAverage || 0,
+    gpmStatus: (data.gpmAverage || 0) > 30 ? 'up' : 'down',
     currentRatio: data.currentAR && data.currentAP ? (data.currentAR / data.currentAP).toFixed(2) : 'N/A',
     ratioStatus: getRatioStatus(data),
-    backlog: data.backlog,
+    backlog: data.backlog || 0,
     backlogChange: calculateBacklogChange(data)
   } : null;
 
@@ -106,8 +62,8 @@ export default function ExecutiveDashboard() {
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
     if (!latest || !previous) return 0;
-    const latestCash = (latest.cashInBank || 0) + (latest.cashOnHand || 0);
-    const previousCash = (previous.cashInBank || 0) + (previous.cashOnHand || 0);
+    const latestCash = (parseFloat(latest.cashInBank) || 0) + (parseFloat(latest.cashOnHand) || 0);
+    const previousCash = (parseFloat(previous.cashInBank) || 0) + (parseFloat(previous.cashOnHand) || 0);
     if (previousCash === 0) return 0;
     const change = ((latestCash - previousCash) / previousCash * 100).toFixed(1);
     return isNaN(change) ? 0 : change;
@@ -118,13 +74,13 @@ export default function ExecutiveDashboard() {
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
     if (!latest || !previous) return 0;
-    return (latest.jobsStartedNumber || 0) - (previous.jobsStartedNumber || 0);
+    return (parseFloat(latest.jobsStartedNumber) || 0) - (parseFloat(previous.jobsStartedNumber) || 0);
   }
 
   function calculateTeamSize(data) {
     if (!data.weeklyEntries || data.weeklyEntries.length === 0) return 0;
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-    return (latest.fieldEmployees || 0) + (latest.supervisors || 0) + (latest.office || 0);
+    return (parseFloat(latest.fieldEmployees) || 0) + (parseFloat(latest.supervisors) || 0) + (parseFloat(latest.office) || 0);
   }
 
   function calculateTeamChange(data) {
@@ -132,8 +88,8 @@ export default function ExecutiveDashboard() {
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
     if (!latest || !previous) return 0;
-    const latestTeam = (latest.fieldEmployees || 0) + (latest.supervisors || 0) + (latest.office || 0);
-    const previousTeam = (previous.fieldEmployees || 0) + (previous.supervisors || 0) + (previous.office || 0);
+    const latestTeam = (parseFloat(latest.fieldEmployees) || 0) + (parseFloat(latest.supervisors) || 0) + (parseFloat(latest.office) || 0);
+    const previousTeam = (parseFloat(previous.fieldEmployees) || 0) + (parseFloat(previous.supervisors) || 0) + (parseFloat(previous.office) || 0);
     return latestTeam - previousTeam;
   }
 
@@ -148,7 +104,7 @@ export default function ExecutiveDashboard() {
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
     if (!latest || !previous || !previous.upcomingJobsDollar) return 0;
-    const change = ((latest.upcomingJobsDollar - previous.upcomingJobsDollar) / previous.upcomingJobsDollar * 100).toFixed(1);
+    const change = ((parseFloat(latest.upcomingJobsDollar) - parseFloat(previous.upcomingJobsDollar)) / parseFloat(previous.upcomingJobsDollar) * 100).toFixed(1);
     return isNaN(change) ? 0 : change;
   }
 
@@ -166,10 +122,7 @@ export default function ExecutiveDashboard() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex space-x-1 p-1">
           <button
-            onClick={() => {
-              console.log('Overview button clicked');
-              setActiveView('overview');
-            }}
+            onClick={() => setActiveView('overview')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
               activeView === 'overview'
                 ? 'bg-blue-600 text-white'
@@ -179,10 +132,7 @@ export default function ExecutiveDashboard() {
             Overview
           </button>
           <button
-            onClick={() => {
-              console.log('Charts button clicked');
-              setActiveView('charts');
-            }}
+            onClick={() => setActiveView('charts')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
               activeView === 'charts'
                 ? 'bg-blue-600 text-white'
@@ -192,10 +142,7 @@ export default function ExecutiveDashboard() {
             Charts
           </button>
           <button
-            onClick={() => {
-              console.log('Metrics button clicked');
-              setActiveView('metrics');
-            }}
+            onClick={() => setActiveView('metrics')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
               activeView === 'metrics'
                 ? 'bg-blue-600 text-white'
@@ -205,10 +152,7 @@ export default function ExecutiveDashboard() {
             Metrics
           </button>
           <button
-            onClick={() => {
-              console.log('Agendas button clicked');
-              setActiveView('agendas');
-            }}
+            onClick={() => setActiveView('agendas')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
               activeView === 'agendas'
                 ? 'bg-blue-600 text-white'
@@ -219,13 +163,6 @@ export default function ExecutiveDashboard() {
             Agendas
           </button>
         </div>
-      </div>
-
-      {/* Debug info */}
-      <div className="bg-yellow-100 p-4 rounded-lg border border-yellow-300">
-        <strong>DEBUG: Current View = "{activeView}"</strong>
-        <br />
-        AgendaPanels loaded: {AgendaPanels ? 'YES' : 'NO'}
       </div>
 
       {/* Overview View */}
@@ -330,15 +267,12 @@ export default function ExecutiveDashboard() {
 
       {/* Metrics View */}
       {activeView === 'metrics' && (
-        <EnhancedDynamicDashboard />
+        <EnhancedDynamicDashboard data={data} />
       )}
 
-      {/* Agendas View - DEBUG VERSION */}
+      {/* Agendas View - Dedicated tab with AgendaPanels */}
       {activeView === 'agendas' && (
         <div className="space-y-6">
-          <div className="bg-red-500 text-white p-8 rounded-lg text-2xl font-bold">
-            AGENDAS VIEW IS ACTIVE!
-          </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5 text-blue-700" />
@@ -348,15 +282,7 @@ export default function ExecutiveDashboard() {
               Standard agendas for KPI calls and board meetings. All calls are recorded with AI notetaker for documentation.
             </p>
           </div>
-          <div>
-            {AgendaPanels ? (
-              <AgendaPanels />
-            ) : (
-              <div className="bg-red-100 p-4 rounded text-red-700">
-                AgendaPanels component not found!
-              </div>
-            )}
-          </div>
+          <AgendaPanels />
         </div>
       )}
     </div>
@@ -394,28 +320,28 @@ function MetricCard({ title, value, change, trend, icon, iconColor, bgColor }) {
 
 // Helper functions for DSO
 function calculateDSO(data) {
-  if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'N/A';
-  const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || latest.revenueBilledToDate === 0) return 'N/A';
-  const dso = (latest.currentAR / latest.revenueBilledToDate * 30).toFixed(0);
+  if (!data || !data.allEntries || data.allEntries.length === 0) return 'N/A';
+  const latest = data.allEntries[data.allEntries.length - 1];
+  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || parseFloat(latest.revenueBilledToDate) === 0) return 'N/A';
+  const dso = (parseFloat(latest.currentAR) / parseFloat(latest.revenueBilledToDate) * 30).toFixed(0);
   return `${dso} days`;
 }
 
 function getDSOStatus(data) {
-  if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'N/A';
-  const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || latest.revenueBilledToDate === 0) return 'N/A';
-  const dso = latest.currentAR / latest.revenueBilledToDate * 30;
+  if (!data || !data.allEntries || data.allEntries.length === 0) return 'N/A';
+  const latest = data.allEntries[data.allEntries.length - 1];
+  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || parseFloat(latest.revenueBilledToDate) === 0) return 'N/A';
+  const dso = parseFloat(latest.currentAR) / parseFloat(latest.revenueBilledToDate) * 30;
   if (dso < 45) return 'Good';
   if (dso < 60) return 'Warning';
   return 'High';
 }
 
 function getDSOTrend(data) {
-  if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'neutral';
-  const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || latest.revenueBilledToDate === 0) return 'neutral';
-  const dso = latest.currentAR / latest.revenueBilledToDate * 30;
+  if (!data || !data.allEntries || data.allEntries.length === 0) return 'neutral';
+  const latest = data.allEntries[data.allEntries.length - 1];
+  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || parseFloat(latest.revenueBilledToDate) === 0) return 'neutral';
+  const dso = parseFloat(latest.currentAR) / parseFloat(latest.revenueBilledToDate) * 30;
   if (dso < 45) return 'up';
   if (dso < 60) return 'neutral';
   return 'down';
