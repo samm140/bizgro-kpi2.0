@@ -1,5 +1,5 @@
 // src/App.jsx
-// Updated to integrate the Enhanced Dynamic Dashboard
+// Updated to integrate the Enhanced Dynamic Dashboard and Executive Dashboard
 
 import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
@@ -8,7 +8,8 @@ import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
-import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard'; // NEW
+import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard';
+import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard'; // ADD THIS IMPORT
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
@@ -505,7 +506,7 @@ function App() {
               </div>
             </div>
             
-            {/* Add tabs for different dashboard views */}
+            {/* Add tabs for different dashboard views - UPDATED WITH EXECUTIVE VIEW */}
             <div className="flex gap-2 mb-4">
               <button 
                 onClick={() => setDashboardView('dynamic')}
@@ -537,13 +538,25 @@ function App() {
               >
                 <i className="fas fa-chart-line mr-2"></i>Charts View
               </button>
+              <button 
+                onClick={() => setDashboardView('executive')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  dashboardView === 'executive' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                }`}
+              >
+                <i className="fas fa-briefcase mr-2"></i>Executive View
+              </button>
             </div>
             
-            {/* Conditional rendering based on dashboard view */}
+            {/* Conditional rendering based on dashboard view - UPDATED WITH EXECUTIVE */}
             {dashboardView === 'dynamic' ? (
               <EnhancedDynamicDashboard data={dashboardData} />
             ) : dashboardView === 'enhanced' ? (
               <EnhancedDashboard data={dashboardData} />
+            ) : dashboardView === 'executive' ? (
+              <ExecutiveDashboard />
             ) : (
               dashboardData && <ChartVisualization data={dashboardData} />
             )}
