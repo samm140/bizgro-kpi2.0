@@ -9,7 +9,7 @@ import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard';
-import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard'; // ADD THIS IMPORT
+import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
@@ -506,7 +506,7 @@ function App() {
               </div>
             </div>
             
-            {/* Add tabs for different dashboard views - UPDATED WITH EXECUTIVE VIEW */}
+            {/* Add tabs for different dashboard views */}
             <div className="flex gap-2 mb-4">
               <button 
                 onClick={() => setDashboardView('dynamic')}
@@ -550,13 +550,13 @@ function App() {
               </button>
             </div>
             
-            {/* Conditional rendering based on dashboard view - UPDATED WITH EXECUTIVE */}
+            {/* Conditional rendering based on dashboard view - FIXED WITH DATA PROP */}
             {dashboardView === 'dynamic' ? (
               <EnhancedDynamicDashboard data={dashboardData} />
             ) : dashboardView === 'enhanced' ? (
               <EnhancedDashboard data={dashboardData} />
             ) : dashboardView === 'executive' ? (
-              <ExecutiveDashboard />
+              <ExecutiveDashboard data={dashboardData} />
             ) : (
               dashboardData && <ChartVisualization data={dashboardData} />
             )}
