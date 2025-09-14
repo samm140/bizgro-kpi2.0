@@ -10,7 +10,7 @@ const KNOWN_REPORTS = {
     id: 'cash-flow',
     title: 'Cash Flow Management',
     embedId: '6Z0ZGAd~J8lKkXYz',
-    shareUrl: 'https://reports.bizgropartners.com/shared/6Z0ZGAd~J8lKkXYz?theme=dark',
+    shareUrl: 'https://reports.bizgropartners.com/embed/6Z0ZGAd~J8lKkXYz?theme=dark',
     dashboardId: '278961',
     height: 1000
   },
@@ -18,7 +18,7 @@ const KNOWN_REPORTS = {
     id: 'revenue-analysis',
     title: 'Revenue Analysis Dashboard',
     embedId: 'TC3kWIS7rgHDjSs',
-    shareUrl: 'https://reports.bizgropartners.com/shared/~TC3kWIS7rgHDjSs?theme=dark',
+    shareUrl: 'https://reports.bizgropartners.com/embed/~TC3kWIS7rgHDjSs?theme=dark',
     dashboardId: '278962', // Update with actual ID if different
     height: 1000
   }
