@@ -34,10 +34,11 @@ export const reportsConfig = {
           id: 'cash-flow',
           title: 'Cash Flow Management',
           description: 'Real-time cash position, collections, and liquidity metrics',
-          embedId: 'https://reports.bizgropartners.com/shared/6Z0ZGAd~J8lKkXYz', // Your actual embed ID
+          embedId: '6Z0ZGAd~J8lKkXYz', // Your actual embed ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/6Z0ZGAd~J8lKkXYz',
           height: 800,
           tags: ['Cash', 'Collections', 'Liquidity'],
-          refreshInterval: 300000,
+          refreshInterval: 300000, // 5 minutes
           permissions: ['admin', 'finance', 'executive']
         },
         {
