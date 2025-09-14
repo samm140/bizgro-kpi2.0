@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 const Badge = ({ children }) => (
-  <span className="inline-flex items-center gap-2 text-xs px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+  <span className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md bg-blue-900/50 text-blue-400 border border-blue-800">
     {children}
   </span>
 );
@@ -20,40 +20,42 @@ const Badge = ({ children }) => (
 const Item = ({ icon: Icon, title, text }) => (
   <div className="flex items-start gap-3">
     <div className="mt-0.5 shrink-0">
-      <div className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-gray-50 border border-gray-200">
-        <Icon className="h-4 w-4 text-gray-600" />
+      <div className="h-10 w-10 inline-flex items-center justify-center rounded-lg bg-slate-700/50 border border-slate-600">
+        <Icon className="h-5 w-5 text-blue-400" />
       </div>
     </div>
     <div>
-      <div className="text-sm font-semibold text-gray-900">{title}</div>
-      <div className="text-sm text-gray-600">{text}</div>
+      <div className="text-base font-semibold text-gray-200 mb-1">{title}</div>
+      <div className="text-sm text-gray-400 leading-relaxed">{text}</div>
     </div>
   </div>
 );
 
 const AgendaCard = ({ title, subtitle, items }) => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-    <div className="flex items-start justify-between mb-4">
+  <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 shadow-lg p-6">
+    <div className="flex items-start justify-between mb-6">
       <div>
-        <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
-        {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+        <h3 className="text-2xl font-bold text-gray-100 mb-1">{title}</h3>
+        {subtitle && <p className="text-base text-gray-400">{subtitle}</p>}
       </div>
       <Badge>
-        <Mic className="h-3.5 w-3.5" />
+        <Mic className="h-4 w-4" />
         AI Notetaker
       </Badge>
     </div>
 
-    <div className="grid sm:grid-cols-2 gap-5">
+    <div className="grid sm:grid-cols-2 gap-6">
       {items.map((it, i) => (
         <Item key={i} icon={it.icon} title={it.title} text={it.text} />
       ))}
     </div>
 
-    <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-600">
-      <strong className="text-gray-700">BizGro Core Values:</strong> Transparency, family-oriented atmosphere, 
-      group intelligence, inclusive decision-making, professionalism, effective leadership, communication, 
-      and respect for all.
+    <div className="mt-6 pt-5 border-t border-slate-700">
+      <p className="text-sm text-gray-400 leading-relaxed">
+        <strong className="text-gray-300">BizGro Core Values:</strong> Transparency, family-oriented atmosphere, 
+        group intelligence, inclusive decision-making, professionalism, effective leadership, communication, 
+        and respect for all.
+      </p>
     </div>
   </div>
 );
