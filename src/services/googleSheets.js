@@ -1,36 +1,108 @@
-// Google Sheets API Service (Simplified version)
-class GoogleSheetsService {
-  constructor() {
-    this.CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    this.API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
-    this.DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
-    this.SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
-  }
+// Add to your existing googleSheets.js file
 
-  async initializeGoogleAPI() {
-    console.log('Google Sheets API initialization would happen here');
-    // Full implementation requires Google API library
-    return Promise.resolve();
-  }
+export const googleSheetsService = {
+  // ... existing code ...
 
-  async submitWeeklyData(formData, spreadsheetId) {
-    console.log('Submitting to Google Sheets:', formData);
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          message: 'Data submitted to Google Sheets'
-        });
-      }, 1000);
-    });
-  }
+  // Add DiamondBack specific methods
+  async getDiamondBackData(sheetId, period = '3QCY') {
+    const ranges = [
+      'WIP!A1:Z100',
+      'Projects!A1:Z100',
+      'CashFlow!A1:Z100',
+      'P&L!A1:Z100',
+      'BalanceSheet!A1:Z100'
+    ];
 
-  async getHistoricalData(spreadsheetId) {
-    console.log('Fetching from Google Sheets:', spreadsheetId);
-    // Return mock data for now
-    return [];
-  }
-}
+    try {
+      const promises = ranges.map(range => 
+        this.getSheetData(sheetId, range)
+      );
+      
+      const results = await Promise.all(promises);
+      
+      return {
+        wip: this.parseWIPData(results[0]),
+        projects: this.parseProjectsData(results[1]),
+        cashFlow: this.parseCashFlowData(results[2]),
+        pl: this.parsePLData(results[3]),
+        bs: this.parseBalanceSheetData(results[4])
+      };
+    } catch (error) {
+      console.error('Error fetching DiamondBack data:', error);
+      // Return mock data as fallback
+      return diamondbackSheetsService.getMockData(period);
+    }
+  },
 
-export const googleSheetsService = new GoogleSheetsService();
+  parseWIPData(data) {
+    // Parse WIP reconciliation data
+    if (!data || !data.values) return null;
+    
+    const values = data.values;
+    return {
+      cyBilledToDate: parseFloat(values[1]?.[1]) || 0,
+      pyBilledToDate: parseFloat(values[1]?.[2]) || 0,
+      directCOGS: parseFloat(values[1]?.[3]) || 0,
+      unallocatedCOGS: parseFloat(values[1]?.[4]) || 0,
+      priorOverbilling: parseFloat(values[1]?.[5]) || 0,
+      priorUnderbilling: parseFloat(values[1]?.[6]) || 0
+    };
+  },
+
+  parseProjectsData(data) {
+    // Parse projects data
+    if (!data || !data.values) return [];
+    
+    const values = data.values.slice(1); // Skip header row
+    return values.map(row => ({
+      name: row[0],
+      estimated: parseFloat(row[1]) || 0,
+      actual: parseFloat(row[2]) || 0,
+      variance: parseFloat(row[3]) || 0,
+      completion: parseFloat(row[4]) || 0
+    }));
+  },
+
+  parseCashFlowData(data) {
+    // Parse cash flow data
+    if (!data || !data.values) return null;
+    
+    const values = data.values[1]; // Get first data row
+    return {
+      operating: parseFloat(values?.[1]) || 0,
+      investing: parseFloat(values?.[2]) || 0,
+      financing: parseFloat(values?.[3]) || 0,
+      netChange: parseFloat(values?.[4]) || 0
+    };
+  },
+
+  parsePLData(data) {
+    // Parse P&L data
+    if (!data || !data.values) return null;
+    
+    const values = data.values[1];
+    return {
+      totalIncome: parseFloat(values?.[1]) || 0,
+      totalCOGS: parseFloat(values?.[2]) || 0,
+      grossProfit: parseFloat(values?.[3]) || 0,
+      totalExpenses: parseFloat(values?.[4]) || 0,
+      netOperatingIncome: parseFloat(values?.[5]) || 0
+    };
+  },
+
+  parseBalanceSheetData(data) {
+    // Parse balance sheet data
+    if (!data || !data.values) return null;
+    
+    const values = data.values[1];
+    return {
+      bankAccounts: parseFloat(values?.[1]) || 0,
+      accountsReceivable: parseFloat(values?.[2]) || 0,
+      totalCurrentAssets: parseFloat(values?.[3]) || 0,
+      totalCurrentLiabilities: parseFloat(values?.[4]) || 0,
+      totalLiabilities: parseFloat(values?.[5]) || 0
+    };
+  },
+
+  // ... rest of existing code ...
+};
