@@ -1,184 +1,334 @@
-// src/components/dashboard/ExecutiveDashboard.jsx
-// Updated main dashboard component with Financial Dashboard integration
-
-import React, { useState } from 'react';
-import { 
-  BarChart3,
-  FileText,
-  Shield,
-  Download,
-  Upload,
-  Link2
-} from 'lucide-react';
-import EnhancedDynamicDashboard from './EnhancedDynamicDashboard';
+import React, { useState, useEffect } from 'react';
 import FinancialDashboard from './FinancialDashboard';
-// Import your Enhanced View component here
-// import EnhancedView from './EnhancedView';
+import EnhancedDynamicDashboard from './EnhancedDynamicDashboard';
+import { TrendingUp, TrendingDown, AlertCircle, Clock, Users, Briefcase, DollarSign, Activity } from 'lucide-react';
+import { getDashboardData } from '../../services/mockApi'; // YOUR EXISTING SERVICE
 
 export default function ExecutiveDashboard() {
-  const [activeView, setActiveView] = useState('charts'); // Default to Charts View
-  const [data, setData] = useState(null); // Your data state
+  const [activeView, setActiveView] = useState('overview');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Tab button component for consistent styling
-  const TabButton = ({ id, label, icon: Icon, isActive, onClick }) => (
-    <button
-      onClick={() => onClick(id)}
-      className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-        isActive
-          ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25'
-          : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-300'
-      }`}
-    >
-      <Icon className="w-4 h-4" />
-      {label}
-    </button>
+  // Fetch your REAL data from LocalStorage via mockApi
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const dashboardData = await getDashboardData();
+        
+        // Transform the data for the dashboard if needed
+        const transformedData = {
+          weeklyEntries: dashboardData.allEntries || [],
+          revenueYTD: dashboardData.revenueYTD || 0,
+          gpmAverage: dashboardData.gpmAverage || 0,
+          cashPosition: dashboardData.cashPosition || 0,
+          activeProjects: dashboardData.activeProjects || 0,
+          currentAR: dashboardData.currentAR || 0,
+          currentAP: dashboardData.currentAP || 0,
+          backlog: dashboardData.backlog || 0,
+          // Add any other fields your dashboard needs
+        };
+        
+        setData(transformedData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+    
+    // Refresh data every 30 seconds (as per your docs)
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calculate metrics from your real data
+  const metrics = data ? {
+    revenue: data.revenueYTD,
+    revenueChange: calculateChange(data),
+    cashFlow: data.cashPosition,
+    cashFlowChange: calculateCashChange(data),
+    activeProjects: data.activeProjects,
+    projectsChange: calculateProjectChange(data),
+    teamSize: calculateTeamSize(data),
+    teamChange: calculateTeamChange(data),
+    gpm: data.gpmAverage,
+    gpmStatus: data.gpmAverage > 30 ? 'up' : 'down',
+    currentRatio: data.currentAR && data.currentAP ? (data.currentAR / data.currentAP).toFixed(2) : 'N/A',
+    ratioStatus: getRatioStatus(data),
+    backlog: data.backlog,
+    backlogChange: calculateBacklogChange(data)
+  } : null;
+
+  // Helper functions for calculations
+  function calculateChange(data) {
+    // Calculate based on your weekly entries
+    if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
+    const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+    const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
+    if (!latest || !previous) return 0;
+    const change = ((latest.revenueBilledToDate - previous.revenueBilledToDate) / previous.revenueBilledToDate * 100).toFixed(1);
+    return isNaN(change) ? 0 : change;
+  }
+
+  function calculateCashChange(data) {
+    if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
+    const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+    const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
+    if (!latest || !previous) return 0;
+    const latestCash = (latest.cashInBank || 0) + (latest.cashOnHand || 0);
+    const previousCash = (previous.cashInBank || 0) + (previous.cashOnHand || 0);
+    const change = ((latestCash - previousCash) / previousCash * 100).toFixed(1);
+    return isNaN(change) ? 0 : change;
+  }
+
+  function calculateProjectChange(data) {
+    if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
+    const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+    const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
+    if (!latest || !previous) return 0;
+    return latest.jobsStartedNumber - previous.jobsStartedNumber;
+  }
+
+  function calculateTeamSize(data) {
+    if (!data.weeklyEntries || data.weeklyEntries.length === 0) return 0;
+    const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+    return (latest.fieldEmployees || 0) + (latest.supervisors || 0) + (latest.office || 0);
+  }
+
+  function calculateTeamChange(data) {
+    if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
+    const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+    const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
+    if (!latest || !previous) return 0;
+    const latestTeam = (latest.fieldEmployees || 0) + (latest.supervisors || 0) + (latest.office || 0);
+    const previousTeam = (previous.fieldEmployees || 0) + (previous.supervisors || 0) + (previous.office || 0);
+    return latestTeam - previousTeam;
+  }
+
+  function getRatioStatus(data) {
+    if (!data.currentAR || !data.currentAP) return 'neutral';
+    const ratio = data.currentAR / data.currentAP;
+    return ratio >= 1.5 ? 'up' : ratio >= 1.2 ? 'neutral' : 'down';
+  }
+
+  function calculateBacklogChange(data) {
+    if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
+    const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+    const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
+    if (!latest || !previous) return 0;
+    const change = ((latest.upcomingJobsDollar - previous.upcomingJobsDollar) / previous.upcomingJobsDollar * 100).toFixed(1);
+    return isNaN(change) ? 0 : change;
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="flex space-x-1 p-1">
+          <button
+            onClick={() => setActiveView('overview')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+              activeView === 'overview'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveView('charts')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+              activeView === 'charts'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Charts
+          </button>
+          <button
+            onClick={() => setActiveView('metrics')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+              activeView === 'metrics'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Metrics
+          </button>
+        </div>
+      </div>
+
+      {/* Overview View */}
+      {activeView === 'overview' && metrics && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Revenue Card */}
+          <MetricCard
+            title="Revenue YTD"
+            value={`$${(metrics.revenue / 1000000).toFixed(2)}M`}
+            change={`${metrics.revenueChange}%`}
+            trend={parseFloat(metrics.revenueChange) > 0 ? 'up' : 'down'}
+            icon={<DollarSign className="w-5 h-5" />}
+            iconColor="text-green-600"
+            bgColor="bg-green-50"
+          />
+
+          {/* Cash Flow Card */}
+          <MetricCard
+            title="Cash Position"
+            value={`$${(metrics.cashFlow / 1000).toFixed(0)}K`}
+            change={`${metrics.cashFlowChange}%`}
+            trend={parseFloat(metrics.cashFlowChange) > 0 ? 'up' : 'down'}
+            icon={<Activity className="w-5 h-5" />}
+            iconColor="text-blue-600"
+            bgColor="bg-blue-50"
+          />
+
+          {/* Projects Card */}
+          <MetricCard
+            title="Active Projects"
+            value={metrics.activeProjects}
+            change={`${metrics.projectsChange > 0 ? '+' : ''}${metrics.projectsChange}`}
+            trend={metrics.projectsChange > 0 ? 'up' : metrics.projectsChange < 0 ? 'down' : 'neutral'}
+            icon={<Briefcase className="w-5 h-5" />}
+            iconColor="text-purple-600"
+            bgColor="bg-purple-50"
+          />
+
+          {/* Team Card */}
+          <MetricCard
+            title="Team Size"
+            value={metrics.teamSize}
+            change={`${metrics.teamChange > 0 ? '+' : ''}${metrics.teamChange}`}
+            trend={metrics.teamChange > 0 ? 'up' : metrics.teamChange < 0 ? 'down' : 'neutral'}
+            icon={<Users className="w-5 h-5" />}
+            iconColor="text-orange-600"
+            bgColor="bg-orange-50"
+          />
+
+          {/* GPM Card */}
+          <MetricCard
+            title="Gross Profit Margin"
+            value={`${metrics.gpm.toFixed(1)}%`}
+            change={metrics.gpmStatus === 'up' ? 'Above Target' : 'Below Target'}
+            trend={metrics.gpmStatus}
+            icon={<TrendingUp className="w-5 h-5" />}
+            iconColor="text-indigo-600"
+            bgColor="bg-indigo-50"
+          />
+
+          {/* Current Ratio Card */}
+          <MetricCard
+            title="Current Ratio"
+            value={metrics.currentRatio}
+            change={metrics.ratioStatus === 'up' ? 'Healthy' : metrics.ratioStatus === 'neutral' ? 'Adequate' : 'Low'}
+            trend={metrics.ratioStatus}
+            icon={<AlertCircle className="w-5 h-5" />}
+            iconColor="text-teal-600"
+            bgColor="bg-teal-50"
+          />
+
+          {/* Backlog Card */}
+          <MetricCard
+            title="Backlog"
+            value={`$${(metrics.backlog / 1000000).toFixed(2)}M`}
+            change={`${metrics.backlogChange}%`}
+            trend={parseFloat(metrics.backlogChange) > 0 ? 'up' : 'down'}
+            icon={<Clock className="w-5 h-5" />}
+            iconColor="text-pink-600"
+            bgColor="bg-pink-50"
+          />
+
+          {/* Days Sales Outstanding */}
+          <MetricCard
+            title="DSO"
+            value={calculateDSO(data)}
+            change={getDSOStatus(data)}
+            trend={getDSOTrend(data)}
+            icon={<Activity className="w-5 h-5" />}
+            iconColor="text-gray-600"
+            bgColor="bg-gray-50"
+          />
+        </div>
+      )}
+
+      {/* Charts View - Now using YOUR data */}
+      {activeView === 'charts' && (
+        <FinancialDashboard data={data} />
+      )}
+
+      {/* Metrics View */}
+      {activeView === 'metrics' && (
+        <EnhancedDynamicDashboard />
+      )}
+    </div>
   );
+}
 
-  // Export functions
-  const handleExportExcel = () => {
-    console.log('Exporting to Excel...');
-    // Implement Excel export logic
+// MetricCard Component
+function MetricCard({ title, value, change, trend, icon, iconColor, bgColor }) {
+  const getTrendIcon = () => {
+    if (trend === 'up') return <TrendingUp className="w-4 h-4 text-green-600" />;
+    if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-600" />;
+    return <span className="w-4 h-4 text-gray-400">→</span>;
   };
 
-  const handleExportCSV = () => {
-    console.log('Exporting to CSV...');
-    // Implement CSV export logic
-  };
-
-  const handleConnectSheets = () => {
-    console.log('Connecting to Google Sheets...');
-    // Implement Google Sheets connection logic
+  const getTrendColor = () => {
+    if (trend === 'up') return 'text-green-600';
+    if (trend === 'down') return 'text-red-600';
+    return 'text-gray-600';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Top Navigation Bar */}
-      <div className="bg-slate-900/50 backdrop-blur-sm border-b border-slate-700/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo/Title */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">KPI</span>
-              </div>
-              <div>
-                <h1 className="text-white font-semibold">KPI 2.0</h1>
-                <p className="text-xs text-slate-400">Financial System</p>
-              </div>
-            </div>
-
-            {/* Main Navigation */}
-            <div className="flex items-center gap-2">
-              <button className="px-4 py-2 text-blue-400 bg-blue-900/20 border border-blue-500/30 rounded-lg flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Dashboard
-              </button>
-              <button className="px-4 py-2 text-slate-400 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                📝 Weekly Entry
-              </button>
-              <button className="px-4 py-2 text-slate-400 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                💡 Insights
-              </button>
-              <button className="px-4 py-2 text-slate-400 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                📊 Historical
-              </button>
-              <button className="px-4 py-2 text-slate-400 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                📈 Metrics
-              </button>
-            </div>
-
-            {/* User Menu */}
-            <div className="flex items-center gap-3">
-              <button className="px-4 py-2 text-slate-400 hover:text-slate-300 hover:bg-slate-800 rounded-lg transition-colors">
-                Demo User ▼
-              </button>
-            </div>
-          </div>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className={`p-2 rounded-lg ${bgColor}`}>
+          <span className={iconColor}>{icon}</span>
         </div>
+        {getTrendIcon()}
       </div>
-
-      {/* Sub-header with title and actions */}
-      <div className="bg-slate-800/30 backdrop-blur-sm border-b border-slate-700/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-white">Executive Dashboard</h2>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExportExcel}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                Export Excel
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </button>
-              <button
-                onClick={handleConnectSheets}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Link2 className="w-4 h-4" />
-                Connect Sheets
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* View Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex items-center gap-3 mb-6">
-          <TabButton
-            id="dynamic"
-            label="Dynamic Metrics"
-            icon={Shield}
-            isActive={activeView === 'dynamic'}
-            onClick={setActiveView}
-          />
-          <TabButton
-            id="enhanced"
-            label="Enhanced View"
-            icon={FileText}
-            isActive={activeView === 'enhanced'}
-            onClick={setActiveView}
-          />
-          <TabButton
-            id="charts"
-            label="Charts View"
-            icon={BarChart3}
-            isActive={activeView === 'charts'}
-            onClick={setActiveView}
-          />
-        </div>
-
-        {/* View Content */}
-        <div className="transition-all duration-300">
-          {activeView === 'dynamic' && (
-            <EnhancedDynamicDashboard data={data} />
-          )}
-          
-          {activeView === 'enhanced' && (
-            <div className="bg-slate-800/30 backdrop-blur-sm rounded-xl p-8 border border-slate-700/50">
-              <div className="text-center py-12">
-                <FileText className="w-16 h-16 text-slate-500 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-white mb-2">Enhanced View</h3>
-                <p className="text-slate-400">
-                  Your enhanced view component will be displayed here
-                </p>
-                {/* Replace with: <EnhancedView data={data} /> */}
-              </div>
-            </div>
-          )}
-          
-          {activeView === 'charts' && (
-            <FinancialDashboard data={data} />
-          )}
-        </div>
-      </div>
+      <h3 className="text-sm font-medium text-gray-600 mb-2">{title}</h3>
+      <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
+      <p className={`text-sm ${getTrendColor()}`}>{change}</p>
     </div>
   );
+}
+
+// Helper functions for DSO
+function calculateDSO(data) {
+  if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'N/A';
+  const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+  if (!latest.currentAR || !latest.revenueBilledToDate) return 'N/A';
+  const dso = (latest.currentAR / latest.revenueBilledToDate * 30).toFixed(0);
+  return `${dso} days`;
+}
+
+function getDSOStatus(data) {
+  if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'N/A';
+  const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+  if (!latest.currentAR || !latest.revenueBilledToDate) return 'N/A';
+  const dso = latest.currentAR / latest.revenueBilledToDate * 30;
+  if (dso < 45) return 'Good';
+  if (dso < 60) return 'Warning';
+  return 'High';
+}
+
+function getDSOTrend(data) {
+  if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'neutral';
+  const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
+  if (!latest.currentAR || !latest.revenueBilledToDate) return 'neutral';
+  const dso = latest.currentAR / latest.revenueBilledToDate * 30;
+  if (dso < 45) return 'up';
+  if (dso < 60) return 'neutral';
+  return 'down';
 }
