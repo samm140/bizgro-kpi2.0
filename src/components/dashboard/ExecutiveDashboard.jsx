@@ -5,10 +5,18 @@ import AgendaPanels from './AgendaPanels';
 import { TrendingUp, TrendingDown, AlertCircle, Clock, Users, Briefcase, DollarSign, Activity, Calendar } from 'lucide-react';
 import { getDashboardData } from '../../services/mockApi';
 
+// Debug log
+console.log('AgendaPanels component loaded:', AgendaPanels);
+
 export default function ExecutiveDashboard() {
   const [activeView, setActiveView] = useState('overview');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Debug log for active view
+  useEffect(() => {
+    console.log('Active view changed to:', activeView);
+  }, [activeView]);
 
   // Fetch your REAL data from LocalStorage via mockApi
   useEffect(() => {
@@ -158,7 +166,10 @@ export default function ExecutiveDashboard() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex space-x-1 p-1">
           <button
-            onClick={() => setActiveView('overview')}
+            onClick={() => {
+              console.log('Overview button clicked');
+              setActiveView('overview');
+            }}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
               activeView === 'overview'
                 ? 'bg-blue-600 text-white'
@@ -168,7 +179,10 @@ export default function ExecutiveDashboard() {
             Overview
           </button>
           <button
-            onClick={() => setActiveView('charts')}
+            onClick={() => {
+              console.log('Charts button clicked');
+              setActiveView('charts');
+            }}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
               activeView === 'charts'
                 ? 'bg-blue-600 text-white'
@@ -178,7 +192,10 @@ export default function ExecutiveDashboard() {
             Charts
           </button>
           <button
-            onClick={() => setActiveView('metrics')}
+            onClick={() => {
+              console.log('Metrics button clicked');
+              setActiveView('metrics');
+            }}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
               activeView === 'metrics'
                 ? 'bg-blue-600 text-white'
@@ -188,7 +205,10 @@ export default function ExecutiveDashboard() {
             Metrics
           </button>
           <button
-            onClick={() => setActiveView('agendas')}
+            onClick={() => {
+              console.log('Agendas button clicked');
+              setActiveView('agendas');
+            }}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
               activeView === 'agendas'
                 ? 'bg-blue-600 text-white'
@@ -199,6 +219,13 @@ export default function ExecutiveDashboard() {
             Agendas
           </button>
         </div>
+      </div>
+
+      {/* Debug info */}
+      <div className="bg-yellow-100 p-4 rounded-lg border border-yellow-300">
+        <strong>DEBUG: Current View = "{activeView}"</strong>
+        <br />
+        AgendaPanels loaded: {AgendaPanels ? 'YES' : 'NO'}
       </div>
 
       {/* Overview View */}
@@ -306,9 +333,12 @@ export default function ExecutiveDashboard() {
         <EnhancedDynamicDashboard />
       )}
 
-      {/* Agendas View - Dedicated tab with AgendaPanels */}
+      {/* Agendas View - DEBUG VERSION */}
       {activeView === 'agendas' && (
         <div className="space-y-6">
+          <div className="bg-red-500 text-white p-8 rounded-lg text-2xl font-bold">
+            AGENDAS VIEW IS ACTIVE!
+          </div>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-5 h-5 text-blue-700" />
@@ -318,7 +348,15 @@ export default function ExecutiveDashboard() {
               Standard agendas for KPI calls and board meetings. All calls are recorded with AI notetaker for documentation.
             </p>
           </div>
-          <AgendaPanels />
+          <div>
+            {AgendaPanels ? (
+              <AgendaPanels />
+            ) : (
+              <div className="bg-red-100 p-4 rounded text-red-700">
+                AgendaPanels component not found!
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
