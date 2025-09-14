@@ -14,7 +14,7 @@ import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
 import QBOSync from './components/shared/QBOSync'; // NEW: QBO Sync Widget
-import DiamondBackDashboard from './components/portfolio/DiamondBackDashboard.jsx'; // NEW: Portfolio Company Dashboard
+// import DiamondBackDashboard from './components/portfolio/DiamondBackDashboard.jsx'; // Temporarily commented out
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
@@ -564,7 +564,23 @@ function App() {
             </div>
           </div>
         ) : currentView === 'portfolio' ? (
-          <DiamondBackDashboard />
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-yellow-900/20 to-amber-900/20 rounded-xl p-6 border border-amber-800/30">
+              <div className="flex items-center space-x-4">
+                <div className="text-4xl font-bold">
+                  <span className="text-yellow-600">D</span>
+                  <span className="text-amber-700">B</span>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-200">DiamondBack Masonry</h2>
+                  <p className="text-sm text-gray-400">Portfolio Company Dashboard - Coming Soon</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
+              <p className="text-gray-400">WIP Reconciliation and financial analytics will be available here.</p>
+            </div>
+          </div>
         ) : currentView === 'dashboard' ? (
           <div>
             {/* Dashboard Header with Export */}
