@@ -23,7 +23,7 @@ export const reportsConfig = {
           id: 'revenue-analysis',
           title: 'Revenue Analysis Dashboard',
           description: 'Comprehensive revenue trends, YoY comparisons, and forecasting',
-          embedId: 'TC3kWIS7rgHDjSs', // Your actual embed ID
+          embedId: 'TC3kWIS7rgHDjSs',
           shareUrl: 'https://reports.bizgropartners.com/shared/~TC3kWIS7rgHDjSs',
           height: 1000,
           tags: ['Revenue', 'Trends', 'YTD'],
@@ -34,18 +34,25 @@ export const reportsConfig = {
           id: 'cash-flow',
           title: 'Cash Flow Management',
           description: 'Real-time cash position, collections, and liquidity metrics',
-          embedId: '6Z0ZGAd~J8lKkXYz', // Your actual embed ID
-          shareUrl: 'https://reports.bizgropartners.com/shared/6Z0ZGAd~J8lKkXYz',
+          embedId: '6Z0ZGAd~J8lKkXYz', // Correct embed ID from your URL
+          shareUrl: 'https://reports.bizgropartners.com/shared/6Z0ZGAd~J8lKkXYz', // Correct share URL
           height: 800,
           tags: ['Cash', 'Collections', 'Liquidity'],
           refreshInterval: 300000, // 5 minutes
-          permissions: ['admin', 'finance', 'executive']
+          permissions: ['admin', 'finance', 'executive'],
+          // Script integration requirements
+          requiresScript: true,
+          scriptConfig: {
+            enableScrollSync: true,
+            dynamicHeight: true
+          }
         },
         {
           id: 'profitability',
           title: 'Profitability Metrics',
           description: 'Gross margin analysis, EBITDA tracking, and cost management',
           embedId: 'YOUR_PROFIT_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_PROFIT_ID',
           height: 900,
           tags: ['Margins', 'EBITDA', 'Costs'],
           refreshInterval: 600000, // 10 minutes
@@ -56,6 +63,7 @@ export const reportsConfig = {
           title: 'AR Aging Report',
           description: 'Accounts receivable aging analysis and collection tracking',
           embedId: 'YOUR_AR_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_AR_ID',
           height: 750,
           tags: ['AR', 'Collections', 'Aging'],
           refreshInterval: 300000,
@@ -75,6 +83,7 @@ export const reportsConfig = {
           title: 'Project Performance',
           description: 'Active project tracking, completion rates, and variance analysis',
           embedId: 'YOUR_PROJECT_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_PROJECT_ID',
           height: 850,
           tags: ['Projects', 'WIP', 'Completion'],
           refreshInterval: 600000,
@@ -85,6 +94,7 @@ export const reportsConfig = {
           title: 'Workforce Analytics',
           description: 'Employee metrics, productivity tracking, and resource allocation',
           embedId: 'YOUR_WORKFORCE_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_WORKFORCE_ID',
           height: 750,
           tags: ['HR', 'Productivity', 'Resources'],
           refreshInterval: 900000, // 15 minutes
@@ -95,6 +105,7 @@ export const reportsConfig = {
           title: 'Equipment Utilization',
           description: 'Asset tracking, maintenance schedules, and utilization rates',
           embedId: 'YOUR_EQUIPMENT_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_EQUIPMENT_ID',
           height: 700,
           tags: ['Assets', 'Equipment', 'Utilization'],
           refreshInterval: 900000,
@@ -114,6 +125,7 @@ export const reportsConfig = {
           title: 'Executive KPI Summary',
           description: 'High-level KPIs, strategic metrics, and performance indicators',
           embedId: 'YOUR_KPI_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_KPI_ID',
           height: 1200,
           tags: ['KPIs', 'Strategic', 'Summary'],
           refreshInterval: 300000,
@@ -124,6 +136,7 @@ export const reportsConfig = {
           title: 'Board Meeting Dashboard',
           description: 'Quarterly performance, YTD results, and strategic initiatives',
           embedId: 'YOUR_BOARD_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_BOARD_ID',
           height: 1100,
           tags: ['Quarterly', 'Board', 'Strategic'],
           refreshInterval: 600000,
@@ -134,6 +147,7 @@ export const reportsConfig = {
           title: 'Strategic Initiatives Tracker',
           description: 'Progress on key strategic projects and transformation efforts',
           embedId: 'YOUR_STRATEGIC_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_STRATEGIC_ID',
           height: 900,
           tags: ['Strategy', 'Initiatives', 'Transformation'],
           refreshInterval: 900000,
@@ -153,6 +167,7 @@ export const reportsConfig = {
           title: 'Portfolio Overview',
           description: 'Consolidated view of all portfolio company performance',
           embedId: 'YOUR_PORTFOLIO_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_PORTFOLIO_ID',
           height: 950,
           tags: ['Portfolio', 'Consolidated', 'Multi-Company'],
           refreshInterval: 600000,
@@ -163,6 +178,7 @@ export const reportsConfig = {
           title: 'Comparative Analysis',
           description: 'Cross-company performance comparisons and benchmarking',
           embedId: 'YOUR_COMPARE_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_COMPARE_ID',
           height: 800,
           tags: ['Comparison', 'Benchmarking', 'Analysis'],
           refreshInterval: 600000,
@@ -173,6 +189,7 @@ export const reportsConfig = {
           title: 'DiamondBack Masonry Dashboard',
           description: 'Detailed financial and operational metrics for DiamondBack',
           embedId: 'YOUR_DIAMONDBACK_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_DIAMONDBACK_ID',
           height: 1000,
           tags: ['DiamondBack', 'Masonry', 'Construction'],
           refreshInterval: 300000,
@@ -192,6 +209,7 @@ export const reportsConfig = {
           title: 'Sales Pipeline Dashboard',
           description: 'Pipeline stages, conversion rates, and sales forecasting',
           embedId: 'YOUR_SALES_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_SALES_ID',
           height: 850,
           tags: ['Sales', 'Pipeline', 'Forecast'],
           refreshInterval: 300000,
@@ -202,6 +220,7 @@ export const reportsConfig = {
           title: 'Customer Analytics',
           description: 'Customer segmentation, lifetime value, and retention metrics',
           embedId: 'YOUR_CUSTOMER_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_CUSTOMER_ID',
           height: 800,
           tags: ['Customers', 'LTV', 'Retention'],
           refreshInterval: 600000,
@@ -221,6 +240,7 @@ export const reportsConfig = {
           title: 'Risk Management Dashboard',
           description: 'Enterprise risk assessment and mitigation tracking',
           embedId: 'YOUR_RISK_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_RISK_ID',
           height: 900,
           tags: ['Risk', 'Compliance', 'Audit'],
           refreshInterval: 900000,
@@ -231,6 +251,7 @@ export const reportsConfig = {
           title: 'Compliance Tracker',
           description: 'Regulatory compliance status and certification tracking',
           embedId: 'YOUR_COMPLIANCE_ID', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_COMPLIANCE_ID',
           height: 750,
           tags: ['Compliance', 'Regulatory', 'Certifications'],
           refreshInterval: 900000,
@@ -265,6 +286,41 @@ export const reportsConfig = {
     border: 'none',
     borderRadius: '0.5rem',
     background: 'rgba(30, 41, 59, 0.5)'
+  },
+  
+  // Script initialization for Reach Reporting communication
+  initScript: function() {
+    // Reach Reporting scroll and resize handler
+    function rrSendScroll() {
+      var iframes = document.getElementsByClassName("rr-embed");
+      var de = document.documentElement;
+      for (var i = 0; i < iframes.length; i += 1) {
+        var box = iframes[i].getBoundingClientRect();
+        var top = box.top + window.pageYOffset - de.clientTop;
+        var message = JSON.stringify({
+          channel: "rr",
+          id: parseInt(iframes[i].getAttribute("data-rr-id"), 10),
+          scrollY: window.scrollY,
+          offsetTop: top
+        });
+        iframes[i].contentWindow.postMessage(message, "*");
+      }
+    }
+    
+    // Message handler for dynamic height adjustment
+    window.addEventListener("message", function(e) {
+      try {
+        var d = JSON.parse(e.data);
+        var c = d.channel;
+        if (c === "rr") {
+          document.getElementById("dashboard-" + d.id).style.height = d.height + "px";
+          rrSendScroll();
+        }
+      } catch {}
+    });
+    
+    // Scroll event listener
+    window.addEventListener("scroll", rrSendScroll);
   }
 };
 
@@ -315,5 +371,10 @@ export const buildEmbedUrl = (embedId, options = {}) => {
 export const buildShareUrl = (embedId) => {
   return `${reportsConfig.baseUrl}/shared/~${embedId}`;
 };
+
+// Initialize the script when this module is loaded
+if (typeof window !== 'undefined') {
+  reportsConfig.initScript();
+}
 
 export default reportsConfig;
