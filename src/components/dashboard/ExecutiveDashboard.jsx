@@ -1,5 +1,5 @@
 // src/components/dashboard/ExecutiveDashboard.jsx
-// Updated main dashboard component with Financial Charts View integration
+// Updated main dashboard component with Financial Dashboard integration
 
 import React, { useState } from 'react';
 import { 
@@ -11,7 +11,7 @@ import {
   Link2
 } from 'lucide-react';
 import EnhancedDynamicDashboard from './EnhancedDynamicDashboard';
-import FinancialChartsView from './FinancialChartsView';
+import FinancialDashboard from './FinancialDashboard';
 // Import your Enhanced View component here
 // import EnhancedView from './EnhancedView';
 
@@ -175,7 +175,7 @@ export default function ExecutiveDashboard() {
           )}
           
           {activeView === 'charts' && (
-            <FinancialChartsView data={data} />
+            <FinancialDashboard data={data} />
           )}
         </div>
       </div>
