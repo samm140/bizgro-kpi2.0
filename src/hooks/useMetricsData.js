@@ -1,7 +1,7 @@
-// src/hooks/useMetricsData.js
+// src/hooks/useMetricsData.jsx
 // Updated hook to properly connect with WeeklyEntry data
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, createContext, useContext } from 'react';
 
 export function useMetricsData() {
   const [loading, setLoading] = useState(true);
@@ -200,8 +200,6 @@ export function useMetricsData() {
 }
 
 // Optional: Export a provider pattern for global state management
-import React, { createContext, useContext } from 'react';
-
 const MetricsDataContext = createContext(null);
 
 export function MetricsDataProvider({ children }) {
