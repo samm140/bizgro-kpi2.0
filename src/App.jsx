@@ -1,5 +1,5 @@
 // src/App.jsx
-// Updated to integrate the Enhanced Dynamic Dashboard, Executive Dashboard, and QBO Integration
+// Updated to integrate the Enhanced Dynamic Dashboard, Executive Dashboard, QBO Integration, and Portfolio Companies
 
 import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
@@ -14,6 +14,7 @@ import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
 import QBOSync from './components/shared/QBOSync'; // NEW: QBO Sync Widget
+import DiamondBackDashboard from './components/portfolio/DiamondBackDashboard'; // NEW: Portfolio Company Dashboard
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
@@ -233,6 +234,16 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               <i className="fas fa-chart-line mr-2"></i>Dashboard
             </button>
             <button 
+              onClick={() => setCurrentView('portfolio')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                currentView === 'portfolio' 
+                  ? 'bg-biz-primary text-white' 
+                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+              }`}
+            >
+              <i className="fas fa-building mr-2"></i>Portfolio
+            </button>
+            <button 
               onClick={() => setCurrentView('entry')}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 currentView === 'entry' 
@@ -416,6 +427,7 @@ function App() {
       if (e.altKey) {
         switch(e.key) {
           case 'd': setCurrentView('dashboard'); break;
+          case 'p': setCurrentView('portfolio'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
           case 'm': setCurrentView('metrics'); break;
@@ -437,7 +449,7 @@ function App() {
   useEffect(() => {
     const applyHash = () => {
       const h = (window.location.hash || '').replace('#', '').toLowerCase();
-      if (h === 'dashboard' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
+      if (h === 'dashboard' || h === 'portfolio' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
         setCurrentView(h);
       }
     };
@@ -551,6 +563,8 @@ function App() {
               <p className="text-gray-300">Loading...</p>
             </div>
           </div>
+        ) : currentView === 'portfolio' ? (
+          <DiamondBackDashboard />
         ) : currentView === 'dashboard' ? (
           <div>
             {/* Dashboard Header with Export */}
@@ -697,7 +711,7 @@ function App() {
       
       {/* Footer with keyboard shortcuts hint */}
       <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
-        Keyboard shortcuts: Alt+D (Dashboard), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
+        Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
         {backendAvailable && ', Alt+Q (QBO Widget)'}
       </footer>
     </div>
