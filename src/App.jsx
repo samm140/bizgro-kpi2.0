@@ -1,3 +1,6 @@
+// src/App.jsx
+// Updated to integrate the Enhanced Dynamic Dashboard
+
 import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
 import { AuthProvider, AuthContext, LoginForm, UserProfile } from './components/Authentication';
@@ -5,6 +8,7 @@ import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
+import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard'; // NEW
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
@@ -296,7 +300,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
 function App() {
   const { user, isAuthenticated, logout } = useContext(AuthContext);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [dashboardView, setDashboardView] = useState('enhanced'); // New state for dashboard view
+  const [dashboardView, setDashboardView] = useState('dynamic'); // Updated to show dynamic by default
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
@@ -514,6 +518,16 @@ function App() {
                 <i className="fas fa-th-large mr-2"></i>Dynamic Metrics
               </button>
               <button 
+                onClick={() => setDashboardView('enhanced')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  dashboardView === 'enhanced' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                }`}
+              >
+                <i className="fas fa-chart-bar mr-2"></i>Enhanced View
+              </button>
+              <button 
                 onClick={() => setDashboardView('charts')}
                 className={`px-4 py-2 rounded-lg transition-colors ${
                   dashboardView === 'charts' 
@@ -521,19 +535,17 @@ function App() {
                     : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
                 }`}
               >
-                <i className="fas fa-chart-bar mr-2"></i>Charts View
+                <i className="fas fa-chart-line mr-2"></i>Charts View
               </button>
             </div>
             
             {/* Conditional rendering based on dashboard view */}
             {dashboardView === 'dynamic' ? (
-              <DynamicDashboard />
+              <EnhancedDynamicDashboard data={dashboardData} />
+            ) : dashboardView === 'enhanced' ? (
+              <EnhancedDashboard data={dashboardData} />
             ) : (
-              useEnhancedDashboard ? (
-                <EnhancedDashboard data={dashboardData} />
-              ) : (
-                dashboardData && <ChartVisualization data={dashboardData} />
-              )
+              dashboardData && <ChartVisualization data={dashboardData} />
             )}
           </div>
         ) : currentView === 'entry' ? (
