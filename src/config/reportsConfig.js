@@ -35,7 +35,8 @@ export const reportsConfig = {
           title: 'Cash Flow Management',
           description: 'Real-time cash position, collections, and liquidity metrics',
           embedId: '6Z0ZGAd~J8lKkXYz', // Correct embed ID from your URL
-          shareUrl: 'https://reports.bizgropartners.com/embed/6Z0ZGAd~J8lKkXYz', // Correct share URL
+          shareUrl: 'https://reports.bizgropartners.com/embed/6Z0ZGAd~J8lKkXYz', // Try embed URL instead of shared
+          embedUrl: 'https://reports.bizgropartners.com/embed/6Z0ZGAd~J8lKkXYz', // Alternative embed URL
           height: 800,
           tags: ['Cash', 'Collections', 'Liquidity'],
           refreshInterval: 300000, // 5 minutes
