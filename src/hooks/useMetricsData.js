@@ -1,7 +1,5 @@
-// ============================================
-// IMPROVED FILE: src/hooks/useMetricsData.js
-// Enhanced version with better error handling and stability
-// ============================================
+// src/hooks/useMetricsData.js
+// Updated hook to properly connect with WeeklyEntry data
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 
@@ -19,79 +17,118 @@ export function useMetricsData() {
     try {
       setError(null);
       
-      // Get data directly from localStorage (matching your mockApi pattern)
-      const storedData = localStorage.getItem('kpi2_dashboard_data');
-      const weeklyEntries = JSON.parse(localStorage.getItem('kpi2_weekly_entries') || '[]');
+      // Get data from localStorage - using your existing keys
+      const dashboardData = localStorage.getItem('bizgro_kpi_data');
+      const weeklyEntries = localStorage.getItem('kpi2_weekly_entries');
       
-      let dashboardData = {};
-      if (storedData) {
+      let parsedDashboard = {};
+      let parsedWeekly = [];
+      
+      if (dashboardData) {
         try {
-          dashboardData = JSON.parse(storedData);
-        } catch (parseError) {
-          console.error('Error parsing dashboard data:', parseError);
-          dashboardData = {};
+          parsedDashboard = JSON.parse(dashboardData);
+        } catch (e) {
+          console.error('Error parsing dashboard data:', e);
         }
       }
       
-      // Get the latest weekly entry
-      const latestEntry = weeklyEntries.length > 0 
-        ? weeklyEntries[weeklyEntries.length - 1] 
-        : {};
+      if (weeklyEntries) {
+        try {
+          parsedWeekly = JSON.parse(weeklyEntries);
+        } catch (e) {
+          console.error('Error parsing weekly entries:', e);
+        }
+      }
       
-      // Calculate aggregated values from all entries
-      const totalRevenue = weeklyEntries.reduce((sum, entry) => 
-        sum + (parseFloat(entry.revenueBilledToDate) || 0), 0);
+      // Get the latest entry from allEntries or weekly entries
+      const allEntries = parsedDashboard.allEntries || parsedWeekly || [];
+      const latestEntry = allEntries.length > 0 ? allEntries[allEntries.length - 1] : {};
       
-      const avgGPM = weeklyEntries.length > 0
-        ? weeklyEntries.reduce((sum, entry) => 
-            sum + (parseFloat(entry.grossProfitAccrual) || 0), 0) / weeklyEntries.length
-        : 0;
-      
-      // Map data to metric formula variables with proper type conversion
+      // Map data to match metric formula variables
       const mappedData = {
         // Financial Position
-        CashBank: parseFloat(latestEntry.cashInBank || dashboardData.cashInBank || 0),
-        CashOnHand: parseFloat(latestEntry.cashOnHand || dashboardData.cashOnHand || 0),
-        CurrentAR: parseFloat(latestEntry.currentAR || dashboardData.currentAR || 0),
-        RetentionReceivables: parseFloat(latestEntry.retentionReceivables || 0),
-        OverdueAR: parseFloat(latestEntry.overdueAR || 0),
-        CurrentAP: parseFloat(latestEntry.currentAP || dashboardData.currentAP || 0),
+        CashBank: parseFloat(latestEntry.cashInBank) || parseFloat(parsedDashboard.cashInBank) || 0,
+        CashOnHand: parseFloat(latestEntry.cashOnHand) || parseFloat(parsedDashboard.cashOnHand) || 0,
+        CurrentAR: parseFloat(latestEntry.currentAR) || parseFloat(parsedDashboard.currentAR) || 0,
+        RetentionReceivables: parseFloat(latestEntry.retentionReceivables) || 0,
+        OverdueAR: parseFloat(latestEntry.overdueAR) || 0,
+        CurrentAP: parseFloat(latestEntry.currentAP) || parseFloat(parsedDashboard.currentAP) || 0,
         
         // Revenue & Profitability
-        RevenueBilledToDate: parseFloat(latestEntry.revenueBilledToDate || totalRevenue || 0),
-        GrossProfitAccrual: parseFloat(latestEntry.grossProfitAccrual || avgGPM || 0),
-        CogsAccrual: parseFloat(latestEntry.cogsAccrual || 0),
-        GrossWagesAccrual: parseFloat(latestEntry.grossWagesAccrual || 0),
-        Collections: parseFloat(latestEntry.collections || 0),
-        Retention: parseFloat(latestEntry.retention || 0),
-        PriorYearRevenue: parseFloat(dashboardData.priorYearRevenue || 4500000), // Default value
+        RevenueBilledToDate: parseFloat(latestEntry.revenueBilledToDate) || 0,
+        GrossProfitAccrual: parseFloat(latestEntry.grossProfitAccrual) || 0,
+        CogsAccrual: parseFloat(latestEntry.cogsAccrual) || 0,
+        GrossWagesAccrual: parseFloat(latestEntry.grossWagesAccrual) || 0,
+        Collections: parseFloat(latestEntry.collections) || 0,
+        Retention: parseFloat(latestEntry.retention) || 0,
+        PriorYearRevenue: parseFloat(parsedDashboard.priorYearRevenue) || 12680000,
+        ChangeOrders: parseFloat(latestEntry.changeOrders) || 0,
         
         // Sales & Pipeline
-        JobsWonNumber: parseInt(latestEntry.jobsWonNumber || 0, 10),
-        JobsWonDollar: parseFloat(latestEntry.jobsWonDollar || 0),
-        TotalEstimates: parseInt(latestEntry.totalEstimates || 0, 10),
-        InvitesExistingGC: parseInt(latestEntry.invitesExistingGC || 0, 10),
-        InvitesNewGC: parseInt(latestEntry.invitesNewGC || 0, 10),
-        NewEstimatedJobs: parseInt(latestEntry.newEstimatedJobs || 0, 10),
+        JobsWonNumber: parseInt(latestEntry.jobsWonNumber, 10) || 0,
+        JobsWonDollar: parseFloat(latestEntry.jobsWonDollar) || 0,
+        TotalEstimates: parseInt(latestEntry.totalEstimates, 10) || parseInt(latestEntry.newEstimatedJobs, 10) || 0,
+        InvitesExistingGC: parseInt(latestEntry.invitesExistingGC, 10) || 0,
+        InvitesNewGC: parseInt(latestEntry.invitesNewGC, 10) || 0,
+        NewEstimatedJobs: parseInt(latestEntry.newEstimatedJobs, 10) || 0,
         
         // Projects & Backlog
-        JobsStartedNumber: parseInt(latestEntry.jobsStartedNumber || 0, 10),
-        JobsStartedDollar: parseFloat(latestEntry.jobsStartedDollar || 0),
-        JobsCompleted: parseInt(latestEntry.jobsCompleted || 0, 10),
-        UpcomingJobsDollar: parseFloat(latestEntry.upcomingJobsDollar || 0),
-        WipDollar: parseFloat(latestEntry.wipDollar || 0),
-        RevLeftToBill: parseFloat(latestEntry.revLeftToBill || 0),
+        JobsStartedNumber: parseInt(latestEntry.jobsStartedNumber, 10) || 0,
+        JobsStartedDollar: parseFloat(latestEntry.jobsStartedDollar) || 0,
+        JobsCompleted: parseInt(latestEntry.jobsCompleted, 10) || 0,
+        UpcomingJobsDollar: parseFloat(latestEntry.upcomingJobsDollar) || 0,
+        WipDollar: parseFloat(latestEntry.wipDollar) || 0,
+        RevLeftToBill: parseFloat(latestEntry.revLeftToBill) || 0,
+        ActiveProjectsCount: parseInt(parsedDashboard.activeProjects, 10) || 23,
+        BacklogAmount: parseFloat(parsedDashboard.backlog) || 21800000,
         
         // Workforce
-        FieldEmployees: parseInt(latestEntry.fieldEmployees || 0, 10),
-        Supervisors: parseInt(latestEntry.supervisors || 0, 10),
-        Office: parseInt(latestEntry.office || 0, 10),
-        NewHires: parseInt(latestEntry.newHires || 0, 10),
-        EmployeesFired: parseInt(latestEntry.employeesFired || 0, 10),
+        FieldEmployees: parseInt(latestEntry.fieldEmployees, 10) || 0,
+        Supervisors: parseInt(latestEntry.supervisors, 10) || 0,
+        Office: parseInt(latestEntry.office, 10) || 0,
+        NewHires: parseInt(latestEntry.newHires, 10) || 0,
+        EmployeesFired: parseInt(latestEntry.employeesFired, 10) || 0,
         
         // Risk
-        ConcentrationRisk: parseFloat(latestEntry.concentrationRisk || 0)
+        ConcentrationRisk: parseFloat(latestEntry.concentrationRisk) || 0,
+        
+        // Calculated/Derived fields
+        TotalCash: 0,
+        WeeklyBurnRate: 0,
+        MonthlyRevenue: 0,
+        DSO: 0,
+        DPO: 0,
+        DIO: 0,
+        
+        // Operational Metrics
+        OpEx: 150000, // Default operational expenses
+        CapEx: 50000, // Default capital expenditures
+        LOC_Drawn: 500000,
+        LOC_Limit: 2000000,
+        AvgDailyRevenue: 0,
+        RiskFactor: 0.02, // 2% default risk factor
+        
+        // Additional metrics from dashboard summary
+        RevenueYTD: parseFloat(parsedDashboard.revenueYTD) || 14204274,
+        GPMAverage: parseFloat(parsedDashboard.gpmAverage) || 34.08,
+        CashPosition: parseFloat(parsedDashboard.cashPosition) || 1044957,
       };
+      
+      // Calculate derived fields
+      mappedData.TotalCash = mappedData.CashBank + mappedData.CashOnHand;
+      mappedData.WeeklyBurnRate = (mappedData.OpEx + mappedData.GrossWagesAccrual) / 4; // Monthly expenses / 4 weeks
+      mappedData.MonthlyRevenue = mappedData.RevenueBilledToDate * 4; // Weekly revenue * 4
+      mappedData.AvgDailyRevenue = mappedData.RevenueBilledToDate / 7;
+      
+      // Calculate DSO if we have revenue
+      if (mappedData.RevenueBilledToDate > 0) {
+        mappedData.DSO = (mappedData.CurrentAR / mappedData.RevenueBilledToDate) * 7;
+      }
+      
+      // Calculate DPO if we have COGS
+      if (mappedData.CogsAccrual > 0) {
+        mappedData.DPO = (mappedData.CurrentAP / mappedData.CogsAccrual) * 7;
+      }
       
       // Only update state if component is still mounted
       if (isMountedRef.current) {
@@ -106,7 +143,7 @@ export function useMetricsData() {
         setLoading(false);
       }
     }
-  }, []); // Empty deps since we're only reading from localStorage
+  }, []);
   
   useEffect(() => {
     // Mark component as mounted
@@ -124,18 +161,26 @@ export function useMetricsData() {
     
     // Listen for storage events (when data changes in another tab)
     const handleStorageChange = (e) => {
-      if (e.key === 'kpi2_dashboard_data' || e.key === 'kpi2_weekly_entries') {
+      if (e.key === 'bizgro_kpi_data' || e.key === 'kpi2_weekly_entries') {
         fetchData();
       }
     };
     
     window.addEventListener('storage', handleStorageChange);
     
+    // Listen for custom events that might be triggered after data submission
+    const handleDataUpdate = () => {
+      fetchData();
+    };
+    
+    window.addEventListener('kpi:dataUpdated', handleDataUpdate);
+    
     // Cleanup function
     return () => {
       isMountedRef.current = false;
       clearInterval(interval);
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('kpi:dataUpdated', handleDataUpdate);
     };
   }, [fetchData]);
   
@@ -155,7 +200,7 @@ export function useMetricsData() {
 }
 
 // Optional: Export a provider pattern for global state management
-import { createContext, useContext } from 'react';
+import React, { createContext, useContext } from 'react';
 
 const MetricsDataContext = createContext(null);
 
