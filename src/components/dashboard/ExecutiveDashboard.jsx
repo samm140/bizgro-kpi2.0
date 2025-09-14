@@ -37,6 +37,22 @@ export default function ExecutiveDashboard() {
         setData(transformedData);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        // Set default data to prevent crashes
+        setData({
+          weeklyEntries: [],
+          revenueYTD: 0,
+          gpmAverage: 0,
+          cashPosition: 0,
+          activeProjects: 0,
+          currentAR: 0,
+          currentAP: 0,
+          backlog: 0,
+          weeks: [],
+          weeklyRevenue: [],
+          weeklyCollections: [],
+          gpmTrend: [],
+          allEntries: []
+        });
       } finally {
         setLoading(false);
       }
@@ -72,7 +88,7 @@ export default function ExecutiveDashboard() {
     if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
-    if (!latest || !previous) return 0;
+    if (!latest || !previous || !previous.revenueBilledToDate) return 0;
     const change = ((latest.revenueBilledToDate - previous.revenueBilledToDate) / previous.revenueBilledToDate * 100).toFixed(1);
     return isNaN(change) ? 0 : change;
   }
@@ -84,6 +100,7 @@ export default function ExecutiveDashboard() {
     if (!latest || !previous) return 0;
     const latestCash = (latest.cashInBank || 0) + (latest.cashOnHand || 0);
     const previousCash = (previous.cashInBank || 0) + (previous.cashOnHand || 0);
+    if (previousCash === 0) return 0;
     const change = ((latestCash - previousCash) / previousCash * 100).toFixed(1);
     return isNaN(change) ? 0 : change;
   }
@@ -93,7 +110,7 @@ export default function ExecutiveDashboard() {
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
     if (!latest || !previous) return 0;
-    return latest.jobsStartedNumber - previous.jobsStartedNumber;
+    return (latest.jobsStartedNumber || 0) - (previous.jobsStartedNumber || 0);
   }
 
   function calculateTeamSize(data) {
@@ -113,7 +130,7 @@ export default function ExecutiveDashboard() {
   }
 
   function getRatioStatus(data) {
-    if (!data.currentAR || !data.currentAP) return 'neutral';
+    if (!data.currentAR || !data.currentAP || data.currentAP === 0) return 'neutral';
     const ratio = data.currentAR / data.currentAP;
     return ratio >= 1.5 ? 'up' : ratio >= 1.2 ? 'neutral' : 'down';
   }
@@ -122,7 +139,7 @@ export default function ExecutiveDashboard() {
     if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
-    if (!latest || !previous) return 0;
+    if (!latest || !previous || !previous.upcomingJobsDollar) return 0;
     const change = ((latest.upcomingJobsDollar - previous.upcomingJobsDollar) / previous.upcomingJobsDollar * 100).toFixed(1);
     return isNaN(change) ? 0 : change;
   }
@@ -137,7 +154,7 @@ export default function ExecutiveDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation - Added Agendas tab */}
+      {/* Tab Navigation - Including Agendas tab */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex space-x-1 p-1">
           <button
@@ -280,7 +297,7 @@ export default function ExecutiveDashboard() {
       )}
 
       {/* Charts View */}
-      {activeView === 'charts' && (
+      {activeView === 'charts' && data && (
         <ChartVisualization data={data} />
       )}
 
@@ -289,11 +306,14 @@ export default function ExecutiveDashboard() {
         <EnhancedDynamicDashboard />
       )}
 
-      {/* Agendas View - New dedicated tab */}
+      {/* Agendas View - Dedicated tab with AgendaPanels */}
       {activeView === 'agendas' && (
         <div className="space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">Meeting Agendas</h3>
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="w-5 h-5 text-blue-700" />
+              <h3 className="text-sm font-semibold text-blue-900">Meeting Agendas</h3>
+            </div>
             <p className="text-sm text-blue-800">
               Standard agendas for KPI calls and board meetings. All calls are recorded with AI notetaker for documentation.
             </p>
@@ -338,7 +358,7 @@ function MetricCard({ title, value, change, trend, icon, iconColor, bgColor }) {
 function calculateDSO(data) {
   if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'N/A';
   const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-  if (!latest.currentAR || !latest.revenueBilledToDate) return 'N/A';
+  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || latest.revenueBilledToDate === 0) return 'N/A';
   const dso = (latest.currentAR / latest.revenueBilledToDate * 30).toFixed(0);
   return `${dso} days`;
 }
@@ -346,7 +366,7 @@ function calculateDSO(data) {
 function getDSOStatus(data) {
   if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'N/A';
   const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-  if (!latest.currentAR || !latest.revenueBilledToDate) return 'N/A';
+  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || latest.revenueBilledToDate === 0) return 'N/A';
   const dso = latest.currentAR / latest.revenueBilledToDate * 30;
   if (dso < 45) return 'Good';
   if (dso < 60) return 'Warning';
@@ -356,7 +376,7 @@ function getDSOStatus(data) {
 function getDSOTrend(data) {
   if (!data || !data.weeklyEntries || data.weeklyEntries.length === 0) return 'neutral';
   const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
-  if (!latest.currentAR || !latest.revenueBilledToDate) return 'neutral';
+  if (!latest || !latest.currentAR || !latest.revenueBilledToDate || latest.revenueBilledToDate === 0) return 'neutral';
   const dso = latest.currentAR / latest.revenueBilledToDate * 30;
   if (dso < 45) return 'up';
   if (dso < 60) return 'neutral';
