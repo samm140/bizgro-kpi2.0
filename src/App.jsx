@@ -564,23 +564,7 @@ function App() {
             </div>
           </div>
         ) : currentView === 'portfolio' ? (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-r from-yellow-900/20 to-amber-900/20 rounded-xl p-6 border border-amber-800/30">
-              <div className="flex items-center space-x-4">
-                <div className="text-4xl font-bold">
-                  <span className="text-yellow-600">D</span>
-                  <span className="text-amber-700">B</span>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-200">DiamondBack Masonry</h2>
-                  <p className="text-sm text-gray-400">Portfolio Company Dashboard - Coming Soon</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700">
-              <p className="text-gray-400">WIP Reconciliation and financial analytics will be available here.</p>
-            </div>
-          </div>
+          <DiamondBackDashboard />
         ) : currentView === 'dashboard' ? (
           <div>
             {/* Dashboard Header with Export */}
