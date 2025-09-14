@@ -276,11 +276,6 @@ export default function ExecutiveDashboard() {
               bgColor="bg-gray-50"
             />
           </div>
-
-          {/* Add Agenda Panels below the KPI cards in Overview */}
-          <div className="mt-8">
-            <AgendaPanels />
-          </div>
         </>
       )}
 
