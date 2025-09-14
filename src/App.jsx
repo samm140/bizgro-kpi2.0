@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
 import { AuthProvider, AuthContext, LoginForm, UserProfile } from './components/Authentication';
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
-import FinancialDashboard from './FinancialDashboard';
+import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard'; // NEW
