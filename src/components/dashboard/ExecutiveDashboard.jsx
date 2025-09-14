@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import FinancialDashboard from './components/FinancialDashboard';
+import FinancialDashboard from './FinancialDashboard';
 import EnhancedDynamicDashboard from './EnhancedDynamicDashboard';
 import { TrendingUp, TrendingDown, AlertCircle, Clock, Users, Briefcase, DollarSign, Activity } from 'lucide-react';
 import { getDashboardData } from '../../services/mockApi'; // YOUR EXISTING SERVICE
