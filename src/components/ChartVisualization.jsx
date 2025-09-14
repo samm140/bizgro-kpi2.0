@@ -430,13 +430,13 @@ const ChartVisualization = ({ data }) => {
       {/* Original Chart.js Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold mb-4 text-gray-200">Revenue vs Collections (Chart.js)</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-200">Revenue vs Collections</h3>
           <div style={{ height: '300px' }}>
             <canvas ref={revenueChartRef}></canvas>
           </div>
         </div>
         <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold mb-4 text-gray-200">GPM % Trend (Chart.js)</h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-200">GPM % Trend</h3>
           <div style={{ height: '300px' }}>
             <canvas ref={gpmChartRef}></canvas>
           </div>
