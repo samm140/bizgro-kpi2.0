@@ -70,7 +70,7 @@ const DiamondBackDashboard = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-200">DiamondBack Masonry</h2>
-              <p className="text-sm text-gray-400">Commercial Construction Specialist</p>
+              <p className="text-sm text-gray-400">NAICS 238140 - Masonry Contractors</p>
             </div>
           </div>
           <div className="flex items-center space-x-3">
