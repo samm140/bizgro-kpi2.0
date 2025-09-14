@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import FinancialDashboard from './FinancialDashboard';
+import ChartVisualization from '../ChartVisualization';
 import EnhancedDynamicDashboard from './EnhancedDynamicDashboard';
-import { TrendingUp, TrendingDown, AlertCircle, Clock, Users, Briefcase, DollarSign, Activity } from 'lucide-react';
-import { getDashboardData } from '../../services/mockApi'; // YOUR EXISTING SERVICE
+import AgendaPanels from './AgendaPanels';
+import { TrendingUp, TrendingDown, AlertCircle, Clock, Users, Briefcase, DollarSign, Activity, Calendar } from 'lucide-react';
+import { getDashboardData } from '../../services/mockApi';
 
 export default function ExecutiveDashboard() {
   const [activeView, setActiveView] = useState('overview');
@@ -26,7 +27,11 @@ export default function ExecutiveDashboard() {
           currentAR: dashboardData.currentAR || 0,
           currentAP: dashboardData.currentAP || 0,
           backlog: dashboardData.backlog || 0,
-          // Add any other fields your dashboard needs
+          weeks: dashboardData.weeks || [],
+          weeklyRevenue: dashboardData.weeklyRevenue || [],
+          weeklyCollections: dashboardData.weeklyCollections || [],
+          gpmTrend: dashboardData.gpmTrend || [],
+          allEntries: dashboardData.allEntries || []
         };
         
         setData(transformedData);
@@ -64,7 +69,6 @@ export default function ExecutiveDashboard() {
 
   // Helper functions for calculations
   function calculateChange(data) {
-    // Calculate based on your weekly entries
     if (!data.weeklyEntries || data.weeklyEntries.length < 2) return 0;
     const latest = data.weeklyEntries[data.weeklyEntries.length - 1];
     const previous = data.weeklyEntries[data.weeklyEntries.length - 2];
@@ -133,7 +137,7 @@ export default function ExecutiveDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Added Agendas tab */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="flex space-x-1 p-1">
           <button
@@ -166,110 +170,141 @@ export default function ExecutiveDashboard() {
           >
             Metrics
           </button>
+          <button
+            onClick={() => setActiveView('agendas')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
+              activeView === 'agendas'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            Agendas
+          </button>
         </div>
       </div>
 
       {/* Overview View */}
       {activeView === 'overview' && metrics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Revenue Card */}
-          <MetricCard
-            title="Revenue YTD"
-            value={`$${(metrics.revenue / 1000000).toFixed(2)}M`}
-            change={`${metrics.revenueChange}%`}
-            trend={parseFloat(metrics.revenueChange) > 0 ? 'up' : 'down'}
-            icon={<DollarSign className="w-5 h-5" />}
-            iconColor="text-green-600"
-            bgColor="bg-green-50"
-          />
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Revenue Card */}
+            <MetricCard
+              title="Revenue YTD"
+              value={`$${(metrics.revenue / 1000000).toFixed(2)}M`}
+              change={`${metrics.revenueChange}%`}
+              trend={parseFloat(metrics.revenueChange) > 0 ? 'up' : 'down'}
+              icon={<DollarSign className="w-5 h-5" />}
+              iconColor="text-green-600"
+              bgColor="bg-green-50"
+            />
 
-          {/* Cash Flow Card */}
-          <MetricCard
-            title="Cash Position"
-            value={`$${(metrics.cashFlow / 1000).toFixed(0)}K`}
-            change={`${metrics.cashFlowChange}%`}
-            trend={parseFloat(metrics.cashFlowChange) > 0 ? 'up' : 'down'}
-            icon={<Activity className="w-5 h-5" />}
-            iconColor="text-blue-600"
-            bgColor="bg-blue-50"
-          />
+            {/* Cash Flow Card */}
+            <MetricCard
+              title="Cash Position"
+              value={`$${(metrics.cashFlow / 1000).toFixed(0)}K`}
+              change={`${metrics.cashFlowChange}%`}
+              trend={parseFloat(metrics.cashFlowChange) > 0 ? 'up' : 'down'}
+              icon={<Activity className="w-5 h-5" />}
+              iconColor="text-blue-600"
+              bgColor="bg-blue-50"
+            />
 
-          {/* Projects Card */}
-          <MetricCard
-            title="Active Projects"
-            value={metrics.activeProjects}
-            change={`${metrics.projectsChange > 0 ? '+' : ''}${metrics.projectsChange}`}
-            trend={metrics.projectsChange > 0 ? 'up' : metrics.projectsChange < 0 ? 'down' : 'neutral'}
-            icon={<Briefcase className="w-5 h-5" />}
-            iconColor="text-purple-600"
-            bgColor="bg-purple-50"
-          />
+            {/* Projects Card */}
+            <MetricCard
+              title="Active Projects"
+              value={metrics.activeProjects}
+              change={`${metrics.projectsChange > 0 ? '+' : ''}${metrics.projectsChange}`}
+              trend={metrics.projectsChange > 0 ? 'up' : metrics.projectsChange < 0 ? 'down' : 'neutral'}
+              icon={<Briefcase className="w-5 h-5" />}
+              iconColor="text-purple-600"
+              bgColor="bg-purple-50"
+            />
 
-          {/* Team Card */}
-          <MetricCard
-            title="Team Size"
-            value={metrics.teamSize}
-            change={`${metrics.teamChange > 0 ? '+' : ''}${metrics.teamChange}`}
-            trend={metrics.teamChange > 0 ? 'up' : metrics.teamChange < 0 ? 'down' : 'neutral'}
-            icon={<Users className="w-5 h-5" />}
-            iconColor="text-orange-600"
-            bgColor="bg-orange-50"
-          />
+            {/* Team Card */}
+            <MetricCard
+              title="Team Size"
+              value={metrics.teamSize}
+              change={`${metrics.teamChange > 0 ? '+' : ''}${metrics.teamChange}`}
+              trend={metrics.teamChange > 0 ? 'up' : metrics.teamChange < 0 ? 'down' : 'neutral'}
+              icon={<Users className="w-5 h-5" />}
+              iconColor="text-orange-600"
+              bgColor="bg-orange-50"
+            />
 
-          {/* GPM Card */}
-          <MetricCard
-            title="Gross Profit Margin"
-            value={`${metrics.gpm.toFixed(1)}%`}
-            change={metrics.gpmStatus === 'up' ? 'Above Target' : 'Below Target'}
-            trend={metrics.gpmStatus}
-            icon={<TrendingUp className="w-5 h-5" />}
-            iconColor="text-indigo-600"
-            bgColor="bg-indigo-50"
-          />
+            {/* GPM Card */}
+            <MetricCard
+              title="Gross Profit Margin"
+              value={`${metrics.gpm.toFixed(1)}%`}
+              change={metrics.gpmStatus === 'up' ? 'Above Target' : 'Below Target'}
+              trend={metrics.gpmStatus}
+              icon={<TrendingUp className="w-5 h-5" />}
+              iconColor="text-indigo-600"
+              bgColor="bg-indigo-50"
+            />
 
-          {/* Current Ratio Card */}
-          <MetricCard
-            title="Current Ratio"
-            value={metrics.currentRatio}
-            change={metrics.ratioStatus === 'up' ? 'Healthy' : metrics.ratioStatus === 'neutral' ? 'Adequate' : 'Low'}
-            trend={metrics.ratioStatus}
-            icon={<AlertCircle className="w-5 h-5" />}
-            iconColor="text-teal-600"
-            bgColor="bg-teal-50"
-          />
+            {/* Current Ratio Card */}
+            <MetricCard
+              title="Current Ratio"
+              value={metrics.currentRatio}
+              change={metrics.ratioStatus === 'up' ? 'Healthy' : metrics.ratioStatus === 'neutral' ? 'Adequate' : 'Low'}
+              trend={metrics.ratioStatus}
+              icon={<AlertCircle className="w-5 h-5" />}
+              iconColor="text-teal-600"
+              bgColor="bg-teal-50"
+            />
 
-          {/* Backlog Card */}
-          <MetricCard
-            title="Backlog"
-            value={`$${(metrics.backlog / 1000000).toFixed(2)}M`}
-            change={`${metrics.backlogChange}%`}
-            trend={parseFloat(metrics.backlogChange) > 0 ? 'up' : 'down'}
-            icon={<Clock className="w-5 h-5" />}
-            iconColor="text-pink-600"
-            bgColor="bg-pink-50"
-          />
+            {/* Backlog Card */}
+            <MetricCard
+              title="Backlog"
+              value={`$${(metrics.backlog / 1000000).toFixed(2)}M`}
+              change={`${metrics.backlogChange}%`}
+              trend={parseFloat(metrics.backlogChange) > 0 ? 'up' : 'down'}
+              icon={<Clock className="w-5 h-5" />}
+              iconColor="text-pink-600"
+              bgColor="bg-pink-50"
+            />
 
-          {/* Days Sales Outstanding */}
-          <MetricCard
-            title="DSO"
-            value={calculateDSO(data)}
-            change={getDSOStatus(data)}
-            trend={getDSOTrend(data)}
-            icon={<Activity className="w-5 h-5" />}
-            iconColor="text-gray-600"
-            bgColor="bg-gray-50"
-          />
-        </div>
+            {/* Days Sales Outstanding */}
+            <MetricCard
+              title="DSO"
+              value={calculateDSO(data)}
+              change={getDSOStatus(data)}
+              trend={getDSOTrend(data)}
+              icon={<Activity className="w-5 h-5" />}
+              iconColor="text-gray-600"
+              bgColor="bg-gray-50"
+            />
+          </div>
+
+          {/* Add Agenda Panels below the KPI cards in Overview */}
+          <div className="mt-8">
+            <AgendaPanels />
+          </div>
+        </>
       )}
 
-      {/* Charts View - Now using YOUR data */}
+      {/* Charts View */}
       {activeView === 'charts' && (
-        <FinancialDashboard data={data} />
+        <ChartVisualization data={data} />
       )}
 
       {/* Metrics View */}
       {activeView === 'metrics' && (
         <EnhancedDynamicDashboard />
+      )}
+
+      {/* Agendas View - New dedicated tab */}
+      {activeView === 'agendas' && (
+        <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <h3 className="text-sm font-semibold text-blue-900 mb-2">Meeting Agendas</h3>
+            <p className="text-sm text-blue-800">
+              Standard agendas for KPI calls and board meetings. All calls are recorded with AI notetaker for documentation.
+            </p>
+          </div>
+          <AgendaPanels />
+        </div>
       )}
     </div>
   );
