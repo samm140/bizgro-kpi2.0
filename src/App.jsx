@@ -8,7 +8,6 @@ import EnhancedDashboard from './components/EnhancedDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
-import DynamicDashboard from './components/DynamicDashboard';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 
@@ -297,7 +296,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
 function App() {
   const { user, isAuthenticated, logout } = useContext(AuthContext);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [dashboardView, setDashboardView] = useState('dynamic'); // New state for dashboard view
+  const [dashboardView, setDashboardView] = useState('enhanced'); // New state for dashboard view
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
