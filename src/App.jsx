@@ -14,7 +14,7 @@ import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
 import QBOSync from './components/shared/QBOSync'; // NEW: QBO Sync Widget
-import DiamondBackDashboard from './components/portfolio/DiamondBackDashboard'; // NEW: Portfolio Company Dashboard
+import DiamondBackDashboard from './components/portfolio/DiamondBackDashboard.jsx'; // NEW: Portfolio Company Dashboard
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
