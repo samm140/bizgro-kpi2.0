@@ -1,6 +1,10 @@
 import React, { useState, useCallback, useMemo } from 'react';
 
 const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
+  console.log('EnhancedWeeklyEntry component loaded!');
+  // ... rest of component
+
+const EnhancedWeeklyEntry = ({ onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     weekEnding: new Date().toISOString().split('T')[0],
     // Accounting & Cash
