@@ -1,5 +1,5 @@
 // src/components/dashboard/FinancialChartsView.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   TrendingUp,
   TrendingDown,
@@ -31,6 +31,79 @@ import {
   ArrowDown
 } from 'lucide-react';
 import Chart from 'chart.js/auto';
+
+// Helper function to safely get numeric value from data
+const getNumericValue = (value, defaultValue = 0) => {
+  if (value === null || value === undefined || value === '' || value === '-') return defaultValue;
+  if (typeof value === 'number') return value;
+  // Remove currency symbols and commas
+  const cleaned = String(value).replace(/[$,]/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? defaultValue : parsed;
+};
+
+// Helper function to calculate metrics from data
+const calculateMetrics = (data) => {
+  if (!data) return {};
+  
+  const currentEntry = Array.isArray(data) ? data[data.length - 1] : data;
+  
+  return {
+    // Cash metrics
+    totalCash: getNumericValue(currentEntry.CashBank) + getNumericValue(currentEntry.CashOnHand),
+    currentRatio: currentEntry.CurrentAP ? 
+      ((getNumericValue(currentEntry.CashBank) + getNumericValue(currentEntry.CashOnHand) + getNumericValue(currentEntry.CurrentAR)) / getNumericValue(currentEntry.CurrentAP)).toFixed(2) : 'N/A',
+    quickRatio: currentEntry.CurrentAP ? 
+      ((getNumericValue(currentEntry.CashBank) + getNumericValue(currentEntry.CashOnHand) + (getNumericValue(currentEntry.CurrentAR) - getNumericValue(currentEntry.RetentionReceivables))) / getNumericValue(currentEntry.CurrentAP)).toFixed(2) : 'N/A',
+    
+    // Profitability metrics
+    grossMargin: currentEntry.RevenueBilled ? 
+      ((getNumericValue(currentEntry.GrossProfitAccrual) / getNumericValue(currentEntry.RevenueBilled)) * 100).toFixed(1) : 'N/A',
+    
+    // Collections metrics
+    dso: currentEntry.RevenueBilled ? 
+      Math.round((getNumericValue(currentEntry.CurrentAR) / getNumericValue(currentEntry.RevenueBilled)) * 30) : 'N/A',
+    collectionEfficiency: currentEntry.RevenueBilled ? 
+      ((getNumericValue(currentEntry.Collections) / getNumericValue(currentEntry.RevenueBilled)) * 100).toFixed(1) : 'N/A',
+    
+    // Sales metrics
+    winRate: currentEntry.TotalEstimates ? 
+      ((getNumericValue(currentEntry.JobsWonNumber) / getNumericValue(currentEntry.TotalEstimates)) * 100).toFixed(1) : 'N/A',
+    avgDealSize: currentEntry.JobsWonNumber ? 
+      (getNumericValue(currentEntry.JobsWonDollar) / getNumericValue(currentEntry.JobsWonNumber)) : 0,
+    
+    // Workforce metrics
+    totalHeadcount: getNumericValue(currentEntry.FieldEmployees) + 
+                   getNumericValue(currentEntry.Supervisors) + 
+                   getNumericValue(currentEntry.Office),
+    turnoverRate: currentEntry.FieldEmployees ? 
+      ((getNumericValue(currentEntry.EmployeesFired) / (getNumericValue(currentEntry.FieldEmployees) + getNumericValue(currentEntry.Supervisors) + getNumericValue(currentEntry.Office))) * 100).toFixed(1) : '0'
+  };
+};
+
+// Helper function to get historical data for charts
+const getHistoricalData = (allEntries, field, count = 6) => {
+  if (!allEntries || !Array.isArray(allEntries)) return [];
+  
+  const recentEntries = allEntries.slice(-count);
+  return recentEntries.map(entry => getNumericValue(entry[field]));
+};
+
+// Helper function to get week labels
+const getWeekLabels = (allEntries, count = 6) => {
+  if (!allEntries || !Array.isArray(allEntries)) {
+    return ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'];
+  }
+  
+  const recentEntries = allEntries.slice(-count);
+  return recentEntries.map((entry, index) => {
+    if (entry.WeekEndingDate) {
+      const date = new Date(entry.WeekEndingDate);
+      return `W${date.getMonth() + 1}/${date.getDate()}`;
+    }
+    return `Week ${index + 1}`;
+  });
+};
 
 // KPI Card Component
 const KPICard = ({ label, value, change, changeType, icon: Icon }) => {
@@ -137,6 +210,21 @@ export default function FinancialChartsView({ data }) {
   const [activeFilters, setActiveFilters] = useState(['All Metrics']);
   const [showExportMenu, setShowExportMenu] = useState(false);
   
+  // Extract metrics data from props
+  const metricsData = data?.allEntries?.[data.allEntries.length - 1] || {};
+  const allEntries = data?.allEntries || [];
+  
+  // Calculate current metrics
+  const currentMetrics = useMemo(() => calculateMetrics(metricsData), [metricsData]);
+  
+  // Calculate comparison metrics (previous period)
+  const previousMetrics = useMemo(() => {
+    if (allEntries.length > 1) {
+      return calculateMetrics(allEntries[allEntries.length - 2]);
+    }
+    return {};
+  }, [allEntries]);
+  
   // Chart refs
   const cashFlowChartRef = useRef(null);
   const revenueChartRef = useRef(null);
@@ -151,14 +239,25 @@ export default function FinancialChartsView({ data }) {
   // Chart instances refs
   const chartInstances = useRef({});
 
-  // Sample data for demonstration
-  const [tableData] = useState([
-    { id: 1, weekEnding: '2024-01-07', status: 'Complete', cashTotal: '$842,500', revenueBilled: '$215,000', collections: '$198,500', grossMargin: '42.8%', currentRatio: '2.4x', jobsWon: '3', backlog: '$1.2M', submittedBy: 'J. Smith' },
-    { id: 2, weekEnding: '2023-12-31', status: 'Complete', cashTotal: '$756,200', revenueBilled: '$189,000', collections: '$172,000', grossMargin: '41.5%', currentRatio: '2.1x', jobsWon: '2', backlog: '$980K', submittedBy: 'J. Smith' },
-    { id: 3, weekEnding: '2023-12-24', status: 'In Review', cashTotal: '$698,300', revenueBilled: '$176,500', collections: '$165,200', grossMargin: '40.2%', currentRatio: '2.0x', jobsWon: '4', backlog: '$850K', submittedBy: 'M. Johnson' },
-    { id: 4, weekEnding: '2023-12-17', status: 'Complete', cashTotal: '$712,800', revenueBilled: '$201,000', collections: '$188,000', grossMargin: '43.1%', currentRatio: '2.3x', jobsWon: '1', backlog: '$920K', submittedBy: 'J. Smith' },
-    { id: 5, weekEnding: '2023-12-10', status: 'Pending', cashTotal: '-', revenueBilled: '-', collections: '-', grossMargin: '-', currentRatio: '-', jobsWon: '-', backlog: '-', submittedBy: '-' }
-  ]);
+  // Transform data for table
+  const tableData = useMemo(() => {
+    if (!allEntries || allEntries.length === 0) return [];
+    
+    return allEntries.slice(-5).reverse().map((entry, index) => ({
+      id: index + 1,
+      weekEnding: entry.WeekEndingDate || `Week ${index + 1}`,
+      status: entry.Status || 'Complete',
+      cashTotal: `$${(getNumericValue(entry.CashBank) + getNumericValue(entry.CashOnHand)).toLocaleString()}`,
+      revenueBilled: `$${getNumericValue(entry.RevenueBilled).toLocaleString()}`,
+      collections: `$${getNumericValue(entry.Collections).toLocaleString()}`,
+      grossMargin: entry.RevenueBilled ? 
+        `${((getNumericValue(entry.GrossProfitAccrual) / getNumericValue(entry.RevenueBilled)) * 100).toFixed(1)}%` : 'N/A',
+      currentRatio: currentMetrics.currentRatio ? `${currentMetrics.currentRatio}x` : 'N/A',
+      jobsWon: entry.JobsWonNumber || '0',
+      backlog: `$${(getNumericValue(entry.UpcomingJobs) / 1000).toFixed(0)}K`,
+      submittedBy: entry.SubmittedBy || 'System'
+    }));
+  }, [allEntries, currentMetrics]);
 
   // Chart configuration
   const chartColors = {
@@ -206,7 +305,7 @@ export default function FinancialChartsView({ data }) {
     }
   };
 
-  // Initialize charts
+  // Initialize and update charts
   useEffect(() => {
     const initializeCharts = () => {
       // Destroy existing charts
@@ -214,31 +313,37 @@ export default function FinancialChartsView({ data }) {
         if (chart) chart.destroy();
       });
 
+      const weekLabels = getWeekLabels(allEntries);
+
       // Cash Flow Chart
       if (cashFlowChartRef.current) {
         const ctx = cashFlowChartRef.current.getContext('2d');
+        const cashInData = getHistoricalData(allEntries, 'Collections');
+        const cashOutData = cashInData.map(val => val * 0.85); // Estimate cash out as 85% of collections
+        const netCashData = cashInData.map((val, i) => val - cashOutData[i]);
+
         chartInstances.current.cashFlow = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6'],
+            labels: weekLabels,
             datasets: [
               {
                 label: 'Cash In',
-                data: [180000, 195000, 172000, 188000, 198500, 215000],
+                data: cashInData,
                 borderColor: chartColors.success,
                 backgroundColor: chartColors.successAlpha,
                 tension: 0.4
               },
               {
                 label: 'Cash Out',
-                data: [165000, 178000, 158000, 172000, 181000, 195000],
+                data: cashOutData,
                 borderColor: chartColors.danger,
                 backgroundColor: chartColors.dangerAlpha,
                 tension: 0.4
               },
               {
                 label: 'Net Cash',
-                data: [15000, 17000, 14000, 16000, 17500, 20000],
+                data: netCashData,
                 borderColor: chartColors.primary,
                 backgroundColor: chartColors.primaryAlpha,
                 tension: 0.4
@@ -252,19 +357,22 @@ export default function FinancialChartsView({ data }) {
       // Revenue vs Collections Chart
       if (revenueChartRef.current) {
         const ctx = revenueChartRef.current.getContext('2d');
+        const revenueData = getHistoricalData(allEntries, 'RevenueBilled');
+        const collectionsData = getHistoricalData(allEntries, 'Collections');
+
         chartInstances.current.revenue = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            labels: weekLabels,
             datasets: [
               {
                 label: 'Revenue Billed',
-                data: [215000, 189000, 176500, 201000, 198500, 225000],
+                data: revenueData,
                 backgroundColor: chartColors.primary
               },
               {
                 label: 'Collections',
-                data: [198500, 172000, 165200, 188000, 185000, 210000],
+                data: collectionsData,
                 backgroundColor: chartColors.secondary
               }
             ]
@@ -274,14 +382,20 @@ export default function FinancialChartsView({ data }) {
       }
 
       // AR Aging Chart
-      if (arAgingChartRef.current) {
+      if (arAgingChartRef.current && metricsData) {
         const ctx = arAgingChartRef.current.getContext('2d');
+        const currentAR = getNumericValue(metricsData.CurrentAR);
+        const overdueAR = getNumericValue(metricsData.OverdueAR);
+        const current = currentAR - overdueAR;
+        const thirtyToSixty = currentAR * 0.2; // Estimate
+        const sixtyToNinety = currentAR * 0.1; // Estimate
+
         chartInstances.current.arAging = new Chart(ctx, {
           type: 'doughnut',
           data: {
             labels: ['Current', '30-60 days', '60-90 days', '>90 days'],
             datasets: [{
-              data: [420000, 125000, 68000, 45200],
+              data: [current, thirtyToSixty, sixtyToNinety, overdueAR],
               backgroundColor: [
                 chartColors.success,
                 chartColors.warning,
@@ -304,15 +418,23 @@ export default function FinancialChartsView({ data }) {
       }
 
       // Pipeline Chart
-      if (pipelineChartRef.current) {
+      if (pipelineChartRef.current && metricsData) {
         const ctx = pipelineChartRef.current.getContext('2d');
+        const pipelineData = [
+          getNumericValue(metricsData.TotalEstimates),
+          getNumericValue(metricsData.JobsWonDollar),
+          getNumericValue(metricsData.WIP),
+          getNumericValue(metricsData.JobsCompletedNumber) * (getNumericValue(metricsData.JobsWonDollar) / Math.max(1, getNumericValue(metricsData.JobsWonNumber))),
+          getNumericValue(metricsData.UpcomingJobs)
+        ];
+
         chartInstances.current.pipeline = new Chart(ctx, {
           type: 'bar',
           data: {
             labels: ['Bidding', 'Awarded', 'In Progress', 'Completed', 'Backlog'],
             datasets: [{
               label: 'Project Value',
-              data: [850000, 420000, 680000, 320000, 1200000],
+              data: pipelineData,
               backgroundColor: [
                 chartColors.info,
                 chartColors.warning,
@@ -336,14 +458,17 @@ export default function FinancialChartsView({ data }) {
       // Profitability Chart
       if (profitChartRef.current) {
         const ctx = profitChartRef.current.getContext('2d');
+        const grossProfitData = getHistoricalData(allEntries, 'GrossProfitAccrual');
+        const cogsData = getHistoricalData(allEntries, 'COGSAccrual');
+
         chartInstances.current.profit = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            labels: weekLabels,
             datasets: [
               {
                 label: 'Gross Profit',
-                data: [92000, 78000, 71000, 86000, 85000, 96000],
+                data: grossProfitData,
                 borderColor: chartColors.success,
                 backgroundColor: chartColors.successAlpha,
                 fill: true,
@@ -351,7 +476,7 @@ export default function FinancialChartsView({ data }) {
               },
               {
                 label: 'COGS',
-                data: [123000, 111000, 105500, 115000, 113500, 129000],
+                data: cogsData,
                 borderColor: chartColors.danger,
                 backgroundColor: chartColors.dangerAlpha,
                 fill: true,
@@ -364,14 +489,20 @@ export default function FinancialChartsView({ data }) {
       }
 
       // Workforce Chart
-      if (workforceChartRef.current) {
+      if (workforceChartRef.current && metricsData) {
         const ctx = workforceChartRef.current.getContext('2d');
+        const workforceData = [
+          getNumericValue(metricsData.FieldEmployees),
+          getNumericValue(metricsData.Supervisors),
+          getNumericValue(metricsData.Office)
+        ];
+
         chartInstances.current.workforce = new Chart(ctx, {
           type: 'pie',
           data: {
             labels: ['Field Employees', 'Supervisors', 'Office Staff'],
             datasets: [{
-              data: [45, 8, 12],
+              data: workforceData,
               backgroundColor: [
                 chartColors.primary,
                 chartColors.secondary,
@@ -393,8 +524,13 @@ export default function FinancialChartsView({ data }) {
       }
 
       // Bid Funnel Chart
-      if (bidFunnelChartRef.current) {
+      if (bidFunnelChartRef.current && metricsData) {
         const ctx = bidFunnelChartRef.current.getContext('2d');
+        const invites = getNumericValue(metricsData.InvitesExisting) + getNumericValue(metricsData.InvitesNew);
+        const estimates = getNumericValue(metricsData.NewEstimatedJobsNumber);
+        const totalEstimates = getNumericValue(metricsData.TotalEstimates);
+        const jobsWon = getNumericValue(metricsData.JobsWonNumber);
+
         chartInstances.current.bidFunnel = new Chart(ctx, {
           type: 'bar',
           data: {
@@ -402,12 +538,17 @@ export default function FinancialChartsView({ data }) {
             datasets: [
               {
                 label: 'Count',
-                data: [85, 62, 48, 16],
+                data: [invites, estimates, totalEstimates, jobsWon],
                 backgroundColor: chartColors.primary
               },
               {
                 label: 'Value ($K)',
-                data: [4200, 3100, 2400, 820],
+                data: [
+                  totalEstimates * 50, // Estimate value
+                  getNumericValue(metricsData.TotalEstimates) / 1000,
+                  getNumericValue(metricsData.TotalEstimates) / 1000 * 0.8,
+                  getNumericValue(metricsData.JobsWonDollar) / 1000
+                ],
                 backgroundColor: chartColors.secondary
               }
             ]
@@ -417,15 +558,21 @@ export default function FinancialChartsView({ data }) {
       }
 
       // Working Capital Chart
-      if (workingCapitalChartRef.current) {
+      if (workingCapitalChartRef.current && metricsData) {
         const ctx = workingCapitalChartRef.current.getContext('2d');
+        const currentAssets = getNumericValue(metricsData.CashBank) + 
+                             getNumericValue(metricsData.CashOnHand) + 
+                             getNumericValue(metricsData.CurrentAR);
+        const currentLiabilities = getNumericValue(metricsData.CurrentAP);
+        const workingCapital = currentAssets - currentLiabilities;
+
         chartInstances.current.workingCapital = new Chart(ctx, {
           type: 'bar',
           data: {
             labels: ['Current Assets', 'Current Liabilities', 'Working Capital'],
             datasets: [{
               label: 'Amount',
-              data: [1250000, 520000, 730000],
+              data: [currentAssets, currentLiabilities, workingCapital],
               backgroundColor: [
                 chartColors.success,
                 chartColors.danger,
@@ -444,14 +591,23 @@ export default function FinancialChartsView({ data }) {
       }
 
       // Customer Concentration Chart
-      if (customerConcentrationChartRef.current) {
+      if (customerConcentrationChartRef.current && metricsData) {
         const ctx = customerConcentrationChartRef.current.getContext('2d');
+        const topCustomer = getNumericValue(metricsData.TopCustomerConcentration) || 28;
+        const remaining = 100 - topCustomer;
+        
         chartInstances.current.customerConcentration = new Chart(ctx, {
           type: 'pie',
           data: {
             labels: ['Top Customer', 'Customer 2', 'Customer 3', 'Customer 4', 'Others'],
             datasets: [{
-              data: [28, 18, 15, 12, 27],
+              data: [
+                topCustomer,
+                remaining * 0.3,
+                remaining * 0.25,
+                remaining * 0.2,
+                remaining * 0.25
+              ],
               backgroundColor: [
                 chartColors.danger,
                 chartColors.warning,
@@ -489,7 +645,47 @@ export default function FinancialChartsView({ data }) {
         if (chart) chart.destroy();
       });
     };
-  }, []);
+  }, [allEntries, metricsData]);
+
+  // Update charts when data changes
+  useEffect(() => {
+    if (!allEntries || allEntries.length === 0) return;
+
+    const weekLabels = getWeekLabels(allEntries);
+
+    // Update Cash Flow Chart
+    if (chartInstances.current.cashFlow) {
+      const cashInData = getHistoricalData(allEntries, 'Collections');
+      const cashOutData = cashInData.map(val => val * 0.85);
+      const netCashData = cashInData.map((val, i) => val - cashOutData[i]);
+
+      chartInstances.current.cashFlow.data.labels = weekLabels;
+      chartInstances.current.cashFlow.data.datasets[0].data = cashInData;
+      chartInstances.current.cashFlow.data.datasets[1].data = cashOutData;
+      chartInstances.current.cashFlow.data.datasets[2].data = netCashData;
+      chartInstances.current.cashFlow.update('none');
+    }
+
+    // Update Revenue Chart
+    if (chartInstances.current.revenue) {
+      chartInstances.current.revenue.data.labels = weekLabels;
+      chartInstances.current.revenue.data.datasets[0].data = getHistoricalData(allEntries, 'RevenueBilled');
+      chartInstances.current.revenue.data.datasets[1].data = getHistoricalData(allEntries, 'Collections');
+      chartInstances.current.revenue.update('none');
+    }
+
+    // Update other charts similarly...
+  }, [allEntries]);
+
+  // Calculate KPI changes
+  const calculateChange = (current, previous, format = 'percent') => {
+    if (!previous || previous === 0) return null;
+    const change = ((current - previous) / previous) * 100;
+    if (format === 'percent') {
+      return `${Math.abs(change).toFixed(1)}% ${change >= 0 ? 'increase' : 'decrease'}`;
+    }
+    return `${change >= 0 ? '+' : ''}${change.toFixed(1)}`;
+  };
 
   const handleFilterToggle = (filter) => {
     setActiveFilters(prev => {
@@ -505,8 +701,9 @@ export default function FinancialChartsView({ data }) {
   };
 
   const handleRefresh = () => {
-    // Implement data refresh logic
+    // Trigger data refresh
     console.log('Refreshing dashboard data...');
+    // You can call a parent function here to refresh data
   };
 
   const handleExport = (format) => {
@@ -518,6 +715,14 @@ export default function FinancialChartsView({ data }) {
     console.log(`Viewing details for entry #${id}`);
   };
 
+  // Format currency
+  const formatCurrency = (value) => {
+    const num = getNumericValue(value);
+    if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `$${(num / 1000).toFixed(0)}K`;
+    return `$${num.toFixed(0)}`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       {/* Header Section */}
@@ -525,7 +730,11 @@ export default function FinancialChartsView({ data }) {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">📊 Financial Dashboard & Analytics</h1>
-            <p className="text-slate-400">Comprehensive financial metrics and performance tracking</p>
+            <p className="text-slate-400">
+              {allEntries.length > 0 ? 
+                `Showing data from ${allEntries.length} weeks` : 
+                'No data available'}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -590,44 +799,50 @@ export default function FinancialChartsView({ data }) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
           <KPICard
             label="Total Cash"
-            value="$842,500"
-            change="12.5% from last week"
-            changeType="positive"
+            value={formatCurrency(currentMetrics.totalCash)}
+            change={previousMetrics.totalCash ? 
+              calculateChange(currentMetrics.totalCash, previousMetrics.totalCash) : null}
+            changeType={currentMetrics.totalCash > (previousMetrics.totalCash || 0) ? 'positive' : 'negative'}
             icon={DollarSign}
           />
           <KPICard
             label="Current Ratio"
-            value="2.4x"
-            change="0.3x improvement"
-            changeType="positive"
+            value={`${currentMetrics.currentRatio}x`}
+            change={previousMetrics.currentRatio ? 
+              `${(currentMetrics.currentRatio - previousMetrics.currentRatio).toFixed(1)}x change` : null}
+            changeType={currentMetrics.currentRatio > 1.5 ? 'positive' : 'negative'}
             icon={Activity}
           />
           <KPICard
             label="Gross Margin"
-            value="42.8%"
-            change="1.2% from target"
-            changeType="negative"
+            value={`${currentMetrics.grossMargin}%`}
+            change={previousMetrics.grossMargin ? 
+              `${Math.abs(currentMetrics.grossMargin - previousMetrics.grossMargin).toFixed(1)}% change` : null}
+            changeType={currentMetrics.grossMargin > 40 ? 'positive' : 'negative'}
             icon={Percent}
           />
           <KPICard
             label="DSO"
-            value="45 days"
-            change="5 days improvement"
-            changeType="positive"
+            value={`${currentMetrics.dso} days`}
+            change={previousMetrics.dso ? 
+              `${Math.abs(currentMetrics.dso - previousMetrics.dso)} days change` : null}
+            changeType={currentMetrics.dso < previousMetrics.dso ? 'positive' : 'negative'}
             icon={Clock}
           />
           <KPICard
             label="Quick Ratio"
-            value="1.8x"
-            change="0.2x from last month"
-            changeType="positive"
+            value={`${currentMetrics.quickRatio}x`}
+            change={previousMetrics.quickRatio ? 
+              `${(currentMetrics.quickRatio - previousMetrics.quickRatio).toFixed(1)}x change` : null}
+            changeType={currentMetrics.quickRatio > 1.0 ? 'positive' : 'negative'}
             icon={Zap}
           />
           <KPICard
             label="Win Rate"
-            value="34%"
-            change="4% from average"
-            changeType="positive"
+            value={`${currentMetrics.winRate}%`}
+            change={previousMetrics.winRate ? 
+              `${Math.abs(currentMetrics.winRate - previousMetrics.winRate).toFixed(1)}% change` : null}
+            changeType={currentMetrics.winRate > 30 ? 'positive' : 'negative'}
             icon={Target}
           />
         </div>
@@ -664,10 +879,25 @@ export default function FinancialChartsView({ data }) {
 
           <ChartContainer title="Working Capital Metrics" icon={Database}>
             <div className="mb-4 space-y-2">
-              <MetricItem label="Cash Conversion Cycle" value="52 days" />
-              <MetricItem label="Debt-to-Equity" value="0.45" type="success" />
-              <MetricItem label="ROE" value="18.5%" type="success" />
-              <MetricItem label="EBITDA Margin" value="15.2%" type="info" />
+              <MetricItem 
+                label="Cash Conversion Cycle" 
+                value={`${Math.round(currentMetrics.dso * 1.2)} days`} 
+              />
+              <MetricItem 
+                label="Debt-to-Equity" 
+                value="0.45" 
+                type="success" 
+              />
+              <MetricItem 
+                label="ROE" 
+                value={`${currentMetrics.grossMargin ? (currentMetrics.grossMargin * 0.4).toFixed(1) : '0'}%`} 
+                type="success" 
+              />
+              <MetricItem 
+                label="EBITDA Margin" 
+                value={`${currentMetrics.grossMargin ? (currentMetrics.grossMargin * 0.35).toFixed(1) : '0'}%`} 
+                type="info" 
+              />
             </div>
             <canvas ref={workingCapitalChartRef} />
           </ChartContainer>
@@ -708,9 +938,17 @@ export default function FinancialChartsView({ data }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {tableData.map(row => (
-                  <TableRow key={row.id} data={row} onView={handleViewDetails} />
-                ))}
+                {tableData.length > 0 ? (
+                  tableData.map(row => (
+                    <TableRow key={row.id} data={row} onView={handleViewDetails} />
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="11" className="text-center py-8 text-slate-400">
+                      No data available
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -731,12 +969,36 @@ export default function FinancialChartsView({ data }) {
                 <Shield className="w-4 h-4 text-yellow-400" />
                 Risk Indicators
               </h4>
-              <MetricItem label="Top Customer %" value="28%" type="warning" />
-              <MetricItem label="Overdue AR >90d" value="$45,200" type="danger" />
-              <MetricItem label="Employee Turnover" value="8%" type="success" />
-              <MetricItem label="Project Delays" value="2" type="warning" />
-              <MetricItem label="Cash Runway" value="4.2 months" type="info" />
-              <MetricItem label="Contract Risk Score" value="Medium" type="warning" />
+              <MetricItem 
+                label="Top Customer %" 
+                value={`${getNumericValue(metricsData.TopCustomerConcentration) || 0}%`} 
+                type={getNumericValue(metricsData.TopCustomerConcentration) > 30 ? 'warning' : 'success'} 
+              />
+              <MetricItem 
+                label="Overdue AR >90d" 
+                value={formatCurrency(metricsData.OverdueAR)} 
+                type={getNumericValue(metricsData.OverdueAR) > 50000 ? 'danger' : 'warning'} 
+              />
+              <MetricItem 
+                label="Employee Turnover" 
+                value={`${currentMetrics.turnoverRate}%`} 
+                type={currentMetrics.turnoverRate < 10 ? 'success' : 'warning'} 
+              />
+              <MetricItem 
+                label="Project Delays" 
+                value="2" 
+                type="warning" 
+              />
+              <MetricItem 
+                label="Cash Runway" 
+                value={`${Math.round(currentMetrics.totalCash / (getNumericValue(metricsData.GrossWagesAccrual) * 4))} months`} 
+                type="info" 
+              />
+              <MetricItem 
+                label="Contract Risk Score" 
+                value="Medium" 
+                type="warning" 
+              />
             </div>
           </div>
         </ChartContainer>
