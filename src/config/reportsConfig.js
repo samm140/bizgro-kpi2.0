@@ -24,7 +24,7 @@ export const reportsConfig = {
           title: 'Revenue Analysis Dashboard',
           description: 'Comprehensive revenue trends, YoY comparisons, and forecasting',
           embedId: 'TC3kWIS7rgHDjSs',
-          shareUrl: 'https://reports.bizgropartners.com/shared/~TC3kWIS7rgHDjSs',
+          shareUrl: 'https://reports.bizgropartners.com/embed/~TC3kWIS7rgHDjSs?theme=dark', // Updated to embed URL with theme
           height: 1000,
           tags: ['Revenue', 'Trends', 'YTD'],
           refreshInterval: 300000, // 5 minutes
@@ -35,7 +35,7 @@ export const reportsConfig = {
           title: 'Cash Flow Management',
           description: 'Real-time cash position, collections, and liquidity metrics',
           embedId: '6Z0ZGAd~J8lKkXYz', // Correct embed ID from your URL
-          shareUrl: 'https://reports.bizgropartners.com/shared/6Z0ZGAd~J8lKkXYz', // Try embed URL instead of shared
+          shareUrl: 'https://reports.bizgropartners.com/embed/6Z0ZGAd~J8lKkXYz', // Try embed URL instead of shared
           embedUrl: 'https://reports.bizgropartners.com/embed/6Z0ZGAd~J8lKkXYz', // Alternative embed URL
           height: 800,
           tags: ['Cash', 'Collections', 'Liquidity'],
