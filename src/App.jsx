@@ -16,6 +16,7 @@ import MetricsCatalog from './components/MetricsCatalog';
 import QBOSync from './components/shared/QBOSync'; // NEW: QBO Sync Widget
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
+import environment from './services/environment'; // Environment service for GitHub Pages compatibility
 
 // Enhanced Mock API with all required fields
 const mockApi = {
@@ -320,12 +321,18 @@ function App() {
   const [useGoogleSheets, setUseGoogleSheets] = useState(false);
   const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
   const [showSyncWidget, setShowSyncWidget] = useState(true); // NEW: State for QBO sync widget
+  const [backendAvailable, setBackendAvailable] = useState(false); // Backend availability for GitHub Pages
 
   // Get updateWeeklyData from context if available
   const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
 
-  // NEW: QBO sync handler
+  // QBO sync handler with backend check
   const handleQBOSync = async () => {
+    if (!backendAvailable) {
+      console.log('Backend not available - QBO sync disabled');
+      return;
+    }
+    
     try {
       // Call your QBO sync API here
       console.log('Syncing with QuickBooks Online...');
@@ -371,6 +378,20 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // Check backend availability for GitHub Pages deployment
+  useEffect(() => {
+    const checkBackend = async () => {
+      const isAvailable = await environment.checkBackendConnection();
+      setBackendAvailable(isAvailable);
+      
+      // Log environment information for debugging
+      if (!isAvailable && environment.isGitHubPages()) {
+        console.log('Running on GitHub Pages - Backend features disabled');
+      }
+    };
+    checkBackend();
+  }, []);
+
   // Polling for updates every 30 seconds when on dashboard
   useEffect(() => {
     if (isAuthenticated && currentView === 'dashboard') {
@@ -392,14 +413,18 @@ function App() {
           case 'i': setCurrentView('insights'); break;
           case 'm': setCurrentView('metrics'); break;
           case 'h': setCurrentView('historical'); break;
-          case 'q': setShowSyncWidget(!showSyncWidget); break; // NEW: Alt+Q toggles QBO widget
+          case 'q': 
+            if (backendAvailable) {
+              setShowSyncWidget(!showSyncWidget); 
+            }
+            break;
         }
       }
     };
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showSyncWidget]);
+  }, [showSyncWidget, backendAvailable]);
 
   // Navigation bridge: react to #hash and custom events
   useEffect(() => {
@@ -607,8 +632,8 @@ function App() {
         ) : null}
       </main>
 
-      {/* NEW: QBO Sync Widget */}
-      {showSyncWidget && (
+      {/* QBO Sync Widget - Only show if backend is available */}
+      {showSyncWidget && backendAvailable && (
         <QBOSync 
           position="fixed"
           showDetails={true}
@@ -618,24 +643,35 @@ function App() {
         />
       )}
       
-      {/* NEW: Toggle button for QBO sync widget */}
-      <button
-        onClick={() => setShowSyncWidget(!showSyncWidget)}
-        className="fixed bottom-6 left-6 z-50 p-3 bg-slate-800 hover:bg-slate-700 rounded-full shadow-lg transition-all"
-        title={showSyncWidget ? 'Hide QBO Sync Widget (Alt+Q)' : 'Show QBO Sync Widget (Alt+Q)'}
-      >
-        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          {showSyncWidget ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-          )}
-        </svg>
-      </button>
+      {/* Toggle button for QBO sync widget - Only show if backend is available */}
+      {backendAvailable && (
+        <button
+          onClick={() => setShowSyncWidget(!showSyncWidget)}
+          className="fixed bottom-6 left-6 z-50 p-3 bg-slate-800 hover:bg-slate-700 rounded-full shadow-lg transition-all"
+          title={showSyncWidget ? 'Hide QBO Sync Widget (Alt+Q)' : 'Show QBO Sync Widget (Alt+Q)'}
+        >
+          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {showSyncWidget ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+            )}
+          </svg>
+        </button>
+      )}
+      
+      {/* GitHub Pages notification */}
+      {environment.isGitHubPages() && !backendAvailable && (
+        <div className="fixed bottom-6 left-6 z-40 bg-yellow-900/90 text-yellow-200 px-4 py-2 rounded-lg shadow-lg text-sm">
+          <i className="fas fa-info-circle mr-2"></i>
+          Demo Mode - Backend features disabled
+        </div>
+      )}
       
       {/* Footer with keyboard shortcuts hint */}
       <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
-        Keyboard shortcuts: Alt+D (Dashboard), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical), Alt+Q (QBO Widget)
+        Keyboard shortcuts: Alt+D (Dashboard), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
+        {backendAvailable && ', Alt+Q (QBO Widget)'}
       </footer>
     </div>
   );
