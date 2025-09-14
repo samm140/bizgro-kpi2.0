@@ -18,6 +18,8 @@ import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
 
+console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
+
 // Enhanced Mock API with all required fields
 const mockApi = {
   initData: () => {
