@@ -486,7 +486,7 @@ export default function DynamicMetrics() {
           <div className="sticky top-0 bg-slate-900/95 backdrop-blur z-10 pb-4">
             <h2 className="text-xl font-bold text-white mb-2">Dashboard Preview</h2>
             <p className="text-gray-400 text-xs mb-3">
-              {actualSelectedForDashboard?.length || 0} metrics selected
+              {selectedForDashboard?.length || 0} metrics selected
             </p>
           </div>
 
@@ -540,19 +540,19 @@ export default function DynamicMetrics() {
                 let value = 0;
                 switch(metricId) {
                   case 'LIQ001': // Current Ratio
-                    value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB + data.CurrentAR) / data.CurrentAP : 0;
+                    value = data.CurrentAP > 0 ? (data.CashBank + data.CashOnHand + data.CurrentAR) / data.CurrentAP : 0;
                     break;
                   case 'LIQ002': // Quick Ratio
-                    value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB + (data.CurrentAR - data.Retention)) / data.CurrentAP : 0;
+                    value = data.CurrentAP > 0 ? (data.CashBank + data.CashOnHand + (data.CurrentAR - data.RetentionReceivables)) / data.CurrentAP : 0;
                     break;
                   case 'PROF001': // Gross Profit Margin
-                    value = data.Revenue > 0 ? (data.GrossProfit / data.Revenue) : 0;
+                    value = data.RevenueBilledToDate > 0 ? (data.GrossProfitAccrual / data.RevenueBilledToDate) : 0;
                     break;
                   case 'SALES001': // Win Rate
-                    value = data.TotalBids > 0 ? (data.JobsWon / data.TotalBids) : 0;
+                    value = data.TotalEstimates > 0 ? (data.JobsWonNumber / data.TotalEstimates) : 0;
                     break;
                   case 'WORK001': // Total Headcount
-                    value = data.TotalEmployees || 0;
+                    value = data.FieldEmployees + data.Supervisors + data.Office;
                     break;
                   default:
                     value = computeMetric(metric.formula, data);
@@ -606,10 +606,10 @@ export default function DynamicMetrics() {
               Updated {lastUpdated.toLocaleTimeString()}
             </span>
           )}
-          {weeklyData && weeklyData.allEntries && (
+          {data && (
             <span className="text-xs text-green-400">
               <i className="fas fa-check-circle mr-1"></i>
-              Reading from Weekly Entries
+              Data loaded
             </span>
           )}
         </div>
@@ -633,55 +633,61 @@ export default function DynamicMetrics() {
           // Simple calculations based on common metrics
           switch(metricId) {
             case 'LIQ001': // Current Ratio
-              value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB + data.CurrentAR) / data.CurrentAP : 0;
+              value = data.CurrentAP > 0 ? (data.CashBank + data.CashOnHand + data.CurrentAR) / data.CurrentAP : 0;
               break;
             case 'LIQ002': // Quick Ratio
-              value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB + (data.CurrentAR - data.Retention)) / data.CurrentAP : 0;
+              value = data.CurrentAP > 0 ? (data.CashBank + data.CashOnHand + (data.CurrentAR - data.RetentionReceivables)) / data.CurrentAP : 0;
               break;
             case 'LIQ003': // Cash Ratio
-              value = data.CurrentAP > 0 ? (data.CashBank + data.CashQB) / data.CurrentAP : 0;
+              value = data.CurrentAP > 0 ? (data.CashBank + data.CashOnHand) / data.CurrentAP : 0;
               break;
             case 'LIQ004': // Net Working Capital
-              value = (data.CashBank + data.CashQB + data.CurrentAR) - data.CurrentAP;
+              value = (data.CashBank + data.CashOnHand + data.CurrentAR) - data.CurrentAP;
               break;
             case 'AR001': // DSO
-              value = data.Revenue > 0 ? (data.CurrentAR / data.Revenue) * 7 : 0; // Weekly period
+              value = data.RevenueBilledToDate > 0 ? (data.CurrentAR / data.RevenueBilledToDate) * 7 : 0; // Weekly period
               break;
             case 'AR002': // Collection Efficiency
-              value = data.Revenue > 0 ? data.Collections / data.Revenue : 0;
+              value = data.RevenueBilledToDate > 0 ? data.Collections / data.RevenueBilledToDate : 0;
               break;
             case 'AR005': // Overdue AR %
               value = data.CurrentAR > 0 ? data.OverdueAR / data.CurrentAR : 0;
               break;
             case 'AP001': // DPO
-              value = data.COGS > 0 ? (data.CurrentAP / data.COGS) * 7 : 0;
+              value = data.CogsAccrual > 0 ? (data.CurrentAP / data.CogsAccrual) * 7 : 0;
               break;
             case 'PROF001': // Gross Profit Margin
-              value = data.Revenue > 0 ? (data.GrossProfit / data.Revenue) : 0;
+              value = data.RevenueBilledToDate > 0 ? (data.GrossProfitAccrual / data.RevenueBilledToDate) : 0;
               break;
             case 'SALES001': // Win Rate
-              value = data.TotalBids > 0 ? (data.JobsWon / data.TotalBids) : 0;
+              value = data.TotalEstimates > 0 ? (data.JobsWonNumber / data.TotalEstimates) : 0;
               break;
             case 'SALES002': // Average Deal Size
-              value = data.JobsWon > 0 ? data.JobsWonDollar / data.JobsWon : 0;
+              value = data.JobsWonNumber > 0 ? data.JobsWonDollar / data.JobsWonNumber : 0;
               break;
             case 'PROJ001': // Active Projects (using WIP as proxy)
-              value = data.WIPDollar > 0 ? Math.round(data.WIPDollar / 1000000) : 0; // Rough estimate
+              value = data.WipDollar > 0 ? Math.round(data.WipDollar / 1000000) : 0; // Rough estimate
               break;
             case 'WORK001': // Total Headcount
-              value = data.TotalEmployees || 0;
+              value = data.FieldEmployees + data.Supervisors + data.Office;
               break;
             case 'WORK002': // Revenue per Employee
-              value = data.TotalEmployees > 0 ? data.Revenue / data.TotalEmployees : 0;
+              value = (data.FieldEmployees + data.Supervisors + data.Office) > 0 
+                ? data.RevenueBilledToDate / (data.FieldEmployees + data.Supervisors + data.Office) 
+                : 0;
               break;
             case 'WORK005': // Turnover Rate
-              value = data.TotalEmployees > 0 ? (data.Terminations / data.TotalEmployees) : 0;
+              value = (data.FieldEmployees + data.Supervisors + data.Office) > 0 
+                ? (data.EmployeesFired / (data.FieldEmployees + data.Supervisors + data.Office)) 
+                : 0;
               break;
             case 'COMP001': // YoY Revenue Growth
-              value = data.PriorYearRevenue > 0 ? (data.RevenueYTD - data.PriorYearRevenue) / data.PriorYearRevenue : 0;
+              value = data.PriorYearRevenue > 0 
+                ? (data.RevenueBilledToDate - data.PriorYearRevenue) / data.PriorYearRevenue 
+                : 0;
               break;
             case 'REV002': // Change Order %
-              value = data.Revenue > 0 ? data.ChangeOrders / data.Revenue : 0;
+              value = 0; // ChangeOrders not in data model, default to 0
               break;
             default:
               // Try to use the generic computeMetric function
