@@ -192,6 +192,11 @@ const mockApi = {
         data.weeks.push(`W${lastWeek + 1}`);
         data.weeks.shift();
         
+        // Update cash position if provided
+        if (formData.cashInBank) {
+          data.cashPosition = parseFloat(formData.cashInBank) + parseFloat(formData.cashOnHand || 0);
+        }
+        
         localStorage.setItem('bizgro_kpi_data', JSON.stringify(data));
         resolve({ success: true });
       }, 500);
@@ -462,26 +467,46 @@ function App() {
     return <LoginForm onSuccess={() => window.location.reload()} />;
   }
 
+  // Updated handleWeeklySubmit with enhanced error handling and demo mode support
   const handleWeeklySubmit = async (formData) => {
     setLoading(true);
     try {
-      // Submit to local storage
-      await mockApi.submitWeeklyData(formData);
-      
-      // If Google Sheets is enabled, submit there too
-      if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
-        await googleSheetsService.submitWeeklyData(
-          formData,
-          import.meta.env.VITE_GOOGLE_SHEETS_ID
-        );
+      // Check if we're using mock API or real backend
+      if (environment.isGitHubPages() || !backendAvailable) {
+        // Submit to mock API (localStorage)
+        const result = await mockApi.submitWeeklyData(formData);
+        if (result.success) {
+          // Show success message for demo mode
+          const message = environment.isGitHubPages() 
+            ? 'Weekly data saved successfully! (Demo Mode - Data stored locally)'
+            : 'Weekly data saved successfully!';
+          alert(message);
+          
+          // Refresh dashboard data
+          await fetchLatestData();
+          
+          // Switch to dashboard view
+          setCurrentView('dashboard');
+        }
+      } else {
+        // If backend is available, submit to real backend
+        await mockApi.submitWeeklyData(formData); // Replace with real backend call when available
+        
+        // If Google Sheets is enabled, submit there too
+        if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
+          await googleSheetsService.submitWeeklyData(
+            formData,
+            import.meta.env.VITE_GOOGLE_SHEETS_ID
+          );
+        }
+        
+        // Refresh data and switch to dashboard
+        await fetchLatestData();
+        setCurrentView('dashboard');
       }
-      
-      // Refresh data and switch to dashboard
-      await fetchLatestData();
-      setCurrentView('dashboard');
     } catch (error) {
-      console.error('Error submitting data:', error);
-      alert('Error submitting data. Please try again.');
+      console.error('Error saving weekly data:', error);
+      alert('Error saving data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -663,7 +688,7 @@ function App() {
       )}
       
       {/* GitHub Pages notification */}
-      {environment.isGitHubPages() && !backendAvailable && (
+      {environment.isGitHubPages() && (
         <div className="fixed bottom-6 left-6 z-40 bg-yellow-900/90 text-yellow-200 px-4 py-2 rounded-lg shadow-lg text-sm">
           <i className="fas fa-info-circle mr-2"></i>
           Demo Mode - Backend features disabled
