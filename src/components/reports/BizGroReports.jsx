@@ -26,8 +26,8 @@ const BizGroReports = () => {
           id: 'cash-flow',
           title: 'Cash Flow Management',
           description: 'Real-time cash position, collections, and liquidity metrics',
-          embedId: 'YOUR_CASHFLOW_ID',
-          height: 800,
+          embedId: '6Z0ZGAd~J8lKkXYz',  // FIXED: Using actual embed ID
+          height: 1000,  // Updated height to match Revenue Analysis
           tags: ['Cash', 'Collections', 'Liquidity']
         },
         {
@@ -167,8 +167,19 @@ const BizGroReports = () => {
 
   // Render embedded dashboard
   const renderEmbedded = (report) => {
-    const embedUrl = `https://reports.bizgropartners.com/embed/~${report.embedId}?theme=dark`;
-    const dashboardId = `dashboard-${report.embedId}`;
+    // Use the correct URL format based on whether the embedId contains a tilde
+    const embedUrl = report.embedId.includes('~') 
+      ? `https://reports.bizgropartners.com/embed/${report.embedId}?theme=dark`
+      : `https://reports.bizgropartners.com/embed/~${report.embedId}?theme=dark`;
+    
+    const dashboardId = `dashboard-${report.embedId.replace(/[~]/g, '')}`;
+    
+    // Log for debugging
+    console.log(`Loading report: ${report.title}`, {
+      embedId: report.embedId,
+      embedUrl: embedUrl,
+      dashboardId: dashboardId
+    });
     
     return (
       <div 
@@ -180,7 +191,7 @@ const BizGroReports = () => {
         <iframe 
           src={embedUrl}
           className="rr-embed absolute top-0 left-0 w-full h-full border-0"
-          data-rr-id={report.embedId}
+          data-rr-id={report.embedId.replace(/[~]/g, '')}
           title={report.title}
           loading="lazy"
         />
@@ -304,7 +315,7 @@ const BizGroReports = () => {
                   <i className={`fas fa-${isFullscreen ? 'compress' : 'expand'} text-gray-300`}></i>
                 </button>
                 <a
-                  href={`https://reports.bizgropartners.com/shared/~${selectedReport.embedId}`}
+                  href={`https://reports.bizgropartners.com/shared/${selectedReport.embedId.includes('~') ? selectedReport.embedId : '~' + selectedReport.embedId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
