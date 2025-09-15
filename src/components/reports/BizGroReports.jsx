@@ -26,16 +26,16 @@ const BizGroReports = () => {
           id: 'cash-flow',
           title: 'Cash Flow Management',
           description: 'Real-time cash position, collections, and liquidity metrics',
-          embedId: '6Z0ZGAd~J8lKkXYz',  // FIXED: Using actual embed ID
-          height: 1000,  // Updated height to match Revenue Analysis
+          embedId: '6Z0ZGAd~J8lKkXYz',
+          height: 1000,
           tags: ['Cash', 'Collections', 'Liquidity']
         },
         {
           id: 'profitability',
           title: 'Profitability Metrics',
           description: 'Gross margin analysis, EBITDA tracking, and cost management',
-          embedId: 'Q1YnMeQLvvEhL_Xs',  // FIXED: Using actual embed ID
-          height: 1000,  // Updated height from embed code
+          embedId: 'Q1YnMeQLvvEhL_Xs',
+          height: 1000,
           tags: ['Margins', 'EBITDA', 'Costs']
         }
       ]
@@ -167,10 +167,18 @@ const BizGroReports = () => {
 
   // Render embedded dashboard
   const renderEmbedded = (report) => {
-    // Use the correct URL format based on whether the embedId contains a tilde
-    const embedUrl = report.embedId.includes('~') 
-      ? `https://reports.bizgropartners.com/embed/${report.embedId}?theme=dark`
-      : `https://reports.bizgropartners.com/embed/~${report.embedId}?theme=dark`;
+    // Build the correct URL - handle different embed ID formats
+    let embedUrl;
+    if (report.embedId.includes('~')) {
+      // Already has tilde, use as-is (e.g., Cash Flow)
+      embedUrl = `https://reports.bizgropartners.com/embed/${report.embedId}?theme=dark`;
+    } else if (report.embedId === 'TC3kWIS7rgHDjSs') {
+      // Revenue Analysis needs a tilde prefix
+      embedUrl = `https://reports.bizgropartners.com/embed/~${report.embedId}?theme=dark`;
+    } else {
+      // Profitability and others don't need a tilde
+      embedUrl = `https://reports.bizgropartners.com/embed/${report.embedId}?theme=dark`;
+    }
     
     const dashboardId = `dashboard-${report.embedId.replace(/[~]/g, '')}`;
     
