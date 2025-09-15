@@ -52,8 +52,8 @@ export const reportsConfig = {
           id: 'profitability',
           title: 'Profitability Metrics',
           description: 'Gross margin analysis, EBITDA tracking, and cost management',
-          embedId: 'YOUR_PROFIT_ID', // Replace with actual ID
-          shareUrl: 'https://reports.bizgropartners.com/shared/YOUR_PROFIT_ID',
+          embedId: 'Q1YnMeQLvvEhL_Xs', // Replace with actual ID
+          shareUrl: 'https://reports.bizgropartners.com/embed/Q1YnMeQLvvEhL_Xs',
           height: 900,
           tags: ['Margins', 'EBITDA', 'Costs'],
           refreshInterval: 600000, // 10 minutes
