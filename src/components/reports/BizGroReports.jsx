@@ -34,8 +34,8 @@ const BizGroReports = () => {
           id: 'profitability',
           title: 'Profitability Metrics',
           description: 'Gross margin analysis, EBITDA tracking, and cost management',
-          embedId: 'YOUR_PROFIT_ID',
-          height: 900,
+          embedId: 'Q1YnMeQLvvEhL_Xs',
+          height: 1000,
           tags: ['Margins', 'EBITDA', 'Costs']
         }
       ]
