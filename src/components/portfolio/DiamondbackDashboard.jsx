@@ -42,6 +42,53 @@ const classFromPalette = (color) => {
   return map[color] || map.blue;
 };
 
+// Reconciliation data structure
+const reconciliationData = {
+  projectRevenue: {
+    cyBilledToDate: 26400884.11,
+    pyBilledToDate: 19179059.22,
+    cyOnly: 7221824.89,
+    cyRevenueEarned: 26935127.84,
+    pyRevenueEarned: 19966275.07,
+    cyOnlyEarned: 7883196.20
+  },
+  priorYear: {
+    rvsOverUnder: -252972.12,
+    overbilling: 912542.26,
+    underbilling: 785414.68,
+    overUnderTotal: -127127.58,
+    totalIncome: 7421237.79,
+    updatedOverbilling: 144201.54,
+    updatedUnderbilling: 931417.39,
+    updatedTotal: 787215.85,
+    bookedVsUpdatedOB: 768340.72,
+    bookedVsUpdatedUB: -146002.71,
+    bookedVsUpdatedTotal: -914343.43
+  },
+  current: {
+    overbilling: 176953.98,
+    underbilling: 711197.72,
+    overUnderTotal: 534243.73,
+    billedToDate: 7221824.89,
+    earnedToDate: 7883196.20,
+    netOverUnder: -72285.32
+  },
+  costs: {
+    totalDirectCogs: 5233002.86,
+    jobCostsToDate: 5234263.52,
+    difference: 1260.66,
+    totalCogs: 5906947.56,
+    unallocatedCogs: 672684.04,
+    cyCost: 18439401.53,
+    pyCost: 13205138.01,
+    cyOnlyCost: 5234263.52
+  },
+  metrics: {
+    indirectAllocation: 9.31,
+    grossMarginToDate: 20.40
+  }
+};
+
 const DiamondbackDashboard = () => {
   const [wipData, setWipData] = useState([]);
   const [summaryMetrics, setSummaryMetrics] = useState({}); // For P-T columns
@@ -304,6 +351,45 @@ Suggestions:
 
   const enrichedProjects = wipData.map(calculateProjectMetrics);
 
+  // Calculate customer analytics
+  const calculateCustomerAnalytics = () => {
+    const customerData = {};
+    
+    enrichedProjects.forEach(p => {
+      const customer = p['Customer'];
+      if (!customer) return;
+      
+      if (!customerData[customer]) {
+        customerData[customer] = {
+          name: customer,
+          projectCount: 0,
+          totalVolume: 0,
+          totalEarned: 0,
+          totalCosts: 0,
+          avgMargin: 0,
+          margins: []
+        };
+      }
+      
+      customerData[customer].projectCount++;
+      customerData[customer].totalVolume += toNum(p['Total Contract']);
+      customerData[customer].totalEarned += toNum(p['Revenue Earned to Date']);
+      customerData[customer].totalCosts += toNum(p['Job Costs to Date'] || p['Actual Costs To Date']);
+      customerData[customer].margins.push(p.mtd);
+    });
+    
+    // Calculate averages and categorize
+    Object.values(customerData).forEach(c => {
+      c.avgMargin = c.margins.reduce((a, b) => a + b, 0) / c.margins.length || 0;
+      c.marginCategory = c.avgMargin > 25 ? 'high' : c.avgMargin > 15 ? 'medium' : 'low';
+      c.volumeShare = (c.totalVolume / metrics.totalContract) * 100 || 0;
+    });
+    
+    return Object.values(customerData);
+  };
+
+  const customerAnalytics = calculateCustomerAnalytics();
+
   // --- small components ---
   const MetricCard = ({ title, value, subtitle, trend, color = 'blue' }) => {
     const colorClass = classFromPalette(color);
@@ -342,6 +428,109 @@ Suggestions:
               <span className="text-sm">{Math.abs(trend).toFixed(1)}%</span>
             </div>
           )}
+
+      {/* Selected Project Modal */}
+      {selectedProject && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedProject(null)}>
+          <div className="bg-slate-800 rounded-xl p-8 max-w-4xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-200">{selectedProject['Project']}</h2>
+                <p className="text-gray-400">{selectedProject['Customer']}</p>
+              </div>
+              <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
+                <i className="fas fa-times text-xl"></i>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div>
+                <p className="text-gray-400 text-sm">Contract Value</p>
+                <p className="text-xl font-bold text-gray-200">
+                  ${Math.round(toNum(selectedProject['Total Contract'])).toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">% Complete</p>
+                <p className="text-xl font-bold text-blue-400">{(selectedProject.percentComplete || 0).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Margin TD</p>
+                <p className="text-xl font-bold text-green-400">{(selectedProject.mtd || 0).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Risk Level</p>
+                <div className="mt-1">
+                  <RiskFlag level={selectedProject.riskLevel} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-2">Revenue Analysis</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Earned to Date</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Revenue Earned to Date'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Billed to Date</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Revenue Billed to Date'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-600 pt-2">
+                      <span className="text-gray-300">Over/Under</span>
+                      <span
+                        className={`font-bold ${
+                          selectedProject.overbilled > 0 ? 'text-green-400' : 'text-amber-400'
+                        }`}
+                      >
+                        {selectedProject.overbilled > 0 ? '+' : '-'}$
+                        {Math.round(Math.abs(selectedProject.overbilled || selectedProject.underbilled)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-2">Cost Analysis</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Actual Costs TD</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Estimated at Completion</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Estimated Costs'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-600 pt-2">
+                      <span className="text-gray-300">Cost to Complete</span>
+                      <span className="text-gray-200 font-bold">
+                        ${Math.max(toNum(selectedProject['Estimated Costs']) - toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date']), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DiamondbackDashboard;
         </div>
       </div>
     );
@@ -379,6 +568,24 @@ Suggestions:
           {payload.map((entry, index) => (
             <p key={index} className="text-gray-300 text-sm">
               {entry.name}: {entry.value?.toFixed(1)}%
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom dollar tooltip
+  const CustomDollarTooltip = ({ active, payload }) => {
+    if (active && payload && payload[0]) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-slate-900 border border-slate-600 rounded p-3">
+          <p className="text-white font-bold">{data.Project || data.name}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-gray-300 text-sm">
+              {entry.name}: {formatDollars(entry.value)}
             </p>
           ))}
         </div>
@@ -450,13 +657,13 @@ Suggestions:
         </div>
       </div>
 
-      {/* View Selector - Removed Reconciliation */}
-      <div className="flex space-x-4">
-        {['overview', 'projects', 'risk', 'trends'].map((view) => (
+      {/* View Selector */}
+      <div className="flex space-x-4 overflow-x-auto">
+        {['overview', 'projects', 'risk', 'trends', 'reconciliation'].map((view) => (
           <button
             key={view}
             onClick={() => setSelectedView(view)}
-            className={`px-6 py-3 rounded-lg font-medium transition-all ${
+            className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
               selectedView === view
                 ? 'bg-amber-600 text-white shadow-lg'
                 : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
@@ -735,168 +942,450 @@ Suggestions:
         </div>
       )}
 
-      {/* Trends View */}
+      {/* Enhanced Trends View with Customer Analytics */}
       {selectedView === 'trends' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Margin Performance Radar */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Top 5 Projects - Performance Metrics</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <RadarChart data={enrichedProjects.slice(0, 5).map(p => ({
-                project: p['Project'].substring(0, 15),
-                margin: p.mtd,
-                completion: p.percentComplete,
-                efficiency: Math.min(100, (p.mtd / 20) * 100) // relative to 20% target
-              }))}>
-                <PolarGrid stroke="#334155" />
-                <PolarAngleAxis dataKey="project" stroke="#94a3b8" />
-                <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#94a3b8" />
-                <Radar name="Margin %" dataKey="margin" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
-                <Radar name="Completion %" dataKey="completion" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                <Tooltip content={<CustomPercentTooltip />} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Customer Volume Concentration */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Customer Volume Concentration</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={customerAnalytics
+                      .sort((a, b) => b.totalVolume - a.totalVolume)
+                      .slice(0, 8)}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="totalVolume"
+                    nameKey="name"
+                  >
+                    {customerAnalytics.slice(0, 8).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'][index]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatDollars(value)} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
 
-          {/* Contract Size vs Margin */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Contract Size vs Profit Margin</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis 
-                  dataKey="Total Contract" 
-                  name="Contract Size" 
-                  stroke="#94a3b8" 
-                  tickFormatter={formatDollars}
-                  domain={['dataMin', 'dataMax']}
-                />
-                <YAxis 
-                  dataKey="mtd" 
-                  name="Margin %" 
-                  stroke="#94a3b8" 
-                  unit="%"
-                />
-                <Tooltip content={<CustomPercentTooltip />} />
-                <Scatter 
-                  name="Projects" 
-                  data={enrichedProjects.map(p => ({
-                    ...p,
-                    'Total Contract': toNum(p['Total Contract'])
-                  }))} 
-                  fill="#8b5cf6"
+            {/* Customer Margin Analysis */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Customer Margin Performance</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={customerAnalytics
+                    .sort((a, b) => b.avgMargin - a.avgMargin)
+                    .slice(0, 10)}
                 >
-                  {enrichedProjects.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.mtd > 20 ? '#10b981' : entry.mtd > 10 ? '#f59e0b' : '#ef4444'}
-                    />
-                  ))}
-                </Scatter>
-              </ScatterChart>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="name" stroke="#94a3b8" angle={-45} textAnchor="end" height={80} />
+                  <YAxis stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
+                  <Tooltip content={<CustomPercentTooltip />} />
+                  <Bar dataKey="avgMargin" name="Avg Margin %">
+                    {customerAnalytics.slice(0, 10).map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.avgMargin > 25 ? '#10b981' : entry.avgMargin > 15 ? '#f59e0b' : '#ef4444'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Contract Size vs Margin with corrected currency */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Contract Size vs Profit Margin</h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <ScatterChart>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis 
+                    dataKey="contractValue" 
+                    name="Contract Size" 
+                    stroke="#94a3b8" 
+                    tickFormatter={formatDollars}
+                    domain={['dataMin', 'dataMax']}
+                  />
+                  <YAxis 
+                    dataKey="mtd" 
+                    name="Margin %" 
+                    stroke="#94a3b8" 
+                    tickFormatter={(v) => `${v}%`}
+                  />
+                  <Tooltip content={<CustomDollarTooltip />} />
+                  <Scatter 
+                    name="Projects" 
+                    data={enrichedProjects.map(p => ({
+                      ...p,
+                      contractValue: toNum(p['Total Contract']),
+                      Project: p['Project']
+                    }))} 
+                    fill="#8b5cf6"
+                  >
+                    {enrichedProjects.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.mtd > 20 ? '#10b981' : entry.mtd > 10 ? '#f59e0b' : '#ef4444'}
+                      />
+                    ))}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Top 5 Projects Performance Radar */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Top 5 Projects - Performance Metrics</h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <RadarChart data={enrichedProjects.slice(0, 5).map(p => ({
+                  project: p['Project'].substring(0, 15),
+                  margin: p.mtd,
+                  completion: p.percentComplete,
+                  efficiency: Math.min(100, (p.mtd / 20) * 100) // relative to 20% target
+                }))}>
+                  <PolarGrid stroke="#334155" />
+                  <PolarAngleAxis dataKey="project" stroke="#94a3b8" />
+                  <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#94a3b8" />
+                  <Radar name="Margin %" dataKey="margin" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+                  <Radar name="Completion %" dataKey="completion" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                  <Tooltip content={<CustomPercentTooltip />} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Customer Performance Table */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Customer Performance Summary</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-900/50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Customer</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Projects</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total Volume</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Volume Share</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Avg Margin</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Category</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700">
+                  {customerAnalytics
+                    .sort((a, b) => b.totalVolume - a.totalVolume)
+                    .slice(0, 15)
+                    .map((customer, index) => (
+                      <tr key={index} className="hover:bg-slate-700/30 transition-colors">
+                        <td className="px-4 py-3 text-gray-300">{customer.name}</td>
+                        <td className="px-4 py-3 text-right text-gray-300">{customer.projectCount}</td>
+                        <td className="px-4 py-3 text-right text-gray-300">
+                          {formatDollars(customer.totalVolume)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-300">
+                          {customer.volumeShare.toFixed(1)}%
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${
+                          customer.avgMargin > 25 ? 'text-green-400' : 
+                          customer.avgMargin > 15 ? 'text-amber-400' : 'text-red-400'
+                        }`}>
+                          {customer.avgMargin.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <RiskFlag level={customer.marginCategory === 'high' ? 'low' : 
+                                          customer.marginCategory === 'medium' ? 'medium' : 'high'} />
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reconciliation View */}
+      {selectedView === 'reconciliation' && (
+        <div className="space-y-6">
+          {/* Project Revenue Calculations */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Project Revenue Calculations</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Current Year</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Billed to Date</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.projectRevenue.cyBilledToDate)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Revenue Earned</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.projectRevenue.cyRevenueEarned)}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Prior Year</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Billed to Date</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.projectRevenue.pyBilledToDate)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Revenue Earned</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.projectRevenue.pyRevenueEarned)}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Current Year Only</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Billed to Date</span>
+                    <span className="text-green-400 font-bold">{formatDollars(reconciliationData.projectRevenue.cyOnly)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Revenue Earned</span>
+                    <span className="text-green-400 font-bold">{formatDollars(reconciliationData.projectRevenue.cyOnlyEarned)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Prior Year Over/Under Calculations */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Prior Year Over/Under Calculations</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-gray-400 text-sm mb-3">Balance Sheet Totals</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">RVS Prior O/U</span>
+                    <span className="text-red-400 font-medium">{formatDollars(reconciliationData.priorYear.rvsOverUnder)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Overbilling</span>
+                    <span className="text-gray-200">{formatDollars(reconciliationData.priorYear.overbilling)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Underbilling</span>
+                    <span className="text-gray-200">{formatDollars(reconciliationData.priorYear.underbilling)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-600 pt-2">
+                    <span className="text-gray-300">O/U Total</span>
+                    <span className="text-red-400 font-bold">{formatDollars(reconciliationData.priorYear.overUnderTotal)}</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm mb-3">Updated Prior Year WIP</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Overbilling (Updated)</span>
+                    <span className="text-gray-200">{formatDollars(reconciliationData.priorYear.updatedOverbilling)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Underbilling (Updated)</span>
+                    <span className="text-gray-200">{formatDollars(reconciliationData.priorYear.updatedUnderbilling)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-600 pt-2">
+                    <span className="text-gray-300">O/U Total (Updated)</span>
+                    <span className="text-green-400 font-bold">{formatDollars(reconciliationData.priorYear.updatedTotal)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
+              <p className="text-gray-400 text-sm mb-2">Booked vs Updated</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Overbilling</span>
+                  <span className="text-gray-200">{formatDollars(reconciliationData.priorYear.bookedVsUpdatedOB)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Underbilling</span>
+                  <span className="text-red-400">{formatDollars(reconciliationData.priorYear.bookedVsUpdatedUB)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Total</span>
+                  <span className="text-red-400 font-bold">{formatDollars(reconciliationData.priorYear.bookedVsUpdatedTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Period Over/Under */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Current Period Over/Under Calculations</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <MetricCard 
+                title="Current Overbilling" 
+                value={reconciliationData.current.overbilling} 
+                color="green" 
+              />
+              <MetricCard 
+                title="Current Underbilling" 
+                value={reconciliationData.current.underbilling} 
+                color="amber" 
+              />
+              <MetricCard 
+                title="O/U Total (Current)" 
+                value={reconciliationData.current.overUnderTotal} 
+                color="blue" 
+              />
+            </div>
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-700/50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Revenue Earned to Date</span>
+                  <span className="text-blue-400 font-bold">{formatDollars(reconciliationData.current.earnedToDate)}</span>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-700/50 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">Net Over/Under (Difference)</span>
+                  <span className="text-red-400 font-bold">{formatDollars(reconciliationData.current.netOverUnder)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Project Cost Calculations */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Project Cost Calculations</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="p-4 bg-slate-700/50 rounded-lg">
+                <p className="text-gray-400 text-sm mb-2">Direct Costs</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Total Direct COGS</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.costs.totalDirectCogs)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Job Costs to Date</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.costs.jobCostsToDate)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-600 pt-2">
+                    <span className="text-gray-300">Difference</span>
+                    <span className="text-amber-400">{formatDollars(reconciliationData.costs.difference)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 bg-slate-700/50 rounded-lg">
+                <p className="text-gray-400 text-sm mb-2">Total COGS Analysis</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Total COGS</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.costs.totalCogs)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Job Costs to Date</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.costs.jobCostsToDate)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-600 pt-2">
+                    <span className="text-gray-300">Unallocated COGS</span>
+                    <span className="text-red-400 font-bold">{formatDollars(reconciliationData.costs.unallocatedCogs)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-700/50 rounded-lg">
+                <p className="text-gray-400 text-sm mb-2">Year-over-Year</p>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">CY Cost</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.costs.cyCost)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">PY Cost</span>
+                    <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.costs.pyCost)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-600 pt-2">
+                    <span className="text-gray-300">CY Only</span>
+                    <span className="text-green-400 font-bold">{formatDollars(reconciliationData.costs.cyOnlyCost)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Key Performance Metrics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Key Performance Metrics</h3>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
+                  <div>
+                    <p className="text-gray-300">Indirect Allocation %</p>
+                    <p className="text-xs text-gray-500">Overhead allocation rate</p>
+                  </div>
+                  <span className="text-2xl font-bold text-amber-400">{reconciliationData.metrics.indirectAllocation}%</span>
+                </div>
+                <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
+                  <div>
+                    <p className="text-gray-300">Gross Margin to Date</p>
+                    <p className="text-xs text-gray-500">Overall profitability</p>
+                  </div>
+                  <span className="text-2xl font-bold text-green-400">{reconciliationData.metrics.grossMarginToDate}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Reconciliation Summary */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Reconciliation Summary</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between p-2 hover:bg-slate-700/30 rounded transition-colors">
+                  <span className="text-gray-300">Total Income</span>
+                  <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.priorYear.totalIncome)}</span>
+                </div>
+                <div className="flex justify-between p-2 hover:bg-slate-700/30 rounded transition-colors">
+                  <span className="text-gray-300">Revenue Earned (CY)</span>
+                  <span className="text-gray-200 font-medium">{formatDollars(reconciliationData.current.earnedToDate)}</span>
+                </div>
+                <div className="flex justify-between p-2 hover:bg-slate-700/30 rounded transition-colors">
+                  <span className="text-gray-300">Total B/S (PY)</span>
+                  <span className="text-gray-200 font-medium">{formatDollars(6968852.77)}</span>
+                </div>
+                <div className="flex justify-between p-2 hover:bg-slate-700/30 rounded transition-colors">
+                  <span className="text-gray-300">Total WIP (Updated)</span>
+                  <span className="text-gray-200 font-medium">{formatDollars(7955481.52)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Waterfall Chart for Reconciliation */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Revenue Reconciliation Waterfall</h3>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart
+                data={[
+                  { name: 'PY Revenue', value: reconciliationData.projectRevenue.pyRevenueEarned, fill: '#3b82f6' },
+                  { name: 'CY Earned', value: reconciliationData.projectRevenue.cyOnlyEarned, fill: '#10b981' },
+                  { name: 'PY O/U Adjustment', value: reconciliationData.priorYear.bookedVsUpdatedTotal, fill: '#ef4444' },
+                  { name: 'Current O/U', value: reconciliationData.current.overUnderTotal, fill: '#f59e0b' },
+                  { name: 'Total CY Revenue', value: reconciliationData.projectRevenue.cyRevenueEarned, fill: '#8b5cf6' }
+                ]}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis dataKey="name" stroke="#94a3b8" angle={-20} textAnchor="end" height={80} />
+                <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
+                <Tooltip content={<CustomWaterfallTooltip />} />
+                <Bar dataKey="value" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
-
-      {/* Selected Project Modal */}
-      {selectedProject && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedProject(null)}>
-          <div className="bg-slate-800 rounded-xl p-8 max-w-4xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-200">{selectedProject['Project']}</h2>
-                <p className="text-gray-400">{selectedProject['Customer']}</p>
-              </div>
-              <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
-                <i className="fas fa-times text-xl"></i>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div>
-                <p className="text-gray-400 text-sm">Contract Value</p>
-                <p className="text-xl font-bold text-gray-200">
-                  ${Math.round(toNum(selectedProject['Total Contract'])).toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">% Complete</p>
-                <p className="text-xl font-bold text-blue-400">{(selectedProject.percentComplete || 0).toFixed(1)}%</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Margin TD</p>
-                <p className="text-xl font-bold text-green-400">{(selectedProject.mtd || 0).toFixed(1)}%</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Risk Level</p>
-                <div className="mt-1">
-                  <RiskFlag level={selectedProject.riskLevel} />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Revenue Analysis</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Earned to Date</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Revenue Earned to Date'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Billed to Date</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Revenue Billed to Date'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-600 pt-2">
-                      <span className="text-gray-300">Over/Under</span>
-                      <span
-                        className={`font-bold ${
-                          selectedProject.overbilled > 0 ? 'text-green-400' : 'text-amber-400'
-                        }`}
-                      >
-                        {selectedProject.overbilled > 0 ? '+' : '-'}$
-                        {Math.round(Math.abs(selectedProject.overbilled || selectedProject.underbilled)).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Cost Analysis</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Actual Costs TD</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Estimated at Completion</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Estimated Costs'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-600 pt-2">
-                      <span className="text-gray-300">Cost to Complete</span>
-                      <span className="text-gray-200 font-bold">
-                        ${Math.max(toNum(selectedProject['Estimated Costs']) - toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date']), 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
   );
 };
 
