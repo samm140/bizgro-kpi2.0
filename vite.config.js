@@ -13,6 +13,13 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false
+      },
+      // Proxy Google Docs through the dev server
+      '/gs': {
+        target: 'https://docs.google.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/gs/, ''),
       }
     }
   }
