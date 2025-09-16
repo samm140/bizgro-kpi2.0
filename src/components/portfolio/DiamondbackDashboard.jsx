@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, Cell
+  ScatterChart, Scatter, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 
 // Google Sheets configuration
@@ -17,6 +17,15 @@ const toNum = (v) => {
   const cleaned = String(v).replace(/[\$,%\s]/g, '');
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
+};
+
+const formatDollars = (value) => {
+  if (Math.abs(value) >= 1000000) {
+    return `$${(value / 1000000).toFixed(2)}M`;
+  } else if (Math.abs(value) >= 1000) {
+    return `$${(value / 1000).toFixed(0)}K`;
+  }
+  return `$${value.toFixed(0)}`;
 };
 
 const classFromPalette = (color) => {
@@ -35,6 +44,7 @@ const classFromPalette = (color) => {
 
 const DiamondbackDashboard = () => {
   const [wipData, setWipData] = useState([]);
+  const [summaryMetrics, setSummaryMetrics] = useState({}); // For P-T columns
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedView, setSelectedView] = useState('overview');
@@ -106,11 +116,30 @@ const DiamondbackDashboard = () => {
 
       // Skip the first row (totals) and use the second row as headers
       const headers = rows[1] || rows[0]; // Use row 2 as headers (index 1)
+      
+      // Only use columns A-N (indices 0-13)
+      const projectHeaders = headers.slice(0, 14);
+      
+      // Extract summary metrics from columns P-T (indices 15-19)
+      const summaryData = {};
+      if (rows[0] && rows[0].length > 19) {
+        // P & Q pair
+        const labelP = rows[0][15];
+        const valueQ = toNum(rows[0][16]);
+        if (labelP) summaryData[labelP] = valueQ;
+        
+        // S & T pair
+        const labelS = rows[0][18];
+        const valueT = toNum(rows[0][19]);
+        if (labelS) summaryData[labelS] = valueT;
+      }
+      setSummaryMetrics(summaryData);
+      
       const dataRows = rows.slice(2).filter(r => r.some(c => c && c.length)); // Start from row 3 for data
 
       const formattedData = dataRows.map(r => {
         const obj = {};
-        headers.forEach((h, idx) => {
+        projectHeaders.forEach((h, idx) => {
           obj[h] = r[idx] ?? '';
         });
         return obj;
@@ -118,8 +147,8 @@ const DiamondbackDashboard = () => {
 
       setWipData(formattedData);
       setLoading(false);
-      // eslint-disable-next-line no-console
-      console.log('Loaded', formattedData.length, 'projects from CSV (skipped totals row)');
+      console.log('Loaded', formattedData.length, 'projects from CSV (columns A-N only)');
+      console.log('Summary metrics from P-T:', summaryData);
     } catch (err) {
       console.error('CSV fetch error:', err);
       // Try JSON fallback
@@ -139,19 +168,22 @@ const DiamondbackDashboard = () => {
       const payload = JSON.parse(match[1]);
 
       const cols = (payload.table.cols || []).map(c => c.label || c.id || '');
+      // Use only first 14 columns
+      const projectCols = cols.slice(0, 14);
+      
       // Skip the first row (totals) in the gviz data too
       const dataRowsToProcess = (payload.table.rows || []).slice(1); // Skip first data row which contains totals
       const formattedData = dataRowsToProcess.map(r => {
         const obj = {};
-        (r.c || []).forEach((cell, idx) => {
-          obj[cols[idx] || `col_${idx}`] = cell && cell.v !== null ? cell.v : '';
+        (r.c || []).slice(0, 14).forEach((cell, idx) => {
+          obj[projectCols[idx] || `col_${idx}`] = cell && cell.v !== null ? cell.v : '';
         });
         return obj;
       });
 
       setWipData(formattedData);
       setLoading(false);
-      console.log('Loaded', formattedData.length, 'projects using gviz JSON endpoint (skipped totals row)');
+      console.log('Loaded', formattedData.length, 'projects using gviz JSON endpoint (columns A-N only)');
     } catch (err) {
       console.error('Alternative fetch also failed:', err);
       setError(
@@ -324,6 +356,44 @@ Suggestions:
     );
   };
 
+  // Custom tooltip for dollar amounts in waterfall
+  const CustomWaterfallTooltip = ({ active, payload }) => {
+    if (active && payload && payload[0]) {
+      return (
+        <div className="bg-slate-900 border border-slate-600 rounded p-3">
+          <p className="text-gray-300 text-sm">{payload[0].payload.name}</p>
+          <p className="text-white font-bold">{formatDollars(payload[0].value)}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom tooltip for percentages in risk charts
+  const CustomPercentTooltip = ({ active, payload }) => {
+    if (active && payload && payload[0]) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-slate-900 border border-slate-600 rounded p-3">
+          <p className="text-white font-bold">{data.Project || data.name}</p>
+          {payload.map((entry, index) => (
+            <p key={index} className="text-gray-300 text-sm">
+              {entry.name}: {entry.value?.toFixed(1)}%
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Prepare risk distribution data
+  const riskDistribution = [
+    { name: 'Low Risk', value: enrichedProjects.filter(p => p.riskLevel === 'low').length, color: '#10b981' },
+    { name: 'Medium Risk', value: enrichedProjects.filter(p => p.riskLevel === 'medium').length, color: '#f59e0b' },
+    { name: 'High Risk', value: enrichedProjects.filter(p => p.riskLevel === 'high').length, color: '#ef4444' }
+  ];
+
   // --- render branches ---
   if (loading) {
     return (
@@ -380,9 +450,9 @@ Suggestions:
         </div>
       </div>
 
-      {/* View Selector */}
+      {/* View Selector - Removed Reconciliation */}
       <div className="flex space-x-4">
-        {['overview', 'projects', 'risk', 'reconciliation', 'trends'].map((view) => (
+        {['overview', 'projects', 'risk', 'trends'].map((view) => (
           <button
             key={view}
             onClick={() => setSelectedView(view)}
@@ -423,6 +493,20 @@ Suggestions:
             />
           </div>
 
+          {/* Summary Metrics from P-T columns */}
+          {Object.keys(summaryMetrics).length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(summaryMetrics).map(([label, value]) => (
+                <MetricCard
+                  key={label}
+                  title={label}
+                  value={value}
+                  color="purple"
+                />
+              ))}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <MetricCard title="Backlog Remaining" value={metrics.backlogRemaining} subtitle="Unearned contract value" color="purple" />
             <MetricCard
@@ -435,7 +519,7 @@ Suggestions:
             <MetricCard title="Projects in Progress" value={metrics.projectsInProgress} subtitle={`of ${metrics.totalProjects} total`} color="orange" />
           </div>
 
-          {/* Over/Under Waterfall (approximation) */}
+          {/* Over/Under Waterfall with dollar formatting */}
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Billing Reconciliation Waterfall</h3>
             <ResponsiveContainer width="100%" height={300}>
@@ -450,11 +534,8 @@ Suggestions:
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="name" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" tickFormatter={(v) => `$${(v / 1_000_000).toFixed(1)}M`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                  formatter={(value) => `$${Math.round(value).toLocaleString()}`}
-                />
+                <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
+                <Tooltip content={<CustomWaterfallTooltip />} />
                 <Bar dataKey="value" />
               </BarChart>
             </ResponsiveContainer>
@@ -546,48 +627,76 @@ Suggestions:
 
       {/* Risk Analysis View */}
       {selectedView === 'risk' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Risk Scatter Plot */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Risk Matrix: % Complete vs Margin</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <ScatterChart>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="percentComplete" name="% Complete" stroke="#94a3b8" domain={[0, 100]} />
-                <YAxis dataKey="mtd" name="Margin TD" stroke="#94a3b8" domain={[-10, 40]} />
-                <Tooltip
-                  cursor={{ strokeDasharray: '3 3' }}
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                  formatter={(value, name) => [
-                    name === 'percentComplete' || name === 'mtd'
-                      ? `${(value || 0).toFixed(1)}%`
-                      : `${(value || 0).toLocaleString()}`,
-                    name,
-                  ]}
-                />
-                <Scatter name="Projects" data={enrichedProjects} fill="#8884d8">
-                  {enrichedProjects.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.riskLevel === 'high' ? '#ef4444' : entry.riskLevel === 'medium' ? '#f59e0b' : '#10b981'}
-                    />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Risk Scatter Plot with percentage tooltips */}
+            <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Risk Matrix: % Complete vs Margin</h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <ScatterChart>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="percentComplete" name="% Complete" stroke="#94a3b8" domain={[0, 100]} unit="%" />
+                  <YAxis dataKey="mtd" name="Margin TD" stroke="#94a3b8" domain={[-10, 40]} unit="%" />
+                  <Tooltip content={<CustomPercentTooltip />} />
+                  <Scatter name="Projects" data={enrichedProjects} fill="#8884d8">
+                    {enrichedProjects.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.riskLevel === 'high' ? '#ef4444' : entry.riskLevel === 'medium' ? '#f59e0b' : '#10b981'}
+                      />
+                    ))}
+                  </Scatter>
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Risk Distribution Pie Chart */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-200 mb-4">Risk Distribution</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={riskDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {riskDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-4 space-y-2">
+                {riskDistribution.map((item) => (
+                  <div key={item.name} className="flex justify-between items-center">
+                    <div className="flex items-center">
+                      <div className="w-4 h-4 rounded mr-2" style={{ backgroundColor: item.color }} />
+                      <span className="text-gray-300">{item.name}</span>
+                    </div>
+                    <span className="text-gray-400">{item.value} projects</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Top Risk Projects */}
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Top Risk Projects</h3>
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {enrichedProjects
                 .slice()
                 .sort((a, b) => Math.abs(b.overUnderPercent) - Math.abs(a.overUnderPercent))
                 .slice(0, 10)
                 .map((project, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
-                    <div>
+                    <div className="flex-1">
                       <p className="font-medium text-gray-200">{project['Project']}</p>
                       <p className="text-sm text-gray-400">{project['Customer']}</p>
                     </div>
@@ -606,24 +715,85 @@ Suggestions:
             </div>
           </div>
 
-          {/* O/U Distribution */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700 lg:col-span-2">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Over/Under Distribution by Project</h3>
+          {/* O/U Distribution with percentage tooltips */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Over/Under Distribution by Project (%)</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={enrichedProjects.slice(0, 20)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="Project" stroke="#94a3b8" angle={-45} textAnchor="end" height={100} />
                 <YAxis stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
-                  formatter={(value) => `${(value || 0).toFixed(1)}%`}
-                />
+                <Tooltip content={<CustomPercentTooltip />} />
                 <Bar dataKey="overUnderPercent" name="O/U % of Contract">
                   {enrichedProjects.slice(0, 20).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={(entry.overUnderPercent || 0) > 0 ? '#10b981' : '#ef4444'} />
                   ))}
                 </Bar>
               </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Trends View */}
+      {selectedView === 'trends' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Margin Performance Radar */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Top 5 Projects - Performance Metrics</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              <RadarChart data={enrichedProjects.slice(0, 5).map(p => ({
+                project: p['Project'].substring(0, 15),
+                margin: p.mtd,
+                completion: p.percentComplete,
+                efficiency: Math.min(100, (p.mtd / 20) * 100) // relative to 20% target
+              }))}>
+                <PolarGrid stroke="#334155" />
+                <PolarAngleAxis dataKey="project" stroke="#94a3b8" />
+                <PolarRadiusAxis angle={90} domain={[0, 100]} stroke="#94a3b8" />
+                <Radar name="Margin %" dataKey="margin" stroke="#10b981" fill="#10b981" fillOpacity={0.3} />
+                <Radar name="Completion %" dataKey="completion" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
+                <Tooltip content={<CustomPercentTooltip />} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Contract Size vs Margin */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h3 className="text-lg font-semibold text-gray-200 mb-4">Contract Size vs Profit Margin</h3>
+            <ResponsiveContainer width="100%" height={400}>
+              <ScatterChart>
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis 
+                  dataKey="Total Contract" 
+                  name="Contract Size" 
+                  stroke="#94a3b8" 
+                  tickFormatter={formatDollars}
+                  domain={['dataMin', 'dataMax']}
+                />
+                <YAxis 
+                  dataKey="mtd" 
+                  name="Margin %" 
+                  stroke="#94a3b8" 
+                  unit="%"
+                />
+                <Tooltip content={<CustomPercentTooltip />} />
+                <Scatter 
+                  name="Projects" 
+                  data={enrichedProjects.map(p => ({
+                    ...p,
+                    'Total Contract': toNum(p['Total Contract'])
+                  }))} 
+                  fill="#8b5cf6"
+                >
+                  {enrichedProjects.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.mtd > 20 ? '#10b981' : entry.mtd > 10 ? '#f59e0b' : '#ef4444'}
+                    />
+                  ))}
+                </Scatter>
+              </ScatterChart>
             </ResponsiveContainer>
           </div>
         </div>
