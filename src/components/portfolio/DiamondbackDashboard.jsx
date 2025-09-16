@@ -1,4 +1,3 @@
-// src/components/portfolio/DiamondbackDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar,
@@ -51,9 +50,23 @@ const DiamondbackDashboard = () => {
     try {
       setLoading(true);
       setError(null);
+      let csvUrl;
+      
+      // Check if we're in development based on hostname
+      const isDevelopment = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1' ||
+                           window.location.hostname.includes('local');
+      
+      if (isDevelopment) {
+        // Development: use Vite proxy to avoid CORS
+        csvUrl = `/gs/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+      } else {
+        // Production: use CORS proxy
+        const proxyUrl = 'https://corsproxy.io/?';
+        const directUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+        csvUrl = proxyUrl + encodeURIComponent(directUrl);
+      }
 
-      // CSV export URL
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
       const response = await fetch(csvUrl, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
