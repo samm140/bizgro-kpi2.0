@@ -190,6 +190,91 @@ const CustomDollarTooltip = ({ active, payload }) => {
   return null;
 };
 
+/* ============================================
+   ReconciliationWaterfall Component (ADDED)
+   ============================================ */
+// Add this component inside DiamondbackDashboard.jsx (before the main component)
+const ReconciliationWaterfall = ({
+  rvsPriorOU = -252972.12,
+  updatedPYTotal = 787215.85,
+  currentPeriodOUTotal = 534243.73,
+  title = 'RVS Prior O/U → Updated PY → Current Period (Waterfall)',
+}) => {
+  // Build waterfall dataset with cumulative positioning
+  const buildWaterfall = (steps) => {
+    let running = 0;
+    return steps.map((s, i) => {
+      const base = i === 0 ? 0 : running;
+      running += s.delta;
+      return {
+        label: s.label,
+        base: Math.min(base, running),
+        deltaPos: s.delta > 0 ? s.delta : 0,
+        deltaNeg: s.delta < 0 ? -s.delta : 0,
+        total: running,
+        color: s.color,
+      };
+    });
+  };
+
+  const steps = [
+    { label: 'RVS prior O/U', delta: rvsPriorOU, color: '#94a3b8' },
+    { label: 'Updated PY O/U (Net)', delta: updatedPYTotal, color: '#10b981' },
+    { label: 'Current Period O/U (Net)', delta: currentPeriodOUTotal, color: '#f59e0b' },
+  ];
+
+  const data = buildWaterfall(steps);
+
+  const CustomWFTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const datum = payload[0].payload;
+    return (
+      <div className="bg-slate-900 border border-slate-600 rounded p-3">
+        <p className="text-gray-300 text-sm">{datum.label}</p>
+        {'total' in datum ? (
+          <p className="text-white font-bold">Total: {formatDollars(datum.total)}</p>
+        ) : null}
+        {payload.map((p, idx) => (
+          <p key={idx} className="text-gray-400 text-xs">
+            {p.dataKey === 'deltaPos' && p.value ? `+ ${formatDollars(p.value)}` : null}
+            {p.dataKey === 'deltaNeg' && p.value ? `- ${formatDollars(p.value)}` : null}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+      <h3 className="text-lg font-semibold text-gray-200 mb-4">{title}</h3>
+      <ResponsiveContainer width="100%" height={320}>
+        <BarChart data={data} margin={{ left: 8, right: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+          <XAxis dataKey="label" stroke="#94a3b8" />
+          <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
+          <Tooltip content={<CustomWFTooltip />} />
+          <Bar dataKey="base" stackId="w" fill="transparent" />
+          <Bar dataKey="deltaPos" stackId="w">
+            {data.map((d, i) => (
+              <Cell key={`p-${i}`} fill={d.color || '#10b981'} />
+            ))}
+          </Bar>
+          <Bar dataKey="deltaNeg" stackId="w">
+            {data.map((d, i) => (
+              <Cell key={`n-${i}`} fill={d.color || '#ef4444'} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <p className="text-xs text-gray-500 mt-3">
+        Interpretation: Start at zero. Apply the prior-year roll-forward balance (<strong>RVS prior O/U</strong>), then apply
+        <strong> Updated PY</strong> net O/U, then the <strong>Current Period</strong> net O/U. The final stacked height equals the net
+        over/under position flowing into your balance sheet and WIP tie-out.
+      </p>
+    </div>
+  );
+};
+
 const DiamondbackDashboard = () => {
   const [wipData, setWipData] = useState([]);
   const [summaryMetrics, setSummaryMetrics] = useState({}); // For P-T columns
@@ -1237,6 +1322,25 @@ Suggestions:
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* >>> ADDED: Two ReconciliationWaterfall charts <<< */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Current Period Waterfall */}
+            <ReconciliationWaterfall
+              title="Billed → Earned → Net O/U (Current)"
+              rvsPriorOU={reconciliationData.current.billedToDate}
+              updatedPYTotal={-reconciliationData.current.earnedToDate}
+              currentPeriodOUTotal={reconciliationData.current.overUnderTotal}
+            />
+            
+            {/* Historical Reconciliation Waterfall */}
+            <ReconciliationWaterfall
+              title="Prior Year O/U Reconciliation"
+              rvsPriorOU={reconciliationData.priorYear.rvsOverUnder}
+              updatedPYTotal={reconciliationData.priorYear.updatedTotal}
+              currentPeriodOUTotal={reconciliationData.current.overUnderTotal}
+            />
           </div>
 
           {/* Waterfall Chart for Reconciliation */}
