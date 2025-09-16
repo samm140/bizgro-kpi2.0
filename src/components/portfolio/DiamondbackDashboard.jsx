@@ -98,7 +98,7 @@ const DiamondbackDashboard = () => {
           const obj = { Project: '', Customer: '' }; // Initialize with expected fields
           
           for (const key in entry) {
-            if (key.startsWith('gsx
+            if (key.startsWith('gsx$')
 
   // Calculate portfolio metrics
   const calculatePortfolioMetrics = () => {
