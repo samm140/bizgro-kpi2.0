@@ -104,8 +104,9 @@ const DiamondbackDashboard = () => {
 
       if (!rows.length) throw new Error('No data found in sheet');
 
-      const headers = rows[0];
-      const dataRows = rows.slice(1).filter(r => r.some(c => c && c.length));
+      // Skip the first row (totals) and use the second row as headers
+      const headers = rows[1] || rows[0]; // Use row 2 as headers (index 1)
+      const dataRows = rows.slice(2).filter(r => r.some(c => c && c.length)); // Start from row 3 for data
 
       const formattedData = dataRows.map(r => {
         const obj = {};
@@ -118,7 +119,7 @@ const DiamondbackDashboard = () => {
       setWipData(formattedData);
       setLoading(false);
       // eslint-disable-next-line no-console
-      console.log('Loaded', formattedData.length, 'projects from CSV');
+      console.log('Loaded', formattedData.length, 'projects from CSV (skipped totals row)');
     } catch (err) {
       console.error('CSV fetch error:', err);
       // Try JSON fallback
@@ -138,7 +139,9 @@ const DiamondbackDashboard = () => {
       const payload = JSON.parse(match[1]);
 
       const cols = (payload.table.cols || []).map(c => c.label || c.id || '');
-      const formattedData = (payload.table.rows || []).map(r => {
+      // Skip the first row (totals) in the gviz data too
+      const dataRowsToProcess = (payload.table.rows || []).slice(1); // Skip first data row which contains totals
+      const formattedData = dataRowsToProcess.map(r => {
         const obj = {};
         (r.c || []).forEach((cell, idx) => {
           obj[cols[idx] || `col_${idx}`] = cell && cell.v !== null ? cell.v : '';
@@ -148,7 +151,7 @@ const DiamondbackDashboard = () => {
 
       setWipData(formattedData);
       setLoading(false);
-      console.log('Loaded', formattedData.length, 'projects using gviz JSON endpoint');
+      console.log('Loaded', formattedData.length, 'projects using gviz JSON endpoint (skipped totals row)');
     } catch (err) {
       console.error('Alternative fetch also failed:', err);
       setError(
