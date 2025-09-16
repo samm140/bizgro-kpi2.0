@@ -50,24 +50,21 @@ const DiamondbackDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      let csvUrl;
       
-      // Check if we're in development based on hostname
-      const isDevelopment = window.location.hostname === 'localhost' || 
-                           window.location.hostname === '127.0.0.1' ||
-                           window.location.hostname.includes('local');
+      // Always use CORS proxy for the artifact environment
+      const proxyUrl = 'https://corsproxy.io/?';
+      const directUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+      const csvUrl = proxyUrl + encodeURIComponent(directUrl);
       
-      if (isDevelopment) {
-        // Development: use Vite proxy to avoid CORS
-        csvUrl = `/gs/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
-      } else {
-        // Production: use CORS proxy
-        const proxyUrl = 'https://corsproxy.io/?';
-        const directUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
-        csvUrl = proxyUrl + encodeURIComponent(directUrl);
-      }
+      console.log('Fetching from:', csvUrl);
 
-      const response = await fetch(csvUrl, { cache: 'no-store' });
+      const response = await fetch(csvUrl, { 
+        cache: 'no-store',
+        headers: {
+          'Accept': 'text/csv'
+        }
+      });
+      
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const csvText = await response.text();
