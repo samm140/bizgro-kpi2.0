@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
+  ScatterChart, Scatter, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
 } from 'recharts';
 
 // Google Sheets configuration
@@ -193,7 +193,6 @@ const CustomDollarTooltip = ({ active, payload }) => {
 /* ============================================
    ReconciliationWaterfall Component (ADDED)
    ============================================ */
-// Add this component inside DiamondbackDashboard.jsx (before the main component)
 const ReconciliationWaterfall = ({
   rvsPriorOU = -252972.12,
   updatedPYTotal = 787215.85,
@@ -271,6 +270,69 @@ const ReconciliationWaterfall = ({
         <strong> Updated PY</strong> net O/U, then the <strong>Current Period</strong> net O/U. The final stacked height equals the net
         over/under position flowing into your balance sheet and WIP tie-out.
       </p>
+    </div>
+  );
+};
+
+/* ================================
+   ProgressSCurve (Interactive)  (ADDED)
+   ================================ */
+const ProgressSCurve = ({ title = 'S-Curve Progress (Cumulative)', series = [] }) => {
+  return (
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+      <h3 className="text-lg font-semibold text-gray-200 mb-4">{title}</h3>
+      <ResponsiveContainer width="100%" height={380}>
+        <LineChart data={series}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+          <XAxis dataKey="label" stroke="#94a3b8" />
+          <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
+          <Tooltip formatter={(v) => formatDollars(v)} />
+          <Legend />
+          <Line type="monotone" dataKey="Earned" stroke="#3b82f6" strokeWidth={3} dot={false} />
+          <Line type="monotone" dataKey="Billed" stroke="#10b981" strokeWidth={3} dot={false} />
+          <Line type="monotone" dataKey="Contract" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+        </LineChart>
+      </ResponsiveContainer>
+      <p className="text-xs text-gray-500 mt-3">
+        S-curve shows cumulative Earned (RET) vs Billed (BTD) against Total Contract (TC). Above Earned = front-loaded billing;
+        below Earned = billing lag.
+      </p>
+    </div>
+  );
+};
+
+/* =====================================================
+   Glossary panel (compact list of key WIP definitions) (ADDED)
+   ===================================================== */
+const GlossaryPanel = () => {
+  const items = [
+    { k: 'Total Contract (TC)', v: 'Total contract value including approved change orders.' },
+    { k: 'Estimated Costs / EAC', v: 'Estimated cost at completion; forecast of total job cost.' },
+    { k: '% Complete (cost)', v: '%Complete = Actual Costs ÷ EAC (cost-based method).' },
+    { k: 'Revenue Earned to Date (RET)', v: 'Earned Revenue = %Complete × Total Contract.' },
+    { k: 'Revenue Billed to Date (BTD)', v: 'Cumulative billings invoiced to the customer.' },
+    { k: 'Overbilled', v: 'BTD − RET > 0 (liability / deferred revenue).' },
+    { k: 'Underbilled', v: 'RET − BTD > 0 (asset / unbilled receivable).' },
+    { k: 'Profit to Date (PTD)', v: 'RET − Actual Costs To Date.' },
+    { k: 'Margin to Date (MTD)', v: 'PTD ÷ RET.' },
+    { k: 'Estimated Profit (EPAC)', v: 'TC − EAC.' },
+    { k: 'Estimated Margin (EMAC)', v: 'EPAC ÷ TC.' },
+    { k: 'Backlog Remaining', v: 'TC − RET (unearned contract value).' },
+    { k: 'RVS prior O/U', v: 'Prior-year roll-forward net over/underbilling balance.' },
+    { k: 'CPI (Cost Performance Index)', v: 'EV ÷ AC; >1 = under budget; <1 = over budget.' },
+    { k: 'SPI (Schedule Performance Index)', v: 'EV ÷ PV; >1 = ahead of schedule; <1 = behind.' },
+  ];
+  return (
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+      <h3 className="text-lg font-semibold text-gray-200 mb-4">Glossary of Terms</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {items.map(({ k, v }) => (
+          <div key={k} className="p-3 bg-slate-700/40 rounded-lg">
+            <p className="text-amber-300 font-semibold">{k}</p>
+            <p className="text-gray-300 text-sm mt-1">{v}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -537,38 +599,53 @@ Suggestions:
 
   const enrichedProjects = wipData.map(calculateProjectMetrics);
 
-  // Calculate customer analytics
-  const calculateCustomerAnalytics = () => {
-    const customerData = {};
-    enrichedProjects.forEach(p => {
-      const customer = p['Customer'];
-      if (!customer) return;
-      if (!customerData[customer]) {
-        customerData[customer] = {
-          name: customer,
-          projectCount: 0,
-          totalVolume: 0,
-          totalEarned: 0,
-          totalCosts: 0,
-          avgMargin: 0,
-          margins: []
-        };
-      }
-      customerData[customer].projectCount++;
-      customerData[customer].totalVolume += toNum(p['Total Contract']);
-      customerData[customer].totalEarned += toNum(p['Revenue Earned to Date']);
-      customerData[customer].totalCosts += toNum(p['Job Costs to Date'] || p['Actual Costs To Date']);
-      customerData[customer].margins.push(p.mtd);
-    });
-    Object.values(customerData).forEach(c => {
-      c.avgMargin = c.margins.reduce((a, b) => a + b, 0) / c.margins.length || 0;
-      c.marginCategory = c.avgMargin > 25 ? 'high' : c.avgMargin > 15 ? 'medium' : 'low';
-      c.volumeShare = (c.totalVolume / (metrics.totalContract || 1)) * 100 || 0;
-    });
-    return Object.values(customerData);
+  // ================================
+  //   S-Curve state & series builder (ADDED)
+  // ================================
+  const [sCurveProject, setSCurveProject] = useState(null);
+
+  const buildProjectSCurve = (p) => {
+    if (!p) return [];
+    const tc  = toNum(p['Total Contract']);
+    const ret = toNum(p['Revenue Earned to Date']);
+    const btd = toNum(p['Revenue Billed to Date']);
+    const ratio = ret > 0 ? (btd / ret) : 1;
+
+    const checkpoints = [
+      { label: 'Start', f: 0.00 },
+      { label: 'Q1',    f: 0.25 },
+      { label: 'Q2',    f: 0.50 },
+      { label: 'Q3',    f: 0.75 },
+      { label: 'Now',   f: 1.00 },
+    ];
+
+    return checkpoints.map(({ label, f }) => ({
+      label,
+      Earned: ret * f,
+      Billed: Math.max(0, Math.min(btd, (ret * f) * ratio)),
+      Contract: tc,
+    }));
   };
 
-  const customerAnalytics = calculateCustomerAnalytics();
+  const buildPortfolioSCurve = () => {
+    const tc  = metrics.totalContract || 0;
+    const ret = metrics.earnedToDate || 0;
+    const btd = metrics.billedToDate || 0;
+    const ratio = ret > 0 ? (btd / ret) : 1;
+    const checkpoints = [
+      { label: 'Start', f: 0.00 },
+      { label: 'Q1',    f: 0.25 },
+      { label: 'Q2',    f: 0.50 },
+      { label: 'Q3',    f: 0.75 },
+      { label: 'Now',   f: 1.00 },
+    ];
+    return checkpoints.map(({ label, f }) => ({
+      label,
+      Earned: ret * f,
+      Billed: Math.max(0, Math.min(btd, (ret * f) * ratio)),
+      Contract: tc,
+    }));
+  };
 
   // Prepare risk distribution data
   const riskDistribution = [
@@ -633,9 +710,9 @@ Suggestions:
         </div>
       </div>
 
-      {/* View Selector */}
+      {/* View Selector (ADDED: 's-curve', 'glossary') */}
       <div className="flex space-x-4 overflow-x-auto">
-        {['overview', 'projects', 'risk', 'trends', 'reconciliation'].map((view) => (
+        {['overview', 'projects', 'risk', 'trends', 'reconciliation', 's-curve', 'glossary'].map((view) => (
           <button
             key={view}
             onClick={() => setSelectedView(view)}
@@ -1367,6 +1444,57 @@ Suggestions:
         </div>
       )}
 
+      {/* S-Curve Tab (Interactive / Project drill or Portfolio) (ADDED) */}
+      {selectedView === 's-curve' && (
+        <div className="space-y-6">
+          <ProgressSCurve
+            title={
+              sCurveProject
+                ? `S-Curve: ${sCurveProject['Project']} (${sCurveProject['Customer'] || ''})`
+                : 'S-Curve: Portfolio (Cumulative)'
+            }
+            series={sCurveProject ? buildProjectSCurve(sCurveProject) : buildPortfolioSCurve()}
+          />
+
+          {/* Quick switch back to portfolio / or pick another project */}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setSCurveProject(null)}
+              className="px-3 py-2 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors"
+            >
+              <i className="fas fa-layer-group mr-2"></i> View Portfolio Curve
+            </button>
+            {!!enrichedProjects.length && (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <span>Drill into project:</span>
+                <select
+                  className="bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-gray-200"
+                  value={sCurveProject ? sCurveProject['Project'] : ''}
+                  onChange={(e) => {
+                    const p = enrichedProjects.find(x => x['Project'] === e.target.value) || null;
+                    setSCurveProject(p);
+                  }}
+                >
+                  <option value="">— select —</option>
+                  {enrichedProjects.map(p => (
+                    <option key={p['Project']} value={p['Project']}>
+                      {p['Project']}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Glossary Tab (ADDED) */}
+      {selectedView === 'glossary' && (
+        <div className="space-y-6">
+          <GlossaryPanel />
+        </div>
+      )}
+
       {/* Selected Project Modal */}
       {selectedProject && (
         <div
@@ -1382,9 +1510,19 @@ Suggestions:
                 <h2 className="text-2xl font-bold text-gray-200">{selectedProject['Project']}</h2>
                 <p className="text-gray-400">{selectedProject['Customer']}</p>
               </div>
-              <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
-                <i className="fas fa-times text-xl"></i>
-              </button>
+              <div className="flex items-center gap-2">
+                {/* DRILL BUTTON TO S-CURVE (ADDED) */}
+                <button
+                  onClick={() => { setSCurveProject(selectedProject); setSelectedView('s-curve'); }}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <i className="fas fa-chart-line mr-2"></i>
+                  View S-Curve
+                </button>
+                <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
+                  <i className="fas fa-times text-xl"></i>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
