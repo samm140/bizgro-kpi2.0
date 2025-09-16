@@ -1,3 +1,4 @@
+// src/components/portfolio/DiamondbackDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar,
@@ -20,12 +21,10 @@ const toNum = (v) => {
 };
 
 const formatDollars = (value) => {
-  if (Math.abs(value) >= 1000000) {
-    return `$${(value / 1000000).toFixed(2)}M`;
-  } else if (Math.abs(value) >= 1000) {
-    return `$${(value / 1000).toFixed(0)}K`;
-  }
-  return `$${value.toFixed(0)}`;
+  const n = Number(value) || 0;
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
+  return `$${n.toFixed(0)}`;
 };
 
 const classFromPalette = (color) => {
@@ -38,6 +37,7 @@ const classFromPalette = (color) => {
     purple: 'text-purple-400',
     orange: 'text-orange-400',
     red: 'text-red-400',
+    amber: 'text-amber-400',
   };
   return map[color] || map.blue;
 };
@@ -87,6 +87,107 @@ const reconciliationData = {
     indirectAllocation: 9.31,
     grossMarginToDate: 20.40
   }
+};
+
+// ---------- small UI components ----------
+const RiskFlag = ({ level }) => {
+  const colors = { high: 'bg-red-500', medium: 'bg-amber-500', low: 'bg-green-500' };
+  return (
+    <span className={`inline-block px-2 py-1 rounded text-xs text-white ${colors[level] || 'bg-slate-500'}`}>
+      {String(level || '').toUpperCase()}
+    </span>
+  );
+};
+
+const MetricCard = ({ title, value, subtitle, trend, color = 'blue' }) => {
+  const colorClass = classFromPalette(color);
+  const isNumber = typeof value === 'number';
+  const display =
+    isNumber
+      ? (Math.abs(value) < 1000
+          ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+          : value.toLocaleString('en-US', {
+              style: 'currency',
+              currency: 'USD',
+              maximumFractionDigits: 0,
+            }))
+      : value;
+
+  const trendColor =
+    typeof trend === 'number'
+      ? trend > 0
+        ? 'text-green-400'
+        : trend < 0
+        ? 'text-red-400'
+        : 'text-slate-300'
+      : '';
+
+  return (
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-gray-400 text-sm mb-1">{title}</p>
+          <h3 className={`text-3xl font-bold ${colorClass}`}>{display}</h3>
+          {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
+        </div>
+        {typeof trend === 'number' && (
+          <div className={`flex items-center ${trendColor}`}>
+            <i className={`fas fa-arrow-${trend > 0 ? 'up' : trend < 0 ? 'down' : 'right'} mr-1`} />
+            <span className="text-sm">{Math.abs(trend).toFixed(1)}%</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Custom tooltip for dollar amounts in waterfall
+const CustomWaterfallTooltip = ({ active, payload }) => {
+  if (active && payload && payload[0]) {
+    return (
+      <div className="bg-slate-900 border border-slate-600 rounded p-3">
+        <p className="text-gray-300 text-sm">{payload[0].payload.name}</p>
+        <p className="text-white font-bold">{formatDollars(payload[0].value)}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom tooltip for percentages in risk charts
+const CustomPercentTooltip = ({ active, payload }) => {
+  if (active && payload && payload[0]) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-slate-900 border border-slate-600 rounded p-3">
+        <p className="text-white font-bold">{data.Project || data.name}</p>
+        {payload.map((entry, index) => (
+          <p key={index} className="text-gray-300 text-sm">
+            {entry.name}: {entry.value?.toFixed(1)}%
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
+// Custom dollar tooltip
+const CustomDollarTooltip = ({ active, payload }) => {
+  if (active && payload && payload[0]) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-slate-900 border border-slate-600 rounded p-3">
+        <p className="text-white font-bold">{data.Project || data.name}</p>
+        {payload.map((entry, index) => (
+          <p key={index} className="text-gray-300 text-sm">
+            {entry.name}: {formatDollars(entry.value)}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
 };
 
 const DiamondbackDashboard = () => {
@@ -354,11 +455,9 @@ Suggestions:
   // Calculate customer analytics
   const calculateCustomerAnalytics = () => {
     const customerData = {};
-    
     enrichedProjects.forEach(p => {
       const customer = p['Customer'];
       if (!customer) return;
-      
       if (!customerData[customer]) {
         customerData[customer] = {
           name: customer,
@@ -370,229 +469,21 @@ Suggestions:
           margins: []
         };
       }
-      
       customerData[customer].projectCount++;
       customerData[customer].totalVolume += toNum(p['Total Contract']);
       customerData[customer].totalEarned += toNum(p['Revenue Earned to Date']);
       customerData[customer].totalCosts += toNum(p['Job Costs to Date'] || p['Actual Costs To Date']);
       customerData[customer].margins.push(p.mtd);
     });
-    
-    // Calculate averages and categorize
     Object.values(customerData).forEach(c => {
       c.avgMargin = c.margins.reduce((a, b) => a + b, 0) / c.margins.length || 0;
       c.marginCategory = c.avgMargin > 25 ? 'high' : c.avgMargin > 15 ? 'medium' : 'low';
-      c.volumeShare = (c.totalVolume / metrics.totalContract) * 100 || 0;
+      c.volumeShare = (c.totalVolume / (metrics.totalContract || 1)) * 100 || 0;
     });
-    
     return Object.values(customerData);
   };
 
   const customerAnalytics = calculateCustomerAnalytics();
-
-  // --- small components ---
-  const MetricCard = ({ title, value, subtitle, trend, color = 'blue' }) => {
-    const colorClass = classFromPalette(color);
-    const isNumber = typeof value === 'number';
-    const display =
-      isNumber
-        ? (Math.abs(value) < 1000
-            ? value.toLocaleString('en-US', { maximumFractionDigits: 2 })
-            : value.toLocaleString('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                maximumFractionDigits: 0,
-              }))
-        : value;
-
-    const trendColor =
-      typeof trend === 'number'
-        ? trend > 0
-          ? 'text-green-400'
-          : trend < 0
-          ? 'text-red-400'
-          : 'text-slate-300'
-        : '';
-
-    return (
-      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-gray-400 text-sm mb-1">{title}</p>
-            <h3 className={`text-3xl font-bold ${colorClass}`}>{display}</h3>
-            {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
-          </div>
-          {typeof trend === 'number' && (
-            <div className={`flex items-center ${trendColor}`}>
-              <i className={`fas fa-arrow-${trend > 0 ? 'up' : trend < 0 ? 'down' : 'right'} mr-1`} />
-              <span className="text-sm">{Math.abs(trend).toFixed(1)}%</span>
-            </div>
-          )}
-
-      {/* Selected Project Modal */}
-      {selectedProject && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedProject(null)}>
-          <div className="bg-slate-800 rounded-xl p-8 max-w-4xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-200">{selectedProject['Project']}</h2>
-                <p className="text-gray-400">{selectedProject['Customer']}</p>
-              </div>
-              <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
-                <i className="fas fa-times text-xl"></i>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div>
-                <p className="text-gray-400 text-sm">Contract Value</p>
-                <p className="text-xl font-bold text-gray-200">
-                  ${Math.round(toNum(selectedProject['Total Contract'])).toLocaleString()}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">% Complete</p>
-                <p className="text-xl font-bold text-blue-400">{(selectedProject.percentComplete || 0).toFixed(1)}%</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Margin TD</p>
-                <p className="text-xl font-bold text-green-400">{(selectedProject.mtd || 0).toFixed(1)}%</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Risk Level</p>
-                <div className="mt-1">
-                  <RiskFlag level={selectedProject.riskLevel} />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Revenue Analysis</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Earned to Date</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Revenue Earned to Date'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Billed to Date</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Revenue Billed to Date'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-600 pt-2">
-                      <span className="text-gray-300">Over/Under</span>
-                      <span
-                        className={`font-bold ${
-                          selectedProject.overbilled > 0 ? 'text-green-400' : 'text-amber-400'
-                        }`}
-                      >
-                        {selectedProject.overbilled > 0 ? '+' : '-'}$
-                        {Math.round(Math.abs(selectedProject.overbilled || selectedProject.underbilled)).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-gray-400 text-sm mb-2">Cost Analysis</p>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Actual Costs TD</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-300">Estimated at Completion</span>
-                      <span className="text-gray-200 font-medium">
-                        ${Math.round(toNum(selectedProject['Estimated Costs'])).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t border-slate-600 pt-2">
-                      <span className="text-gray-300">Cost to Complete</span>
-                      <span className="text-gray-200 font-bold">
-                        ${Math.max(toNum(selectedProject['Estimated Costs']) - toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date']), 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default DiamondbackDashboard;
-        </div>
-      </div>
-    );
-  };
-
-  const RiskFlag = ({ level }) => {
-    const colors = { high: 'bg-red-500', medium: 'bg-amber-500', low: 'bg-green-500' };
-    return (
-      <span className={`inline-block px-2 py-1 rounded text-xs text-white ${colors[level] || 'bg-slate-500'}`}>
-        {String(level || '').toUpperCase()}
-      </span>
-    );
-  };
-
-  // Custom tooltip for dollar amounts in waterfall
-  const CustomWaterfallTooltip = ({ active, payload }) => {
-    if (active && payload && payload[0]) {
-      return (
-        <div className="bg-slate-900 border border-slate-600 rounded p-3">
-          <p className="text-gray-300 text-sm">{payload[0].payload.name}</p>
-          <p className="text-white font-bold">{formatDollars(payload[0].value)}</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Custom tooltip for percentages in risk charts
-  const CustomPercentTooltip = ({ active, payload }) => {
-    if (active && payload && payload[0]) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-slate-900 border border-slate-600 rounded p-3">
-          <p className="text-white font-bold">{data.Project || data.name}</p>
-          {payload.map((entry, index) => (
-            <p key={index} className="text-gray-300 text-sm">
-              {entry.name}: {entry.value?.toFixed(1)}%
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
-
-  // Custom dollar tooltip
-  const CustomDollarTooltip = ({ active, payload }) => {
-    if (active && payload && payload[0]) {
-      const data = payload[0].payload;
-      return (
-        <div className="bg-slate-900 border border-slate-600 rounded p-3">
-          <p className="text-white font-bold">{data.Project || data.name}</p>
-          {payload.map((entry, index) => (
-            <p key={index} className="text-gray-300 text-sm">
-              {entry.name}: {formatDollars(entry.value)}
-            </p>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   // Prepare risk distribution data
   const riskDistribution = [
@@ -704,12 +595,7 @@ export default DiamondbackDashboard;
           {Object.keys(summaryMetrics).length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(summaryMetrics).map(([label, value]) => (
-                <MetricCard
-                  key={label}
-                  title={label}
-                  value={value}
-                  color="purple"
-                />
+                <MetricCard key={label} title={label} value={value} color="purple" />
               ))}
             </div>
           )}
@@ -965,7 +851,10 @@ export default DiamondbackDashboard;
                     nameKey="name"
                   >
                     {customerAnalytics.slice(0, 8).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'][index]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'][index]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatDollars(value)} />
@@ -1045,7 +934,7 @@ export default DiamondbackDashboard;
               <h3 className="text-lg font-semibold text-gray-200 mb-4">Top 5 Projects - Performance Metrics</h3>
               <ResponsiveContainer width="100%" height={400}>
                 <RadarChart data={enrichedProjects.slice(0, 5).map(p => ({
-                  project: p['Project'].substring(0, 15),
+                  project: (p['Project'] || '').substring(0, 15),
                   margin: p.mtd,
                   completion: p.percentComplete,
                   efficiency: Math.min(100, (p.mtd / 20) * 100) // relative to 20% target
@@ -1224,21 +1113,9 @@ export default DiamondbackDashboard;
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Current Period Over/Under Calculations</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <MetricCard 
-                title="Current Overbilling" 
-                value={reconciliationData.current.overbilling} 
-                color="green" 
-              />
-              <MetricCard 
-                title="Current Underbilling" 
-                value={reconciliationData.current.underbilling} 
-                color="amber" 
-              />
-              <MetricCard 
-                title="O/U Total (Current)" 
-                value={reconciliationData.current.overUnderTotal} 
-                color="blue" 
-              />
+              <MetricCard title="Current Overbilling" value={reconciliationData.current.overbilling} color="green" />
+              <MetricCard title="Current Underbilling" value={reconciliationData.current.underbilling} color="amber" />
+              <MetricCard title="O/U Total (Current)" value={reconciliationData.current.overUnderTotal} color="blue" />
             </div>
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="p-4 bg-slate-700/50 rounded-lg">
@@ -1385,7 +1262,111 @@ export default DiamondbackDashboard;
           </div>
         </div>
       )}
-      </div>
+
+      {/* Selected Project Modal */}
+      {selectedProject && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setSelectedProject(null)}
+        >
+          <div
+            className="bg-slate-800 rounded-xl p-8 max-w-4xl w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-200">{selectedProject['Project']}</h2>
+                <p className="text-gray-400">{selectedProject['Customer']}</p>
+              </div>
+              <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
+                <i className="fas fa-times text-xl"></i>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div>
+                <p className="text-gray-400 text-sm">Contract Value</p>
+                <p className="text-xl font-bold text-gray-200">
+                  ${Math.round(toNum(selectedProject['Total Contract'])).toLocaleString()}
+                </p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">% Complete</p>
+                <p className="text-xl font-bold text-blue-400">{(selectedProject.percentComplete || 0).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Margin TD</p>
+                <p className="text-xl font-bold text-green-400">{(selectedProject.mtd || 0).toFixed(1)}%</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Risk Level</p>
+                <div className="mt-1">
+                  <RiskFlag level={selectedProject.riskLevel} />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-2">Revenue Analysis</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Earned to Date</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Revenue Earned to Date'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Billed to Date</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Revenue Billed to Date'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-600 pt-2">
+                      <span className="text-gray-300">Over/Under</span>
+                      <span
+                        className={`font-bold ${
+                          selectedProject.overbilled > 0 ? 'text-green-400' : 'text-amber-400'
+                        }`}
+                      >
+                        {selectedProject.overbilled > 0 ? '+' : '-'}$
+                        {Math.round(Math.abs(selectedProject.overbilled || selectedProject.underbilled)).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-700/50 rounded-lg p-4">
+                  <p className="text-gray-400 text-sm mb-2">Cost Analysis</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Actual Costs TD</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Estimated at Completion</span>
+                      <span className="text-gray-200 font-medium">
+                        ${Math.round(toNum(selectedProject['Estimated Costs'])).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-600 pt-2">
+                      <span className="text-gray-300">Cost to Complete</span>
+                      <span className="text-gray-200 font-bold">
+                        ${Math.max(toNum(selectedProject['Estimated Costs']) - toNum(selectedProject['Job Costs to Date'] || selectedProject['Actual Costs To Date']), 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
