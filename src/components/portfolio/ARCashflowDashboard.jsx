@@ -11,10 +11,10 @@ const AR_SPREADSHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
 
 // Sheet GIDs for each tab (you'll need to get these from the URL when viewing each tab)
 const SHEET_TABS = {
-  arByProject: '943478698',  // ARbyProject tab
-  plAccrual: 'ACCRUAL_GID',  // ProfitAndLossDetail tab - replace with actual GID
-  plCash: 'CASH_GID',         // ProfitAndLossDetail (1) tab - replace with actual GID
-  transactions: 'TRANS_GID'   // TransactionListDetails tab - replace with actual GID
+  arByProject: '0',  // ARbyProject tab
+  plAccrual: '1412560882',  // ProfitAndLossDetail tab - replace with actual GID
+  plCash: '1066586081',         // ProfitAndLossDetail (1) tab - replace with actual GID
+  transactions: '943478698'   // TransactionListDetails tab - replace with actual GID
 };
 
 // Helpers
