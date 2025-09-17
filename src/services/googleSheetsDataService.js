@@ -1,5 +1,5 @@
 // src/services/googleSheetsDataService.js
-// Fully functional service to fetch real data from Google Sheets
+// Updated with correct column headers from your actual Google Sheets
 
 const SPREADSHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
 const API_KEY = import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || process.env.REACT_APP_GOOGLE_API_KEY;
@@ -10,25 +10,33 @@ const SHEET_CONFIGS = {
     name: 'AgedReceivablesSummaryByCustomer',
     gid: '98770792',
     headerRow: 5,
-    range: 'A5:Z1000'
+    range: 'A5:Z1000',
+    // Actual headers: Customer, Current, 1 months, 2 months, 3 months, 4 months, 5 months, Older, Total, Past Due Average
+    headers: ['Customer', 'Current', '1 months', '2 months', '3 months', '4 months', '5 months', 'Older', 'Total', 'Past Due Average']
   },
   profitLossAccrual: {
     name: 'ProfitAndLossDetail',
     gid: '1412560882',
     headerRow: 5,
-    range: 'A5:Z1000'
+    range: 'A5:Z1000',
+    // Actual headers: Date, Transaction Type, Num, Name, Class, Memo/Description, Split, Amount, Balance
+    headers: ['Date', 'Transaction Type', 'Num', 'Name', 'Class', 'Memo/Description', 'Split', 'Amount', 'Balance']
   },
   profitLossCash: {
     name: 'ProfitAndLossDetail (1)',
     gid: '1066586081',
     headerRow: 5,
-    range: 'A5:Z1000'
+    range: 'A5:Z1000',
+    // Actual headers: Date, Transaction Type, Num, Name, Class, Memo/Description, Split, Amount, Balance
+    headers: ['Date', 'Transaction Type', 'Num', 'Name', 'Class', 'Memo/Description', 'Split', 'Amount', 'Balance']
   },
   transactionList: {
     name: 'TransactionListDetails',
     gid: '943478698',
     headerRow: 4,
-    range: 'A4:Z1000'
+    range: 'A4:Z1000',
+    // Actual headers: Date, Transaction Type, Num, Adj, Posting, Created, Name, Customer, Vendor, Class, Product/Service, Memo/Description, Qty, Rate, Account, Payment Method, Clr, Amount, Open Balance, Taxable, Online Banking, Debit, Credit
+    headers: ['Date', 'Transaction Type', 'Num', 'Adj', 'Posting', 'Created', 'Name', 'Customer', 'Vendor', 'Class', 'Product/Service', 'Memo/Description', 'Qty', 'Rate', 'Account', 'Payment Method', 'Clr', 'Amount', 'Open Balance', 'Taxable', 'Online Banking', 'Debit', 'Credit']
   }
 };
 
@@ -44,10 +52,8 @@ class GoogleSheetsDataService {
   async initializeClient() {
     if (this.apiInitialized) return true;
 
-    // Method 1: Try using Google Sheets API with API Key
     if (API_KEY) {
       try {
-        // Test if API key works with a simple request
         const testUrl = `${this.baseUrl}/${SPREADSHEET_ID}?key=${API_KEY}`;
         const response = await fetch(testUrl);
         if (response.ok) {
@@ -60,7 +66,6 @@ class GoogleSheetsDataService {
       }
     }
 
-    // Method 2: Try public CSV export (no API key needed)
     console.log('Using public CSV export method (no API key)');
     return true;
   }
@@ -87,13 +92,12 @@ class GoogleSheetsDataService {
     }
   }
 
-  // Fetch data using public CSV export (works without API key)
+  // Fetch data using public CSV export
   async fetchWithCSVExport(sheetConfig) {
     try {
-      // Direct CSV export URL
       const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${sheetConfig.gid}`;
       
-      // First try direct fetch
+      // Try direct fetch first
       try {
         const response = await fetch(csvUrl, {
           mode: 'cors',
@@ -108,12 +112,10 @@ class GoogleSheetsDataService {
         console.log('Direct fetch failed, trying proxy...');
       }
 
-      // If direct fetch fails due to CORS, try with a proxy
-      // Using multiple proxy options for reliability
+      // If direct fetch fails, try with proxies
       const proxyUrls = [
         `https://corsproxy.io/?${encodeURIComponent(csvUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`,
-        `https://cors-anywhere.herokuapp.com/${csvUrl}`
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`
       ];
 
       for (const proxyUrl of proxyUrls) {
@@ -169,7 +171,6 @@ class GoogleSheetsDataService {
           data = await this.fetchWithCSVExport(sheetConfig);
         }
       } else {
-        // No API key, use CSV export directly
         data = await this.fetchWithCSVExport(sheetConfig);
       }
 
@@ -182,7 +183,6 @@ class GoogleSheetsDataService {
       return data;
     } catch (error) {
       console.error(`Error fetching ${sheetConfig.name}:`, error);
-      // Return mock data as fallback
       return this.getMockData(sheetConfig.name);
     }
   }
@@ -193,20 +193,21 @@ class GoogleSheetsDataService {
       return [];
     }
 
-    // Adjust for 0-based index
     const headerIndex = headerRowIndex - 1;
     const headers = values[headerIndex];
     const dataRows = values.slice(headerIndex + 1);
 
     return dataRows.map((row, index) => {
-      const obj = { _rowIndex: headerIndex + index + 2 }; // Keep track of original row number
+      const obj = { _rowIndex: headerIndex + index + 2 };
       headers.forEach((header, i) => {
-        obj[this.normalizeHeader(header)] = row[i] || '';
+        obj[header] = row[i] || '';
       });
       return obj;
     }).filter(row => {
-      // Filter out empty rows
-      return Object.values(row).some(val => val && val !== '' && val !== '_rowIndex');
+      // Filter out empty rows and total rows
+      return Object.values(row).some(val => 
+        val && val !== '' && val !== '_rowIndex' && !String(val).toLowerCase().includes('total')
+      );
     });
   }
 
@@ -217,7 +218,6 @@ class GoogleSheetsDataService {
       return [];
     }
 
-    // Adjust for 0-based index
     const headerIndex = headerRowIndex - 1;
     const headers = this.parseCSVLine(lines[headerIndex]);
     const dataLines = lines.slice(headerIndex + 1);
@@ -226,7 +226,7 @@ class GoogleSheetsDataService {
       const values = this.parseCSVLine(line);
       const obj = { _rowIndex: headerIndex + index + 2 };
       headers.forEach((header, i) => {
-        obj[this.normalizeHeader(header)] = values[i] || '';
+        obj[header] = values[i] || '';
       });
       return obj;
     }).filter(row => {
@@ -234,10 +234,9 @@ class GoogleSheetsDataService {
       const hasData = Object.values(row).some(val => 
         val && val !== '' && val !== '_rowIndex'
       );
-      // Skip rows that look like totals or headers
       const firstCol = Object.values(row)[1] || '';
-      const isTotal = firstCol.toLowerCase().includes('total') || 
-                     firstCol.toLowerCase().includes('grand');
+      const isTotal = String(firstCol).toLowerCase().includes('total') || 
+                     String(firstCol).toLowerCase().includes('grand');
       return hasData && !isTotal;
     });
 
@@ -256,11 +255,9 @@ class GoogleSheetsDataService {
       
       if (char === '"') {
         if (inQuotes && nextChar === '"') {
-          // Escaped quote
           current += '"';
-          i++; // Skip next quote
+          i++;
         } else {
-          // Toggle quotes
           inQuotes = !inQuotes;
         }
       } else if (char === ',' && !inQuotes) {
@@ -275,45 +272,55 @@ class GoogleSheetsDataService {
     return result;
   }
 
-  // Normalize header names for consistent access
-  normalizeHeader(header) {
-    if (!header) return '';
-    return header
-      .toString()
-      .trim()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_]/g, '')
-      .toLowerCase();
+  // Parse number from string
+  parseNumber(value) {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    
+    const cleaned = value.toString()
+      .replace(/[$,]/g, '')
+      .replace(/^\((.+)\)$/, '-$1')
+      .trim();
+    
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
   }
 
-  // Process aged receivables data
+  // Process aged receivables data with correct column mapping
   processAgedReceivables(rawData) {
     return rawData.map(row => {
-      // Try different possible column names
-      const customer = row.customer || row.name || row.customer_name || '';
-      const current = this.parseNumber(row.current || row['030_days'] || row['030'] || 0);
-      const days30 = this.parseNumber(row['3160_days'] || row['3060_days'] || row['3060'] || row['130'] || 0);
-      const days60 = this.parseNumber(row['6190_days'] || row['6090_days'] || row['6090'] || row['3160'] || 0);
-      const days90 = this.parseNumber(row['over_90_days'] || row['90_days'] || row['90'] || row['6190'] || row['over90'] || 0);
-      const total = this.parseNumber(row.total || row.amount || 0);
+      // Map to the actual column names from your sheet
+      const customer = row['Customer'] || '';
+      const current = this.parseNumber(row['Current'] || 0);
+      const month1 = this.parseNumber(row['1 months'] || 0);
+      const month2 = this.parseNumber(row['2 months'] || 0);
+      const month3 = this.parseNumber(row['3 months'] || 0);
+      const month4 = this.parseNumber(row['4 months'] || 0);
+      const month5 = this.parseNumber(row['5 months'] || 0);
+      const older = this.parseNumber(row['Older'] || 0);
+      const total = this.parseNumber(row['Total'] || 0);
+      const pastDueAvg = this.parseNumber(row['Past Due Average'] || 0);
       
       return {
         customer: customer,
         current: current,
-        days30: days30,
-        days60: days60,
-        days90: days90,
-        total: total || (current + days30 + days60 + days90),
-        percentOfTotal: this.parseNumber(row.percent || row.percentage || 0),
-        email: row.email || '',
-        phone: row.phone || '',
-        lastPayment: row.last_payment_date || row.last_payment || '',
-        creditLimit: this.parseNumber(row.credit_limit || 0)
+        days30: month1,  // 1 month past due
+        days60: month2 + month3,  // 2-3 months combined for 60 days
+        days90: month4 + month5 + older,  // 4+ months for 90+ days
+        total: total || (current + month1 + month2 + month3 + month4 + month5 + older),
+        month1: month1,
+        month2: month2,
+        month3: month3,
+        month4: month4,
+        month5: month5,
+        older: older,
+        pastDueAverage: pastDueAvg,
+        percentOfTotal: 0  // Will calculate this after we have all rows
       };
     }).filter(row => row.customer && row.total > 0);
   }
 
-  // Process profit & loss data
+  // Process P&L data (both accrual and cash use same structure)
   processProfitLoss(rawData, type) {
     const processedData = {
       type: type,
@@ -323,108 +330,130 @@ class GoogleSheetsDataService {
       totalExpenses: 0,
       netIncome: 0,
       grossProfit: 0,
-      operatingIncome: 0
+      operatingIncome: 0,
+      transactions: []  // Store raw transactions
     };
 
-    let currentSection = '';
-    
+    // Process each transaction
     rawData.forEach(row => {
-      // Get account name and amount from various possible columns
-      const account = row.account || row.description || row.name || row.account_name || '';
-      const amount = this.parseNumber(row.amount || row.total || row.balance || row.debit || row.credit || 0);
+      const date = row['Date'] || '';
+      const transactionType = row['Transaction Type'] || '';
+      const num = row['Num'] || '';
+      const name = row['Name'] || '';
+      const className = row['Class'] || '';
+      const memo = row['Memo/Description'] || '';
+      const split = row['Split'] || '';
+      const amount = this.parseNumber(row['Amount'] || 0);
+      const balance = this.parseNumber(row['Balance'] || 0);
 
-      if (!account || amount === 0) return;
+      if (!date || amount === 0) return;
 
-      const accountLower = account.toLowerCase();
+      // Add to transactions list
+      processedData.transactions.push({
+        date,
+        type: transactionType,
+        num,
+        name,
+        class: className,
+        memo,
+        split,
+        amount,
+        balance
+      });
 
-      // Identify sections based on account names
-      if (accountLower.includes('revenue') || 
-          accountLower.includes('income') || 
-          accountLower.includes('sales')) {
-        currentSection = 'revenue';
-        processedData.revenue.push({
-          account: account,
-          amount: Math.abs(amount)
-        });
+      // Categorize based on split account or transaction type
+      const splitLower = split.toLowerCase();
+      const memoLower = memo.toLowerCase();
+      
+      if (splitLower.includes('revenue') || splitLower.includes('income') || 
+          splitLower.includes('sales') || transactionType === 'Invoice' || 
+          transactionType === 'Sales Receipt') {
+        // Revenue items
+        const existingRevenue = processedData.revenue.find(r => r.account === split);
+        if (existingRevenue) {
+          existingRevenue.amount += Math.abs(amount);
+        } else {
+          processedData.revenue.push({
+            account: split || `${transactionType} - ${name}`,
+            amount: Math.abs(amount)
+          });
+        }
         processedData.totalRevenue += Math.abs(amount);
-      } else if (accountLower.includes('expense') || 
-                 accountLower.includes('cost') ||
-                 accountLower.includes('wages') ||
-                 accountLower.includes('rent') ||
-                 accountLower.includes('utilities')) {
-        currentSection = 'expenses';
-        processedData.expenses.push({
-          account: account,
-          amount: Math.abs(amount)
-        });
+      } else if (splitLower.includes('expense') || splitLower.includes('cost') || 
+                transactionType === 'Bill' || transactionType === 'Check' || 
+                transactionType === 'Expense') {
+        // Expense items
+        const existingExpense = processedData.expenses.find(e => e.account === split);
+        if (existingExpense) {
+          existingExpense.amount += Math.abs(amount);
+        } else {
+          processedData.expenses.push({
+            account: split || `${transactionType} - ${name}`,
+            amount: Math.abs(amount)
+          });
+        }
         processedData.totalExpenses += Math.abs(amount);
-      }
-
-      // Look for summary lines
-      if (accountLower.includes('gross profit')) {
-        processedData.grossProfit = amount;
-      } else if (accountLower.includes('net income') || accountLower.includes('net profit')) {
-        processedData.netIncome = amount;
-      } else if (accountLower.includes('operating income')) {
-        processedData.operatingIncome = amount;
       }
     });
 
-    // Calculate if not found in data
-    if (processedData.netIncome === 0) {
-      processedData.netIncome = processedData.totalRevenue - processedData.totalExpenses;
-    }
-    if (processedData.grossProfit === 0) {
-      processedData.grossProfit = processedData.totalRevenue * 0.3; // Estimate if not provided
-    }
+    // Calculate net income
+    processedData.netIncome = processedData.totalRevenue - processedData.totalExpenses;
+    processedData.grossProfit = processedData.totalRevenue * 0.3; // Estimate if not provided
+    processedData.operatingIncome = processedData.netIncome;
+
+    // Sort transactions by date
+    processedData.transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return processedData;
   }
 
-  // Process transaction list data
+  // Process transaction list data with correct column mapping
   processTransactionList(rawData) {
     return rawData.map(row => ({
-      date: row.date || row.transaction_date || '',
-      type: row.transaction_type || row.type || row.txn_type || '',
-      number: row.num || row.number || row.doc_number || '',
-      name: row.name || row.vendor || row.customer || row.payee || '',
-      memo: row.memo || row.description || row.notes || '',
-      account: row.account || row.account_name || '',
-      split: row.split || row.split_account || '',
-      amount: this.parseNumber(row.amount || row.total || row.debit || row.credit || 0),
-      balance: this.parseNumber(row.balance || row.running_balance || 0),
-      status: row.status || row.cleared || '',
-      category: row.category || row.class || '',
-      class: row.class || '',
-      location: row.location || ''
-    })).filter(row => row.date && row.amount !== 0)
-      .sort((a, b) => {
-        // Sort by date descending (most recent first)
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateB - dateA;
-      });
-  }
-
-  // Parse number from string (handles currency formatting)
-  parseNumber(value) {
-    if (typeof value === 'number') return value;
-    if (!value) return 0;
-    
-    // Remove currency symbols, commas, and parentheses (for negatives)
-    const cleaned = value.toString()
-      .replace(/[$,]/g, '')
-      .replace(/^\((.+)\)$/, '-$1') // Convert (123) to -123
-      .trim();
-    
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : num;
+      date: row['Date'] || '',
+      type: row['Transaction Type'] || '',
+      number: row['Num'] || '',
+      adj: row['Adj'] || '',
+      posting: row['Posting'] || '',
+      created: row['Created'] || '',
+      name: row['Name'] || '',
+      customer: row['Customer'] || '',
+      vendor: row['Vendor'] || '',
+      class: row['Class'] || '',
+      productService: row['Product/Service'] || '',
+      memo: row['Memo/Description'] || '',
+      qty: this.parseNumber(row['Qty'] || 0),
+      rate: this.parseNumber(row['Rate'] || 0),
+      account: row['Account'] || '',
+      paymentMethod: row['Payment Method'] || '',
+      clr: row['Clr'] || '',
+      amount: this.parseNumber(row['Amount'] || 0),
+      openBalance: this.parseNumber(row['Open Balance'] || 0),
+      taxable: row['Taxable'] || '',
+      onlineBanking: row['Online Banking'] || '',
+      debit: this.parseNumber(row['Debit'] || 0),
+      credit: this.parseNumber(row['Credit'] || 0),
+      // Computed fields
+      netAmount: this.parseNumber(row['Amount'] || 0) || 
+                (this.parseNumber(row['Debit'] || 0) - this.parseNumber(row['Credit'] || 0)),
+      status: row['Clr'] ? 'Cleared' : 'Open',
+      entity: row['Customer'] || row['Vendor'] || row['Name'] || ''
+    })).filter(row => row.date && (row.amount !== 0 || row.debit !== 0 || row.credit !== 0))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
   }
 
   // Specific methods for each data type
   async getAgedReceivables() {
     const data = await this.fetchSheetData(SHEET_CONFIGS.agedReceivables);
-    return this.processAgedReceivables(data);
+    const processed = this.processAgedReceivables(data);
+    
+    // Calculate percentages
+    const total = processed.reduce((sum, r) => sum + r.total, 0);
+    processed.forEach(r => {
+      r.percentOfTotal = total > 0 ? (r.total / total * 100) : 0;
+    });
+    
+    return processed;
   }
 
   async getProfitLossAccrual() {
@@ -447,7 +476,6 @@ class GoogleSheetsDataService {
     try {
       console.log('Fetching all data from Google Sheets...');
       
-      // Try to fetch all data in parallel
       const promises = [
         this.getAgedReceivables().catch(err => {
           console.error('Failed to fetch aged receivables:', err);
@@ -482,7 +510,7 @@ class GoogleSheetsDataService {
     }
   }
 
-  // Mock data fallback (same as before)
+  // Mock data fallback
   getMockData(type) {
     console.log(`Using mock data for ${type}`);
     const mockData = {
@@ -494,11 +522,14 @@ class GoogleSheetsDataService {
           days60: 8000,
           days90: 5000,
           total: 70000,
-          percentOfTotal: 35,
-          email: 'billing@abcconstruction.com',
-          phone: '555-0100',
-          lastPayment: '2025-01-15',
-          creditLimit: 100000
+          month1: 12000,
+          month2: 5000,
+          month3: 3000,
+          month4: 2000,
+          month5: 2000,
+          older: 1000,
+          pastDueAverage: 45,
+          percentOfTotal: 35
         },
         {
           customer: 'XYZ Builders Inc',
@@ -507,37 +538,14 @@ class GoogleSheetsDataService {
           days60: 0,
           days90: 2000,
           total: 42000,
-          percentOfTotal: 21,
-          email: 'accounts@xyzbuilders.com',
-          phone: '555-0200',
-          lastPayment: '2025-01-10',
-          creditLimit: 75000
-        },
-        {
-          customer: 'Premier Contracting',
-          current: 38000,
-          days30: 5000,
-          days60: 3000,
-          days90: 0,
-          total: 46000,
-          percentOfTotal: 23,
-          email: 'ap@premiercontracting.com',
-          phone: '555-0300',
-          lastPayment: '2025-01-20',
-          creditLimit: 80000
-        },
-        {
-          customer: 'BuildRight Corp',
-          current: 15000,
-          days30: 8000,
-          days60: 12000,
-          days90: 7000,
-          total: 42000,
-          percentOfTotal: 21,
-          email: 'finance@buildright.com',
-          phone: '555-0400',
-          lastPayment: '2024-12-28',
-          creditLimit: 60000
+          month1: 15000,
+          month2: 0,
+          month3: 0,
+          month4: 1000,
+          month5: 1000,
+          older: 0,
+          pastDueAverage: 30,
+          percentOfTotal: 21
         }
       ],
       profitLossAccrual: {
@@ -548,54 +556,42 @@ class GoogleSheetsDataService {
         ],
         expenses: [
           { account: 'Labor Costs', amount: 425000 },
-          { account: 'Materials', amount: 285000 },
-          { account: 'Operating Expenses', amount: 95000 }
+          { account: 'Materials', amount: 285000 }
         ],
         totalRevenue: 975000,
-        totalExpenses: 805000,
-        netIncome: 170000,
-        grossProfit: 265000,
-        operatingIncome: 170000
+        totalExpenses: 710000,
+        netIncome: 265000,
+        grossProfit: 292500,
+        operatingIncome: 265000,
+        transactions: []
       },
       profitLossCash: {
         type: 'cash',
         revenue: [
-          { account: 'Cash Revenue', amount: 750000 },
-          { account: 'Service Revenue', amount: 100000 }
+          { account: 'Cash Revenue', amount: 750000 }
         ],
         expenses: [
-          { account: 'Labor Paid', amount: 400000 },
-          { account: 'Materials Paid', amount: 260000 },
-          { account: 'Operating Expenses', amount: 90000 }
+          { account: 'Cash Expenses', amount: 550000 }
         ],
-        totalRevenue: 850000,
-        totalExpenses: 750000,
-        netIncome: 100000,
-        grossProfit: 190000,
-        operatingIncome: 100000
+        totalRevenue: 750000,
+        totalExpenses: 550000,
+        netIncome: 200000,
+        grossProfit: 225000,
+        operatingIncome: 200000,
+        transactions: []
       },
       transactionList: [
         {
           date: '2025-01-20',
           type: 'Invoice',
-          number: 'INV-2025-001',
-          name: 'ABC Construction LLC',
-          memo: 'Progress billing - Project Phase 2',
-          account: 'Accounts Receivable',
+          number: 'INV-001',
+          name: 'ABC Construction',
+          customer: 'ABC Construction',
+          memo: 'Progress billing',
           amount: 45000,
-          balance: 45000,
-          status: 'Open'
-        },
-        {
-          date: '2025-01-18',
-          type: 'Payment',
-          number: 'PMT-2025-015',
-          name: 'XYZ Builders Inc',
-          memo: 'Payment received - Invoice INV-2024-089',
-          account: 'Checking Account',
-          amount: 25000,
-          balance: 125000,
-          status: 'Cleared'
+          openBalance: 45000,
+          status: 'Open',
+          entity: 'ABC Construction'
         }
       ]
     };
@@ -614,17 +610,6 @@ class GoogleSheetsDataService {
   clearCache() {
     this.cache.clear();
     console.log('Cache cleared');
-  }
-
-  // Set custom API key
-  setApiKey(apiKey) {
-    if (apiKey) {
-      window.VITE_GOOGLE_SHEETS_API_KEY = apiKey;
-      this.clearCache();
-      this.apiInitialized = false;
-      return this.initializeClient();
-    }
-    return false;
   }
 }
 
