@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { googleSheetsDataService } from '../services/googleSheetsDataService';
+import { googleSheetsDataService } from '../../services/googleSheetsDataService';
 
 const ARDashboard = ({ portfolioId = 'default' }) => {
   const [data, setData] = useState(null);
