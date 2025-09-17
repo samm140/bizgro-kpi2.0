@@ -1,393 +1,99 @@
-// src/components/portfolio/ARDashboard.jsx
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, ResponsiveContainer,
-  Legend, AreaChart, Area, PieChart, Pie, Cell, ComposedChart
-} from 'recharts';
+import React, { useState, useEffect } from 'react';
+import { googleSheetsDataService } from '../services/googleSheetsDataService';
 
-// Google Sheets configuration - Your actual AR Sheet
-const AR_SPREADSHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
-const AR_SHEET_GID = '943478698'; // ARbyProject tab
-
-// Portfolio configuration (matching DiamondbackDashboard pattern)
-const PORTFOLIO_CONFIG = {
-  portfolioId: 'diamondback-001',
-  companyName: 'DiamondBack Construction',
-  permissions: ['view', 'edit', 'admin']
-};
-
-// --- Helpers (matching DiamondbackDashboard style) ---
-const toNum = (v) => {
-  if (v === undefined || v === null || v === '') return 0;
-  if (typeof v === 'number') return v;
-  // Remove $, %, commas, spaces, parentheses for negatives
-  let cleaned = String(v).replace(/[\$,%\s]/g, '');
-  if (cleaned.includes('(') && cleaned.includes(')')) {
-    cleaned = '-' + cleaned.replace(/[()]/g, '');
-  }
-  const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
-};
-
-const formatDollars = (value) => {
-  const n = Number(value) || 0;
-  const absN = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  if (absN >= 1_000_000) return `${sign}$${(absN / 1_000_000).toFixed(2)}M`;
-  if (absN >= 1_000) return `${sign}$${(absN / 1_000).toFixed(0)}K`;
-  return `${sign}$${absN.toFixed(0)}`;
-};
-
-const classFromPalette = (color) => {
-  const map = {
-    blue: 'text-blue-400',
-    green: 'text-green-400',
-    cyan: 'text-cyan-400',
-    indigo: 'text-indigo-400',
-    purple: 'text-purple-400',
-    orange: 'text-orange-400',
-    red: 'text-red-400',
-    amber: 'text-amber-400',
-  };
-  return map[color] || map.blue;
-};
-
-// Demo data fallback
-const demoARData = {
-  summary: {
-    total: 2487350,
-    current: 1087000,
-    days1_30: 515250,
-    days31_60: 420400,
-    days61_90: 235700,
-    days90_plus: 229000,
-    avgDSO: 48,
-    collectionIndex: 43.7
-  },
-  projects: [
-    { name: 'City Center Tower - Phase 2', current: 285000, days1_30: 120000, days31_60: 75000, days61_90: 35000, days90_plus: 20000, total: 535000 },
-    { name: 'Memorial Hospital - Wing B', current: 245000, days1_30: 95000, days31_60: 85000, days61_90: 45000, days90_plus: 25000, total: 495000 },
-    { name: 'Highway 101 Extension', current: 198000, days1_30: 85000, days31_60: 65000, days61_90: 40000, days90_plus: 30000, total: 418000 },
-    { name: 'School District - Renovation', current: 165000, days1_30: 75000, days31_60: 55000, days61_90: 35000, days90_plus: 45000, total: 375000 },
-    { name: 'Industrial Park - Phase 1', current: 145000, days1_30: 65000, days31_60: 50000, days61_90: 30000, days90_plus: 40000, total: 330000 },
-    { name: 'Downtown Office Complex', current: 125000, days1_30: 55000, days31_60: 45000, days61_90: 35000, days90_plus: 39000, total: 299000 }
-  ],
-  customers: [
-    { name: 'Turner Construction', current: 485000, aged: 285000, total: 770000, projectCount: 3 },
-    { name: 'Skanska USA', current: 398000, aged: 232000, total: 630000, projectCount: 2 },
-    { name: 'Clark Construction', current: 342000, aged: 198000, total: 540000, projectCount: 2 },
-    { name: 'AECOM', current: 278000, aged: 167000, total: 445000, projectCount: 1 },
-    { name: 'Bechtel', current: 234000, aged: 143000, total: 377000, projectCount: 1 }
-  ]
-};
-
-// MetricCard component (matching DiamondbackDashboard style)
-const MetricCard = ({ title, value, subtitle, trend, color = 'blue' }) => {
-  const colorClass = classFromPalette(color);
-  const trendColor =
-    typeof trend === 'number'
-      ? trend > 0
-        ? 'text-green-400'
-        : trend < 0
-        ? 'text-red-400'
-        : 'text-slate-300'
-      : '';
-
-  return (
-    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-gray-400 text-sm mb-1">{title}</p>
-          <h3 className={`text-3xl font-bold ${colorClass}`}>{value}</h3>
-          {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
-        </div>
-        {typeof trend === 'number' && (
-          <div className={`flex items-center ${trendColor}`}>
-            <i className={`fas fa-arrow-${trend > 0 ? 'up' : trend < 0 ? 'down' : 'right'} mr-1`} />
-            <span className="text-sm">{Math.abs(trend).toFixed(1)}%</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Custom tooltip
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload[0]) {
-    return (
-      <div className="bg-slate-900 border border-slate-600 rounded p-3">
-        <p className="text-white font-bold">{label}</p>
-        {payload.map((entry, index) => (
-          <p key={index} className="text-gray-300 text-sm">
-            <span style={{ color: entry.color }}>{entry.name}:</span>
-            <span className="ml-2">{formatDollars(entry.value)}</span>
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
-
-const ARDashboard = ({ portfolioId = PORTFOLIO_CONFIG.portfolioId }) => {
-  const [arData, setArData] = useState(null);
+const ARDashboard = ({ portfolioId = 'default' }) => {
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedView, setSelectedView] = useState('overview');
-  const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [selectedView, setSelectedView] = useState('summary');
+  const [filterDays, setFilterDays] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch AR data from Google Sheets (matching DiamondbackDashboard pattern)
-  const fetchARData = async () => {
+  // Fetch real data from Google Sheets
+  const fetchData = async () => {
     try {
-      setLoading(true);
+      setRefreshing(true);
+      const allData = await googleSheetsDataService.getAllData();
+      setData(allData);
       setError(null);
-      
-      // Use CORS proxy (same as DiamondbackDashboard)
-      const proxyUrl = 'https://corsproxy.io/?';
-      const directUrl = `https://docs.google.com/spreadsheets/d/${AR_SPREADSHEET_ID}/export?format=csv&gid=${AR_SHEET_GID}`;
-      const csvUrl = proxyUrl + encodeURIComponent(directUrl);
-      
-      console.log('Fetching AR data from:', csvUrl);
-
-      const response = await fetch(csvUrl, {
-        cache: 'no-store',
-        headers: { 'Accept': 'text/csv' }
-      });
-      
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      const csvText = await response.text();
-      console.log('CSV data received, length:', csvText.length);
-
-      // Parse CSV (same robust parsing as DiamondbackDashboard)
-      const rows = [];
-      let i = 0, field = '', inQuotes = false, row = [];
-      
-      while (i < csvText.length) {
-        const char = csvText[i];
-        
-        if (char === '"') {
-          if (inQuotes && csvText[i + 1] === '"') {
-            field += '"';
-            i += 1;
-          } else {
-            inQuotes = !inQuotes;
-          }
-        } else if (char === ',' && !inQuotes) {
-          row.push(field.trim());
-          field = '';
-        } else if ((char === '\n' || char === '\r') && !inQuotes) {
-          if (field.length || row.length) {
-            row.push(field.trim());
-            rows.push(row);
-            row = [];
-            field = '';
-          }
-        } else {
-          field += char;
-        }
-        i += 1;
-      }
-      if (field.length || row.length) {
-        row.push(field.trim());
-        rows.push(row);
-      }
-
-      console.log('Parsed', rows.length, 'rows from CSV');
-
-      // Process AR data
-      const data = parseARData(rows);
-      setArData(data);
-      setLoading(false);
-      setLastRefresh(new Date());
-      
     } catch (err) {
-      console.error('AR data fetch error:', err);
-      setError('Using demo data. Check sheet permissions or CORS settings.');
-      setArData(demoARData);
+      console.error('Error fetching data:', err);
+      setError('Failed to load data. Using cached or mock data.');
+    } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
-
-  // Parse AR data from rows
-  const parseARData = (rows) => {
-    if (rows.length < 2) {
-      console.log('Not enough data, using demo');
-      return demoARData;
-    }
-
-    // First row should be headers
-    const headers = rows[0];
-    console.log('Headers:', headers);
-
-    const projects = [];
-    const customers = {};
-    let totalCurrent = 0, total1_30 = 0, total31_60 = 0, total61_90 = 0, total90_plus = 0;
-
-    // Process each data row
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      
-      // Skip empty rows
-      if (!row[0] || row[0] === '') continue;
-
-      // Parse based on expected column structure
-      // Adjust these indices based on your actual sheet structure
-      const projectName = row[0];
-      const current = toNum(row[1] || 0);
-      const days1_30 = toNum(row[2] || 0);
-      const days31_60 = toNum(row[3] || 0);
-      const days61_90 = toNum(row[4] || 0);
-      const days90_plus = toNum(row[5] || 0);
-      const total = toNum(row[6]) || (current + days1_30 + days31_60 + days61_90 + days90_plus);
-
-      if (total > 0) {
-        projects.push({
-          name: projectName,
-          current,
-          days1_30,
-          days31_60,
-          days61_90,
-          days90_plus,
-          total
-        });
-
-        // Group by customer (extract before dash/hyphen)
-        const customerName = projectName.split(/[-–]/)[0].trim();
-        if (!customers[customerName]) {
-          customers[customerName] = {
-            name: customerName,
-            current: 0,
-            aged: 0,
-            total: 0,
-            projectCount: 0
-          };
-        }
-        customers[customerName].current += current;
-        customers[customerName].aged += (days1_30 + days31_60 + days61_90 + days90_plus);
-        customers[customerName].total += total;
-        customers[customerName].projectCount++;
-
-        totalCurrent += current;
-        total1_30 += days1_30;
-        total31_60 += days31_60;
-        total61_90 += days61_90;
-        total90_plus += days90_plus;
-      }
-    }
-
-    // If no projects found, use demo data
-    if (projects.length === 0) {
-      console.log('No projects parsed, using demo data');
-      return demoARData;
-    }
-
-    const totalAR = totalCurrent + total1_30 + total31_60 + total61_90 + total90_plus;
-    const avgDSO = calculateDSO(totalAR, totalCurrent);
-    const collectionIndex = totalCurrent > 0 ? (totalCurrent / totalAR) * 100 : 0;
-
-    return {
-      summary: {
-        total: totalAR,
-        current: totalCurrent,
-        days1_30: total1_30,
-        days31_60: total31_60,
-        days61_90: total61_90,
-        days90_plus: total90_plus,
-        avgDSO,
-        collectionIndex
-      },
-      projects: projects.sort((a, b) => b.total - a.total),
-      customers: Object.values(customers).sort((a, b) => b.total - a.total)
-    };
-  };
-
-  // Calculate Days Sales Outstanding
-  const calculateDSO = (totalAR, currentAR) => {
-    if (totalAR === 0) return 0;
-    const pastDueRatio = 1 - (currentAR / totalAR);
-    return Math.round(30 + (pastDueRatio * 60)); // Simplified calculation
-  };
-
-  // Calculate health score
-  const calculateHealthScore = (summary) => {
-    if (!summary) return 0;
-    const currentRatio = summary.current / Math.max(1, summary.total);
-    const criticalAgedRatio = (summary.days61_90 + summary.days90_plus) / Math.max(1, summary.total);
-    const dsoScore = Math.max(0, 100 - summary.avgDSO);
-    
-    return Math.round(
-      currentRatio * 40 +           // 40 points for current ratio
-      (1 - criticalAgedRatio) * 40 + // 40 points for low critical aging
-      (dsoScore / 100) * 20          // 20 points for DSO performance
-    );
-  };
-
-  // Generate trend data
-  const generateTrendData = (summary) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
-    return months.map((month, i) => ({
-      month,
-      current: summary.current * (0.7 + i * 0.075),
-      aged: (summary.days1_30 + summary.days31_60) * (0.9 - i * 0.05),
-      critical: (summary.days61_90 + summary.days90_plus) * (1.1 - i * 0.1)
-    }));
   };
 
   useEffect(() => {
-    fetchARData();
-    // Refresh every 5 minutes (same as DiamondbackDashboard)
-    const interval = setInterval(fetchARData, 300000);
+    fetchData();
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(fetchData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [portfolioId]);
 
-  // Process data for visualizations
-  const processedData = useMemo(() => {
-    if (!arData) return null;
+  // Calculate summary metrics
+  const calculateMetrics = () => {
+    if (!data?.agedReceivables) return null;
 
-    const agingData = [
-      { name: 'Current', value: arData.summary.current, color: '#10b981' },
-      { name: '1-30 Days', value: arData.summary.days1_30, color: '#3b82f6' },
-      { name: '31-60 Days', value: arData.summary.days31_60, color: '#f59e0b' },
-      { name: '61-90 Days', value: arData.summary.days61_90, color: '#ef4444' },
-      { name: '90+ Days', value: arData.summary.days90_plus, color: '#dc2626' }
-    ].filter(d => d.value > 0);
-
-    const healthScore = calculateHealthScore(arData.summary);
-    const trendData = generateTrendData(arData.summary);
-
-    const criticalItems = arData.projects
-      .filter(p => (p.days61_90 + p.days90_plus) > 0)
-      .sort((a, b) => (b.days61_90 + b.days90_plus) - (a.days61_90 + a.days90_plus))
-      .slice(0, 5);
+    const receivables = data.agedReceivables;
+    const totalAR = receivables.reduce((sum, r) => sum + r.total, 0);
+    const currentAR = receivables.reduce((sum, r) => sum + r.current, 0);
+    const overdueAR = receivables.reduce((sum, r) => sum + r.days30 + r.days60 + r.days90, 0);
+    const over90AR = receivables.reduce((sum, r) => sum + r.days90, 0);
 
     return {
-      agingData,
-      healthScore,
-      trendData,
-      criticalItems
+      totalAR,
+      currentAR,
+      overdueAR,
+      over90AR,
+      avgDaysSales: totalAR > 0 ? (overdueAR / totalAR * 30).toFixed(1) : 0,
+      collectionRate: totalAR > 0 ? ((currentAR / totalAR) * 100).toFixed(1) : 0,
+      customerCount: receivables.length,
+      highRiskCount: receivables.filter(r => r.days90 > 0).length
     };
-  }, [arData]);
+  };
 
-  if (loading) {
+  // Filter receivables based on selected criteria
+  const getFilteredReceivables = () => {
+    if (!data?.agedReceivables) return [];
+
+    let filtered = [...data.agedReceivables];
+
+    // Apply days filter
+    if (filterDays === 'current') {
+      filtered = filtered.filter(r => r.current > 0);
+    } else if (filterDays === '30') {
+      filtered = filtered.filter(r => r.days30 > 0);
+    } else if (filterDays === '60') {
+      filtered = filtered.filter(r => r.days60 > 0);
+    } else if (filterDays === '90') {
+      filtered = filtered.filter(r => r.days90 > 0);
+    } else if (filterDays === 'overdue') {
+      filtered = filtered.filter(r => r.days30 > 0 || r.days60 > 0 || r.days90 > 0);
+    }
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(r => 
+        r.customer.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Sort by total amount descending
+    return filtered.sort((a, b) => b.total - a.total);
+  };
+
+  const metrics = calculateMetrics();
+  const filteredReceivables = getFilteredReceivables();
+
+  if (loading && !data) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="text-gray-400 text-center">
-          <i className="fas fa-spinner fa-spin text-4xl mb-4"></i>
-          <p>Loading AR data from Google Sheets...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!arData) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-red-400 text-center">
-          <i className="fas fa-exclamation-triangle text-4xl mb-4"></i>
-          <p>Failed to load AR data</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading AR data from Google Sheets...</p>
         </div>
       </div>
     );
@@ -395,225 +101,257 @@ const ARDashboard = ({ portfolioId = PORTFOLIO_CONFIG.portfolioId }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header (matching DiamondbackDashboard style) */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-white flex items-center">
-              <i className="fas fa-file-invoice-dollar mr-3"></i>
-              Accounts Receivable Analysis
-            </h1>
-            <p className="text-blue-100 mt-2">Real-time AR aging and collection metrics</p>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-blue-100 text-sm">
-              Last updated: {lastRefresh.toLocaleTimeString()}
+      {/* Header with refresh button */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <h2 className="text-2xl font-bold text-white">Accounts Receivable Analysis</h2>
+          {data?.lastUpdated && (
+            <span className="text-sm text-gray-400">
+              Last updated: {new Date(data.lastUpdated).toLocaleTimeString()}
             </span>
-            <button
-              onClick={fetchARData}
-              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white transition-colors"
-            >
-              <i className="fas fa-sync mr-2"></i>
-              Refresh
-            </button>
-          </div>
+          )}
         </div>
-        {error && (
-          <div className="mt-3 p-2 bg-amber-500/20 rounded text-amber-100 text-sm">
-            <i className="fas fa-info-circle mr-2"></i>
-            {error}
-          </div>
-        )}
+        <button
+          onClick={fetchData}
+          disabled={refreshing}
+          className={`px-4 py-2 rounded-lg transition-colors ${
+            refreshing 
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
+        >
+          {refreshing ? (
+            <>
+              <svg className="animate-spin inline-block w-4 h-4 mr-2" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Refreshing...
+            </>
+          ) : (
+            <>
+              <svg className="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh Data
+            </>
+          )}
+        </button>
       </div>
 
-      {/* View Selector (matching DiamondbackDashboard style) */}
-      <div className="flex space-x-4 overflow-x-auto">
-        {['overview', 'aging', 'customers', 'critical', 'trends'].map((view) => (
-          <button
-            key={view}
-            onClick={() => setSelectedView(view)}
-            className={`px-6 py-3 rounded-lg font-medium transition-all whitespace-nowrap ${
-              selectedView === view
-                ? 'bg-blue-600 text-white shadow-lg'
-                : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-            }`}
-          >
-            {view.charAt(0).toUpperCase() + view.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Overview View */}
-      {selectedView === 'overview' && (
-        <>
-          {/* Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              title="Total Receivables"
-              value={formatDollars(arData.summary.total)}
-              subtitle={`${arData.projects.length} active projects`}
-              color="blue"
-            />
-            <MetricCard
-              title="Current (Not Due)"
-              value={formatDollars(arData.summary.current)}
-              subtitle={`${arData.summary.collectionIndex.toFixed(1)}% of total`}
-              trend={arData.summary.collectionIndex - 50}
-              color="green"
-            />
-            <MetricCard
-              title="Past Due >60 Days"
-              value={formatDollars(arData.summary.days61_90 + arData.summary.days90_plus)}
-              subtitle={`${(((arData.summary.days61_90 + arData.summary.days90_plus) / arData.summary.total) * 100).toFixed(1)}% critical`}
-              trend={-((arData.summary.days61_90 + arData.summary.days90_plus) / arData.summary.total) * 100}
-              color="red"
-            />
-            <MetricCard
-              title="Avg DSO"
-              value={`${arData.summary.avgDSO} days`}
-              subtitle="Days Sales Outstanding"
-              trend={45 - arData.summary.avgDSO}
-              color="cyan"
-            />
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Aging Pie Chart */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-              <h3 className="text-lg font-semibold text-gray-200 mb-4">AR Aging Distribution</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={processedData?.agingData || []}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {processedData?.agingData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatDollars(value)} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Health Score */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-              <h3 className="text-lg font-semibold text-gray-200 mb-4">Collection Health Score</h3>
-              <div className="flex items-center justify-center h-[250px]">
-                <div className="relative">
-                  <svg className="transform -rotate-90 w-48 h-48">
-                    <circle
-                      cx="96"
-                      cy="96"
-                      r="88"
-                      stroke="#334155"
-                      strokeWidth="12"
-                      fill="none"
-                    />
-                    <circle
-                      cx="96"
-                      cy="96"
-                      r="88"
-                      stroke={processedData?.healthScore > 70 ? '#10b981' : 
-                             processedData?.healthScore > 40 ? '#f59e0b' : '#ef4444'}
-                      strokeWidth="12"
-                      fill="none"
-                      strokeDasharray={`${(processedData?.healthScore || 0) * 5.52} 552`}
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-4xl font-bold text-gray-200">
-                        {processedData?.healthScore || 0}
-                      </div>
-                      <div className="text-sm text-gray-400">Score</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <p className="text-gray-500 text-xs">Current</p>
-                  <p className="text-green-400 font-semibold">{arData.summary.collectionIndex.toFixed(0)}%</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">DSO</p>
-                  <p className="text-cyan-400 font-semibold">{arData.summary.avgDSO}d</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 text-xs">Critical</p>
-                  <p className="text-red-400 font-semibold">
-                    {(((arData.summary.days61_90 + arData.summary.days90_plus) / arData.summary.total) * 100).toFixed(0)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
+      {error && (
+        <div className="bg-yellow-900/20 border border-yellow-600/50 rounded-lg p-4">
+          <p className="text-yellow-400 text-sm">{error}</p>
+        </div>
       )}
 
-      {/* Aging View */}
-      {selectedView === 'aging' && (
-        <div className="space-y-6">
-          {/* Aging by Project Chart */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">AR Aging by Project</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={arData.projects.slice(0, 10)}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#94a3b8" 
-                  angle={-45} 
-                  textAnchor="end" 
-                  height={120}
-                  tick={{ fontSize: 10 }}
-                />
-                <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar dataKey="current" stackId="a" fill="#10b981" name="Current" />
-                <Bar dataKey="days1_30" stackId="a" fill="#3b82f6" name="1-30" />
-                <Bar dataKey="days31_60" stackId="a" fill="#f59e0b" name="31-60" />
-                <Bar dataKey="days61_90" stackId="a" fill="#ef4444" name="61-90" />
-                <Bar dataKey="days90_plus" stackId="a" fill="#dc2626" name="90+" />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* View Tabs */}
+      <div className="flex space-x-2 border-b border-gray-700">
+        <button
+          onClick={() => setSelectedView('summary')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            selectedView === 'summary'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          Summary
+        </button>
+        <button
+          onClick={() => setSelectedView('details')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            selectedView === 'details'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          Customer Details
+        </button>
+        <button
+          onClick={() => setSelectedView('pl')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            selectedView === 'pl'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          P&L Analysis
+        </button>
+        <button
+          onClick={() => setSelectedView('transactions')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            selectedView === 'transactions'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          Transactions
+        </button>
+      </div>
+
+      {/* Summary View */}
+      {selectedView === 'summary' && metrics && (
+        <div>
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400 text-sm">Total AR</span>
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-2xl font-bold text-white">${metrics.totalAR.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">{metrics.customerCount} customers</p>
+            </div>
+
+            <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400 text-sm">Current</span>
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-2xl font-bold text-white">${metrics.currentAR.toLocaleString()}</p>
+              <p className="text-xs text-green-400 mt-1">{metrics.collectionRate}% collection rate</p>
+            </div>
+
+            <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400 text-sm">Overdue</span>
+                <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-2xl font-bold text-white">${metrics.overdueAR.toLocaleString()}</p>
+              <p className="text-xs text-yellow-400 mt-1">Avg {metrics.avgDaysSales} days</p>
+            </div>
+
+            <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-400 text-sm">Over 90 Days</span>
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-2xl font-bold text-white">${metrics.over90AR.toLocaleString()}</p>
+              <p className="text-xs text-red-400 mt-1">{metrics.highRiskCount} high-risk accounts</p>
+            </div>
           </div>
 
-          {/* Aging Table */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 overflow-hidden">
+          {/* Aging Chart */}
+          <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">Aging Distribution</h3>
+            <div className="space-y-4">
+              {['Current', '1-30 Days', '31-60 Days', '61-90 Days', 'Over 90 Days'].map((label, idx) => {
+                const values = [
+                  metrics.currentAR,
+                  data.agedReceivables.reduce((sum, r) => sum + r.days30, 0),
+                  data.agedReceivables.reduce((sum, r) => sum + r.days60, 0),
+                  data.agedReceivables.reduce((sum, r) => sum + (r.days90 > 0 && r.days90 < 10000 ? r.days90 : 0), 0),
+                  data.agedReceivables.reduce((sum, r) => sum + (r.days90 >= 10000 ? r.days90 : 0), 0)
+                ];
+                const value = values[idx];
+                const percentage = metrics.totalAR > 0 ? (value / metrics.totalAR * 100) : 0;
+                const colors = ['bg-green-500', 'bg-blue-500', 'bg-yellow-500', 'bg-orange-500', 'bg-red-500'];
+                
+                return (
+                  <div key={label}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-400">{label}</span>
+                      <span className="text-white">${value.toLocaleString()} ({percentage.toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className={`${colors[idx]} h-2 rounded-full transition-all duration-500`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Details View */}
+      {selectedView === 'details' && (
+        <div>
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4 mb-6">
+            <input
+              type="text"
+              placeholder="Search customers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+            />
+            <select
+              value={filterDays}
+              onChange={(e) => setFilterDays(e.target.value)}
+              className="px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+            >
+              <option value="all">All Receivables</option>
+              <option value="current">Current Only</option>
+              <option value="overdue">Overdue Only</option>
+              <option value="30">30+ Days</option>
+              <option value="60">60+ Days</option>
+              <option value="90">90+ Days</option>
+            </select>
+          </div>
+
+          {/* Customer Table */}
+          <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-900/50">
+                <thead className="bg-gray-900/50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Project</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Current</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">1-30</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">31-60</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">61-90</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">90+</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Current</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">1-30</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">31-60</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">61-90</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">90+</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Total</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700">
-                  {arData.projects.map((project, idx) => (
-                    <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                      <td className="px-4 py-3 text-gray-300">{project.name}</td>
-                      <td className="px-4 py-3 text-right text-green-400">{formatDollars(project.current)}</td>
-                      <td className="px-4 py-3 text-right text-blue-400">{formatDollars(project.days1_30)}</td>
-                      <td className="px-4 py-3 text-right text-amber-400">{formatDollars(project.days31_60)}</td>
-                      <td className="px-4 py-3 text-right text-orange-400">{formatDollars(project.days61_90)}</td>
-                      <td className="px-4 py-3 text-right text-red-400">{formatDollars(project.days90_plus)}</td>
-                      <td className="px-4 py-3 text-right text-gray-200 font-bold">{formatDollars(project.total)}</td>
+                <tbody className="divide-y divide-gray-700">
+                  {filteredReceivables.map((customer, idx) => (
+                    <tr key={idx} className="hover:bg-gray-800/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="text-white font-medium">{customer.customer}</p>
+                          {customer.email && (
+                            <p className="text-gray-400 text-xs mt-1">{customer.email}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right text-white">
+                        ${customer.current.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-white">
+                        ${customer.days30.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-yellow-400">
+                        ${customer.days60.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-orange-400">
+                        ${customer.days90.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-red-400">
+                        ${customer.days90.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <p className="text-white font-bold">${customer.total.toLocaleString()}</p>
+                        <p className="text-gray-400 text-xs">{customer.percentOfTotal.toFixed(1)}%</p>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <button className="text-blue-400 hover:text-blue-300 text-sm">
+                          View Details
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -623,125 +361,147 @@ const ARDashboard = ({ portfolioId = PORTFOLIO_CONFIG.portfolioId }) => {
         </div>
       )}
 
-      {/* Customers View */}
-      {selectedView === 'customers' && (
-        <div className="space-y-6">
-          {/* Customer Chart */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-            <h3 className="text-lg font-semibold text-gray-200 mb-4">Customer AR Analysis</h3>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={arData.customers.slice(0, 10)} layout="horizontal" margin={{ left: 100 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis type="number" stroke="#94a3b8" tickFormatter={formatDollars} />
-                <YAxis type="category" dataKey="name" stroke="#94a3b8" width={90} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar dataKey="current" stackId="a" fill="#10b981" name="Current" />
-                <Bar dataKey="aged" stackId="a" fill="#ef4444" name="Past Due" />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* P&L Analysis View */}
+      {selectedView === 'pl' && data?.profitLossAccrual && data?.profitLossCash && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Accrual P&L */}
+          <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">Profit & Loss (Accrual)</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Revenue</p>
+                {data.profitLossAccrual.revenue.slice(0, 5).map((item, idx) => (
+                  <div key={idx} className="flex justify-between py-1">
+                    <span className="text-gray-300 text-sm">{item.account}</span>
+                    <span className="text-white">${item.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-2 border-t border-gray-700 mt-2">
+                  <span className="text-gray-300 font-medium">Total Revenue</span>
+                  <span className="text-green-400 font-bold">${data.profitLossAccrual.totalRevenue.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Expenses</p>
+                {data.profitLossAccrual.expenses.slice(0, 5).map((item, idx) => (
+                  <div key={idx} className="flex justify-between py-1">
+                    <span className="text-gray-300 text-sm">{item.account}</span>
+                    <span className="text-white">${item.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-2 border-t border-gray-700 mt-2">
+                  <span className="text-gray-300 font-medium">Total Expenses</span>
+                  <span className="text-red-400 font-bold">${data.profitLossAccrual.totalExpenses.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between py-3 border-t-2 border-gray-600">
+                <span className="text-white font-semibold">Net Income</span>
+                <span className={`font-bold text-lg ${data.profitLossAccrual.netIncome >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  ${data.profitLossAccrual.netIncome.toLocaleString()}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Customer Table */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl border border-slate-700 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-900/50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Customer</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Total AR</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Current</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Past Due</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Projects</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-400 uppercase">Risk</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-700">
-                  {arData.customers.map((customer, idx) => {
-                    const pastDuePercent = (customer.aged / customer.total) * 100;
-                    const risk = pastDuePercent > 30 ? 'HIGH' : pastDuePercent > 15 ? 'MEDIUM' : 'LOW';
-                    const riskColor = risk === 'HIGH' ? 'bg-red-500' : risk === 'MEDIUM' ? 'bg-amber-500' : 'bg-green-500';
-                    
-                    return (
-                      <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
-                        <td className="px-4 py-3 text-gray-300">{customer.name}</td>
-                        <td className="px-4 py-3 text-right text-gray-200">{formatDollars(customer.total)}</td>
-                        <td className="px-4 py-3 text-right text-green-400">{formatDollars(customer.current)}</td>
-                        <td className="px-4 py-3 text-right text-red-400">{formatDollars(customer.aged)}</td>
-                        <td className="px-4 py-3 text-right text-gray-300">{customer.projectCount}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-block px-2 py-1 rounded text-xs text-white ${riskColor}`}>
-                            {risk}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          {/* Cash P&L */}
+          <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4">Profit & Loss (Cash)</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Revenue</p>
+                {data.profitLossCash.revenue.slice(0, 5).map((item, idx) => (
+                  <div key={idx} className="flex justify-between py-1">
+                    <span className="text-gray-300 text-sm">{item.account}</span>
+                    <span className="text-white">${item.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-2 border-t border-gray-700 mt-2">
+                  <span className="text-gray-300 font-medium">Total Revenue</span>
+                  <span className="text-green-400 font-bold">${data.profitLossCash.totalRevenue.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Expenses</p>
+                {data.profitLossCash.expenses.slice(0, 5).map((item, idx) => (
+                  <div key={idx} className="flex justify-between py-1">
+                    <span className="text-gray-300 text-sm">{item.account}</span>
+                    <span className="text-white">${item.amount.toLocaleString()}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between py-2 border-t border-gray-700 mt-2">
+                  <span className="text-gray-300 font-medium">Total Expenses</span>
+                  <span className="text-red-400 font-bold">${data.profitLossCash.totalExpenses.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between py-3 border-t-2 border-gray-600">
+                <span className="text-white font-semibold">Net Income</span>
+                <span className={`font-bold text-lg ${data.profitLossCash.netIncome >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  ${data.profitLossCash.netIncome.toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Critical Items View */}
-      {selectedView === 'critical' && (
-        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-gray-200 mb-4">
-            Critical Aged Items (60+ Days)
-            <span className="ml-2 text-red-400">
-              {formatDollars(arData.summary.days61_90 + arData.summary.days90_plus)}
-            </span>
-          </h3>
-          <div className="space-y-3">
-            {processedData?.criticalItems.map((project, idx) => {
-              const criticalAmount = project.days61_90 + project.days90_plus;
-              const criticalPercent = (criticalAmount / project.total) * 100;
-              
-              return (
-                <div key={idx} className="flex items-center justify-between p-4 bg-slate-700/50 rounded-lg">
-                  <div>
-                    <p className="text-gray-200 font-medium">{project.name}</p>
-                    <div className="flex gap-4 mt-1">
-                      <span className="text-gray-400 text-sm">
-                        61-90: {formatDollars(project.days61_90)}
-                      </span>
-                      <span className="text-gray-400 text-sm">
-                        90+: {formatDollars(project.days90_plus)}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-red-400 font-bold text-lg">{formatDollars(criticalAmount)}</p>
-                    <p className="text-gray-500 text-xs">{criticalPercent.toFixed(1)}% of project total</p>
-                  </div>
-                </div>
-              );
-            })}
-            
-            {(!processedData?.criticalItems || processedData.criticalItems.length === 0) && (
-              <p className="text-gray-400 text-center py-8">No critical aged items found</p>
-            )}
+      {/* Transactions View */}
+      {selectedView === 'transactions' && data?.transactionList && (
+        <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="p-4 border-b border-gray-700">
+            <h3 className="text-lg font-semibold text-white">Recent Transactions</h3>
           </div>
-        </div>
-      )}
-
-      {/* Trends View */}
-      {selectedView === 'trends' && (
-        <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-          <h3 className="text-lg font-semibold text-gray-200 mb-4">AR Aging Trend</h3>
-          <ResponsiveContainer width="100%" height={400}>
-            <AreaChart data={processedData?.trendData || []}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-              <XAxis dataKey="month" stroke="#94a3b8" />
-              <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Area type="monotone" dataKey="current" stackId="1" stroke="#10b981" fill="#10b981" name="Current" />
-              <Area type="monotone" dataKey="aged" stackId="1" stroke="#f59e0b" fill="#f59e0b" name="1-60 Days" />
-              <Area type="monotone" dataKey="critical" stackId="1" stroke="#ef4444" fill="#ef4444" name="60+ Days" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-900/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Memo</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700">
+                {data.transactionList.slice(0, 20).map((transaction, idx) => (
+                  <tr key={idx} className="hover:bg-gray-800/30 transition-colors">
+                    <td className="px-6 py-4 text-white text-sm">
+                      {new Date(transaction.date).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        transaction.type === 'Invoice' ? 'bg-blue-900/50 text-blue-400' :
+                        transaction.type === 'Payment' ? 'bg-green-900/50 text-green-400' :
+                        'bg-gray-700 text-gray-300'
+                      }`}>
+                        {transaction.type}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-300 text-sm">{transaction.number}</td>
+                    <td className="px-6 py-4 text-white text-sm">{transaction.name}</td>
+                    <td className="px-6 py-4 text-gray-400 text-sm">{transaction.memo}</td>
+                    <td className="px-6 py-4 text-right text-white">
+                      ${Math.abs(transaction.amount).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        transaction.status === 'Open' ? 'bg-yellow-900/50 text-yellow-400' :
+                        transaction.status === 'Cleared' ? 'bg-green-900/50 text-green-400' :
+                        'bg-gray-700 text-gray-300'
+                      }`}>
+                        {transaction.status || 'Pending'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
