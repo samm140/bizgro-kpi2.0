@@ -1,5 +1,5 @@
 // src/services/googleSheetsDataService.js
-// Service to fetch real data from Google Sheets tabs
+// Service to fetch real data from Google Sheets tabs/
 
 const SPREADSHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
 const API_KEY = process.env.REACT_APP_GOOGLE_SHEETS_API_KEY || import.meta.env.VITE_GOOGLE_SHEETS_API_KEY;
