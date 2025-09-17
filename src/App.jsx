@@ -1,5 +1,5 @@
 // src/App.jsx
-// Updated to integrate the Enhanced Dynamic Dashboard, Executive Dashboard, QBO Integration, Portfolio Companies, and BizGro Reports
+// Updated to integrate the Enhanced Dynamic Dashboard, Executive Dashboard, QBO Integration, Portfolio Companies, BizGro Reports, and AR Dashboard
 
 import React, { useState, useEffect, useContext } from 'react';
 import './App.css';
@@ -13,9 +13,10 @@ import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
-import QBOSync from './components/shared/QBOSync'; // NEW: QBO Sync Widget
+import QBOSync from './components/shared/QBOSync'; // QBO Sync Widget
 import DiamondBackDashboard from './components/portfolio/DiamondbackDashboard.jsx';
-import BizGroReports from './components/reports/BizGroReports'; // NEW: BizGro Reports
+import ARDashboard from './components/portfolio/ARDashboard'; // NEW: AR Dashboard import
+import BizGroReports from './components/reports/BizGroReports'; // BizGro Reports
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
@@ -74,9 +75,9 @@ const mockApi = {
             changeOrders: '45000',
             overdueAR: '150000',
             concentrationRisk: '35',
-            savingsAccount: '500000', // NEW: Added for QBO compatibility
-            locDrawn: '200000', // NEW: Added for QBO compatibility
-            locLimit: '1000000' // NEW: Added for QBO compatibility
+            savingsAccount: '500000',
+            locDrawn: '200000',
+            locLimit: '1000000'
           },
           { 
             weekEnding: '2025-08-30', 
@@ -111,9 +112,9 @@ const mockApi = {
             changeOrders: '30000',
             overdueAR: '180000',
             concentrationRisk: '32',
-            savingsAccount: '500000', // NEW
-            locDrawn: '250000', // NEW
-            locLimit: '1000000' // NEW
+            savingsAccount: '500000',
+            locDrawn: '250000',
+            locLimit: '1000000'
           },
           { 
             weekEnding: '2025-09-06', 
@@ -148,9 +149,9 @@ const mockApi = {
             changeOrders: '60000',
             overdueAR: '200000',
             concentrationRisk: '30',
-            savingsAccount: '550000', // NEW
-            locDrawn: '300000', // NEW
-            locLimit: '1000000' // NEW
+            savingsAccount: '550000',
+            locDrawn: '300000',
+            locLimit: '1000000'
           }
         ]
       }));
@@ -243,6 +244,16 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               }`}
             >
               <i className="fas fa-building mr-2"></i>Portfolio
+            </button>
+            <button 
+              onClick={() => setCurrentView('ar-dashboard')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                currentView === 'ar-dashboard' 
+                  ? 'bg-biz-primary text-white' 
+                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+              }`}
+            >
+              <i className="fas fa-file-invoice-dollar mr-2"></i>AR Dashboard
             </button>
             <button 
               onClick={() => setCurrentView('reports')}
@@ -349,8 +360,9 @@ function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [useGoogleSheets, setUseGoogleSheets] = useState(false);
   const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
-  const [showSyncWidget, setShowSyncWidget] = useState(true); // NEW: State for QBO sync widget
+  const [showSyncWidget, setShowSyncWidget] = useState(true); // State for QBO sync widget
   const [backendAvailable, setBackendAvailable] = useState(false); // Backend availability for GitHub Pages
+  const [currentPortfolioId, setCurrentPortfolioId] = useState('default'); // NEW: State for current portfolio ID
 
   // Get updateWeeklyData from context if available
   const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
@@ -432,13 +444,14 @@ function App() {
     }
   }, [currentView, isAuthenticated]);
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts - Updated to include AR Dashboard
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.altKey) {
         switch(e.key) {
           case 'd': setCurrentView('dashboard'); break;
           case 'p': setCurrentView('portfolio'); break;
+          case 'a': setCurrentView('ar-dashboard'); break; // NEW: Alt+A for AR Dashboard
           case 'r': setCurrentView('reports'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
@@ -457,11 +470,11 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showSyncWidget, backendAvailable]);
 
-  // Navigation bridge: react to #hash and custom events
+  // Navigation bridge: react to #hash and custom events - Updated to include ar-dashboard
   useEffect(() => {
     const applyHash = () => {
       const h = (window.location.hash || '').replace('#', '').toLowerCase();
-      if (h === 'dashboard' || h === 'portfolio' || h === 'reports' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
+      if (h === 'dashboard' || h === 'portfolio' || h === 'ar-dashboard' || h === 'reports' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
         setCurrentView(h);
       }
     };
@@ -577,6 +590,24 @@ function App() {
           </div>
         ) : currentView === 'portfolio' ? (
           <DiamondBackDashboard />
+        ) : currentView === 'ar-dashboard' ? (
+          // NEW: AR Dashboard view
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
+              <select
+                value={currentPortfolioId}
+                onChange={(e) => setCurrentPortfolioId(e.target.value)}
+                className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
+              >
+                <option value="default">All Companies</option>
+                <option value="diamondback">DiamondBack Construction</option>
+                <option value="bluestone">BlueStone Builders</option>
+                <option value="ironforge">IronForge Industries</option>
+              </select>
+            </div>
+            <ARDashboard portfolioId={currentPortfolioId} />
+          </div>
         ) : currentView === 'reports' ? (
           <BizGroReports />
         ) : currentView === 'dashboard' ? (
@@ -723,9 +754,9 @@ function App() {
         </div>
       )}
       
-      {/* Footer with keyboard shortcuts hint */}
+      {/* Footer with keyboard shortcuts hint - Updated to include AR Dashboard */}
       <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
-        Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
+        Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+A (AR Dashboard), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
         {backendAvailable && ', Alt+Q (QBO Widget)'}
       </footer>
     </div>
