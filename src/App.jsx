@@ -17,7 +17,6 @@ import QBOSync from './components/shared/QBOSync'; // QBO Sync Widget
 import DiamondBackDashboard from './components/portfolio/DiamondbackDashboard.jsx';
 import ARDashboard from './components/portfolio/ARDashboard'; // NEW: AR Dashboard import
 import BizGroReports from './components/reports/BizGroReports'; // BizGro Reports
-import GoogleSheetsDebugTest from './components/GoogleSheetsDebugTest'; // TEMPORARY: Debug component
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
@@ -305,17 +304,6 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               }`}
             >
               <i className="fas fa-book mr-2"></i>Metrics
-            </button>
-            {/* Temporary Debug Button - Remove after testing */}
-            <button 
-              onClick={() => setCurrentView('debug')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'debug' 
-                  ? 'bg-yellow-600 text-white' 
-                  : 'bg-yellow-700 hover:bg-yellow-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-bug mr-2"></i>Debug
             </button>
             
             {/* User Menu */}
@@ -727,12 +715,6 @@ function App() {
           </div>
         ) : currentView === 'metrics' ? (
           <MetricsCatalog />
-        ) : currentView === 'debug' ? (
-          // TEMPORARY: Debug view for testing Google Sheets connection
-          <div>
-            <h2 className="text-2xl font-bold mb-6 text-gray-200">Google Sheets Connection Debug</h2>
-            <GoogleSheetsDebugTest />
-          </div>
         ) : null}
       </main>
 
