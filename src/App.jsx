@@ -15,7 +15,8 @@ import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
 import QBOSync from './components/shared/QBOSync'; // QBO Sync Widget
 import DiamondBackDashboard from './components/portfolio/DiamondbackDashboard.jsx';
-import ARDashboard from './components/portfolio/ARDashboard'; // NEW: AR Dashboard import
+import ARDashboard from './components/portfolio/ARDashboard'; // AR Dashboard import
+import APDashboard from './components/portfolio/APDashboard'; // AP Dashboard import
 import BizGroReports from './components/reports/BizGroReports'; // BizGro Reports
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
@@ -256,6 +257,16 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               <i className="fas fa-file-invoice-dollar mr-2"></i>AR Dashboard
             </button>
             <button 
+              onClick={() => setCurrentView('ap-dashboard')}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                currentView === 'ap-dashboard' 
+                  ? 'bg-biz-primary text-white' 
+                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
+              }`}
+            >
+              <i className="fas fa-file-invoice mr-2"></i>AP Dashboard
+            </button>
+            <button 
               onClick={() => setCurrentView('reports')}
               className={`px-4 py-2 rounded-lg transition-colors ${
                 currentView === 'reports' 
@@ -450,8 +461,14 @@ function App() {
       if (e.altKey) {
         switch(e.key) {
           case 'd': setCurrentView('dashboard'); break;
-          case 'p': setCurrentView('portfolio'); break;
-          case 'a': setCurrentView('ar-dashboard'); break; // NEW: Alt+A for AR Dashboard
+          case 'p': 
+            if (e.shiftKey) {
+              setCurrentView('ap-dashboard'); // Shift+Alt+P for AP
+            } else {
+              setCurrentView('portfolio'); // Alt+P for Portfolio
+            }
+            break;
+          case 'a': setCurrentView('ar-dashboard'); break; // Alt+A for AR Dashboard
           case 'r': setCurrentView('reports'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
@@ -470,11 +487,11 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showSyncWidget, backendAvailable]);
 
-  // Navigation bridge: react to #hash and custom events - Updated to include ar-dashboard
+  // Navigation bridge: react to #hash and custom events - Updated to include ar-dashboard and ap-dashboard
   useEffect(() => {
     const applyHash = () => {
       const h = (window.location.hash || '').replace('#', '').toLowerCase();
-      if (h === 'dashboard' || h === 'portfolio' || h === 'ar-dashboard' || h === 'reports' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
+      if (h === 'dashboard' || h === 'portfolio' || h === 'ar-dashboard' || h === 'ap-dashboard' || h === 'reports' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
         setCurrentView(h);
       }
     };
@@ -591,7 +608,7 @@ function App() {
         ) : currentView === 'portfolio' ? (
           <DiamondBackDashboard />
         ) : currentView === 'ar-dashboard' ? (
-          // NEW: AR Dashboard view
+          // AR Dashboard view
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
@@ -607,6 +624,24 @@ function App() {
               </select>
             </div>
             <ARDashboard portfolioId={currentPortfolioId} />
+          </div>
+        ) : currentView === 'ap-dashboard' ? (
+          // AP Dashboard view
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-200">Accounts Payable Dashboard</h2>
+              <select
+                value={currentPortfolioId}
+                onChange={(e) => setCurrentPortfolioId(e.target.value)}
+                className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
+              >
+                <option value="default">All Companies</option>
+                <option value="diamondback">DiamondBack Construction</option>
+                <option value="bluestone">BlueStone Builders</option>
+                <option value="ironforge">IronForge Industries</option>
+              </select>
+            </div>
+            <APDashboard portfolioId={currentPortfolioId} />
           </div>
         ) : currentView === 'reports' ? (
           <BizGroReports />
@@ -756,7 +791,9 @@ function App() {
       
       {/* Footer with keyboard shortcuts hint - Updated to include AR Dashboard */}
       <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
-        Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+A (AR Dashboard), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), Alt+M (Metrics), Alt+H (Historical)
+        Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+A (AR Dashboard), 
+        Shift+Alt+P (AP Dashboard), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), 
+        Alt+M (Metrics), Alt+H (Historical)
         {backendAvailable && ', Alt+Q (QBO Widget)'}
       </footer>
     </div>
