@@ -88,43 +88,60 @@ class APGoogleSheetsDataService {
   async fetchWithCSVExport(sheetConfig) {
     try {
       const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${sheetConfig.gid}`;
+      console.log(`Attempting to fetch AP sheet: ${sheetConfig.name} from GID: ${sheetConfig.gid}`);
       
+      // Try direct fetch first (will likely fail due to CORS)
       try {
         const response = await fetch(csvUrl, { mode: 'cors', credentials: 'omit' });
         if (response.ok) {
           const text = await response.text();
+          console.log(`Direct fetch successful for ${sheetConfig.name}`);
           return this.parseCSV(text, sheetConfig.headerRow);
         }
       } catch (directError) {
-        console.log('Direct fetch failed for AP, trying proxy...');
+        console.log(`Direct fetch failed for ${sheetConfig.name}, trying CORS proxies...`);
       }
 
-      // Try proxies
+      // Try multiple CORS proxy services
       const proxyUrls = [
         `https://corsproxy.io/?${encodeURIComponent(csvUrl)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`,
+        `https://cors-anywhere.herokuapp.com/${csvUrl}`,
+        `https://thingproxy.freeboard.io/fetch/${csvUrl}`,
+        `https://cors.bridged.cc/${csvUrl}`
       ];
 
       for (const proxyUrl of proxyUrls) {
         try {
+          console.log(`Trying proxy: ${proxyUrl.split('/')[2]}`);
           const response = await fetch(proxyUrl, {
-            headers: { 'Accept': 'text/csv,text/plain,*/*' }
+            method: 'GET',
+            headers: { 
+              'Accept': 'text/csv,text/plain,*/*',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
           });
 
           if (response.ok) {
             const text = await response.text();
+            console.log(`✓ Successfully fetched ${sheetConfig.name} via ${proxyUrl.split('/')[2]}`);
+            console.log(`First 200 chars of response: ${text.substring(0, 200)}`);
+            
             const data = this.parseCSV(text, sheetConfig.headerRow);
-            console.log(`Successfully fetched AP ${sheetConfig.name} via proxy`);
+            console.log(`Parsed ${data.length} rows from ${sheetConfig.name}`);
             return data;
+          } else {
+            console.log(`Proxy ${proxyUrl.split('/')[2]} returned status ${response.status}`);
           }
         } catch (proxyError) {
+          console.log(`Proxy ${proxyUrl.split('/')[2]} failed:`, proxyError.message);
           continue;
         }
       }
 
-      throw new Error('All AP fetch methods failed');
+      throw new Error(`All fetch methods failed for ${sheetConfig.name}`);
     } catch (error) {
-      console.error('AP CSV export error:', error);
+      console.error(`AP CSV export error for ${sheetConfig.name}:`, error);
       throw error;
     }
   }
@@ -251,17 +268,29 @@ class APGoogleSheetsDataService {
 
   // Process AP Summary data
   processAPSummary(rawData) {
-    if (!rawData || rawData.length === 0) return this.getMockData('apSummary');
+    console.log('Processing AP Summary, raw data:', rawData);
+    
+    if (!rawData || rawData.length === 0) {
+      console.log('No AP summary data found, returning mock');
+      return this.getMockData('apSummary');
+    }
 
-    // Calculate totals from raw data
+    // Log the first row to see column names
+    if (rawData[0]) {
+      console.log('AP Summary column headers found:', Object.keys(rawData[0]));
+      console.log('First AP data row:', rawData[0]);
+    }
+
+    // Calculate totals from raw data - try multiple column name variations
     const vendors = rawData.map(row => {
-      const vendor = row['Vendor'] || row['Name'] || '';
-      const current = this.parseNumber(row['Current'] || 0);
-      const b1_30 = this.parseNumber(row['1 - 30'] || row['1-30'] || 0);
-      const b31_60 = this.parseNumber(row['31 - 60'] || row['31-60'] || 0);
-      const b61_90 = this.parseNumber(row['61 - 90'] || row['61-90'] || 0);
-      const b90_plus = this.parseNumber(row['Over 90'] || row['>90'] || row['90+'] || 0);
-      const total = this.parseNumber(row['Total'] || 0) || 
+      // Try different column name possibilities
+      const vendor = row['Vendor'] || row['Name'] || row['vendor'] || row['name'] || '';
+      const current = this.parseNumber(row['Current'] || row['current'] || row['0-30'] || 0);
+      const b1_30 = this.parseNumber(row['1 - 30'] || row['1-30'] || row['30'] || row['1_30'] || 0);
+      const b31_60 = this.parseNumber(row['31 - 60'] || row['31-60'] || row['60'] || row['31_60'] || 0);
+      const b61_90 = this.parseNumber(row['61 - 90'] || row['61-90'] || row['90'] || row['61_90'] || 0);
+      const b90_plus = this.parseNumber(row['Over 90'] || row['>90'] || row['90+'] || row['over_90'] || row['91+'] || 0);
+      const total = this.parseNumber(row['Total'] || row['total'] || row['Balance'] || row['balance'] || 0) || 
                    (current + b1_30 + b31_60 + b61_90 + b90_plus);
 
       return {
@@ -275,6 +304,8 @@ class APGoogleSheetsDataService {
       };
     }).filter(v => v.vendor && v.total > 0);
 
+    console.log(`Processed ${vendors.length} AP vendors`);
+
     // Calculate summary metrics
     const total = vendors.reduce((sum, v) => sum + v.total, 0);
     const current = vendors.reduce((sum, v) => sum + v.current, 0);
@@ -286,7 +317,7 @@ class APGoogleSheetsDataService {
     // Calculate DPO (simplified - would need revenue data for accurate calc)
     const dpo = total > 0 ? Math.round((b1_30 + b31_60 + b61_90) / total * 30) : 0;
 
-    return {
+    const result = {
       total,
       current,
       b1_30,
@@ -299,6 +330,9 @@ class APGoogleSheetsDataService {
       paymentsMTD: total * 0.25, // Estimate
       vendors
     };
+
+    console.log('AP Summary processed result:', result);
+    return result;
   }
 
   // Process AP by Vendor
@@ -396,14 +430,42 @@ class APGoogleSheetsDataService {
   // Main method to get all AP data
   async getAllAPData() {
     try {
-      console.log('Fetching all AP data from Google Sheets...');
+      console.log('=====================================');
+      console.log('Starting AP data fetch from Google Sheets...');
+      console.log('Spreadsheet ID:', SPREADSHEET_ID);
+      console.log('=====================================');
       
-      const [summaryData, detailData, transactionData, bankTransactions] = await Promise.all([
-        this.fetchSheetData(AP_SHEET_CONFIGS.agedPayablesSummary),
-        this.fetchSheetData(AP_SHEET_CONFIGS.agedPayablesDetail),
-        this.fetchSheetData(AP_SHEET_CONFIGS.transactionListByVendor),
-        this.fetchSheetData(AP_SHEET_CONFIGS.transactionListDetails)
-      ]);
+      // Test connection first
+      const testUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit`;
+      console.log('Google Sheets URL:', testUrl);
+      console.log('Make sure this sheet is set to "Anyone with link can view"');
+      
+      const fetchPromises = [
+        this.fetchSheetData(AP_SHEET_CONFIGS.agedPayablesSummary).catch(err => {
+          console.error('Failed to fetch AP Summary:', err);
+          return [];
+        }),
+        this.fetchSheetData(AP_SHEET_CONFIGS.agedPayablesDetail).catch(err => {
+          console.error('Failed to fetch AP Detail:', err);
+          return [];
+        }),
+        this.fetchSheetData(AP_SHEET_CONFIGS.transactionListByVendor).catch(err => {
+          console.error('Failed to fetch AP Transactions:', err);
+          return [];
+        }),
+        this.fetchSheetData(AP_SHEET_CONFIGS.transactionListDetails).catch(err => {
+          console.error('Failed to fetch bank transactions:', err);
+          return [];
+        })
+      ];
+
+      const [summaryData, detailData, transactionData, bankTransactions] = await Promise.all(fetchPromises);
+
+      console.log('Fetch results:');
+      console.log('- AP Summary rows:', summaryData?.length || 0);
+      console.log('- AP Detail rows:', detailData?.length || 0);  
+      console.log('- AP Transaction rows:', transactionData?.length || 0);
+      console.log('- Bank Transaction rows:', bankTransactions?.length || 0);
 
       const apSummary = this.processAPSummary(summaryData);
       const apByVendor = this.processAPByVendor(summaryData);
@@ -412,30 +474,22 @@ class APGoogleSheetsDataService {
       
       // Generate additional metrics
       const agingTrend = this.generateAgingTrend(apSummary);
-      
-      // Calculate bills vs payments from transactions
       const billsVsPayments = this.calculateBillsVsPayments(transactions);
-      
-      // Bank trend (last 5 months)
       const bankTrend = this.generateBankTrend(bankSnapshot);
       
-      // Liquid assets
       const liquidAssets = {
         cash: bankSnapshot.reduce((sum, b) => sum + b.balance, 0),
-        marketableSecurities: 375000, // Would need separate data source
-        revolverAvailability: 800000, // Would need separate data source
+        marketableSecurities: 375000,
+        revolverAvailability: 800000,
         other: 125000
       };
 
-      // Extract project data from transactions (by class)
       const apByProject = this.extractProjectData(transactions);
-
-      // Extract vendor concentration data
       const vendorConcentration = this.calculateVendorConcentration(apByVendor, transactions);
 
-      return {
+      const result = {
         apSummary,
-        apByVendor: apByVendor.slice(0, 10), // Top 10
+        apByVendor: apByVendor.slice(0, 10),
         apByProject,
         agingTrend,
         billsVsPayments,
@@ -446,9 +500,53 @@ class APGoogleSheetsDataService {
         invoices: vendorConcentration.invoices,
         lastUpdated: new Date().toISOString()
       };
+
+      console.log('Final AP data structure:', {
+        apSummary: result.apSummary,
+        vendorCount: result.apByVendor?.length,
+        projectCount: result.apByProject?.length,
+        trendPoints: result.agingTrend?.length
+      });
+
+      return result;
     } catch (error) {
-      console.error('Error fetching AP data:', error);
+      console.error('Critical error fetching AP data:', error);
+      console.log('Returning mock data as fallback');
       return this.getMockData('all');
+    }
+  }
+
+  // Test function to verify connection
+  async testConnection() {
+    console.log('Testing AP Google Sheets connection...');
+    const testSheet = AP_SHEET_CONFIGS.agedPayablesSummary;
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${testSheet.gid}`;
+    
+    console.log('Test URL:', csvUrl);
+    console.log('Testing with CORS proxy...');
+    
+    try {
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(csvUrl)}`;
+      const response = await fetch(proxyUrl);
+      
+      if (response.ok) {
+        const text = await response.text();
+        console.log('✓ Connection successful!');
+        console.log('Response preview (first 500 chars):', text.substring(0, 500));
+        
+        // Try to parse
+        const lines = text.split('\n');
+        console.log('Number of lines:', lines.length);
+        console.log('Header row (line ' + testSheet.headerRow + '):', lines[testSheet.headerRow - 1]);
+        
+        return true;
+      } else {
+        console.error('✗ Connection failed with status:', response.status);
+        return false;
+      }
+    } catch (error) {
+      console.error('✗ Connection test error:', error);
+      return false;
     }
   }
 
@@ -628,5 +726,19 @@ class APGoogleSheetsDataService {
 
 // Create singleton instance
 const apGoogleSheetsDataService = new APGoogleSheetsDataService();
+
+// Add to window for debugging
+if (typeof window !== 'undefined') {
+  window.testAPConnection = async () => {
+    console.log('Running AP connection test...');
+    await apGoogleSheetsDataService.testConnection();
+    console.log('\nNow testing full data fetch...');
+    const data = await apGoogleSheetsDataService.getAllAPData();
+    console.log('Full AP data result:', data);
+    return data;
+  };
+  
+  console.log('AP Google Sheets Service loaded. Run window.testAPConnection() in console to test.');
+}
 
 export { apGoogleSheetsDataService, SPREADSHEET_ID, AP_SHEET_CONFIGS };
