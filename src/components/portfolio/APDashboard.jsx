@@ -37,7 +37,7 @@ const APDashboard = ({ portfolioId = 'default' }) => {
     setError(null);
 
     try {
-      const { apGoogleSheetsDataService } = await import('../../services/apGoogleSheetsDataService');
+      const { apGoogleSheetsDataService } = await import('../../services/apGoogleSheetsDataService.jsx');
       const allData = await apGoogleSheetsDataService.getAllAPData();
       
       console.log('AP Data received:', allData);
