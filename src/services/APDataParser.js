@@ -466,9 +466,7 @@ class APDataParser {
     return value;
   }
   
-  // Parse GeneralLedgerByAccount
-  // Headers: Date, Transaction Type, Num, Name, Customer, Vendor, Class, Product/Service, Memo/Description, Qty, Rate, Account #, Account, Split, Debit, Credit, Open Balance, Amount, Balance, Tax Amount, Taxable Amount
-  // Note: "Date" column contains Account names, "Beginning balance" labels, and actual dates
+  // Parse GeneralLedgerByAccount with focus on latest balances
   parseGeneralLedger(csvData) {
     console.log('Starting General Ledger parse...');
     const lines = csvData.split('\n');
@@ -478,8 +476,7 @@ class APDataParser {
     for (let i = 0; i < Math.min(lines.length, 15); i++) {
       if (lines[i].includes('Transaction Type') && 
           lines[i].includes('Account') && 
-          lines[i].includes('Debit') &&
-          lines[i].includes('Credit')) {
+          lines[i].includes('Balance')) {
         headerLine = i;
         console.log(`Found GL header line at index ${i}`);
         break;
@@ -494,10 +491,19 @@ class APDataParser {
     const headers = this.parseCSVLine(lines[headerLine]);
     console.log('Headers found:', headers);
     
+    // Find column indices
+    const dateIndex = 0; // Column A
+    const balanceIndex = headers.findIndex(h => h === 'Balance' || h.toLowerCase() === 'balance'); // Column S
+    const accountNumIndex = headers.findIndex(h => h === 'Account #' || h.toLowerCase().includes('account #'));
+    const accountNameIndex = headers.findIndex(h => h === 'Account' && h !== 'Account #');
+    
     const accounts = {};
     const transactions = [];
     let currentAccount = null;
     let currentAccountNumber = null;
+    
+    // Track latest balance for each account
+    const latestBalances = {};
     
     for (let i = headerLine + 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -506,19 +512,19 @@ class APDataParser {
       const values = this.parseCSVLine(line);
       if (values.length === 0) continue;
       
-      const firstCell = values[0];
+      const firstCell = values[0]; // Column A - Date or Account Name
       if (!firstCell) continue;
       
-      // Check if this is an account header (not a date, not "Beginning balance")
+      // Check if this is an account header
       if (!this.isDate(firstCell) && 
           !firstCell.toLowerCase().includes('beginning balance') &&
           !firstCell.toLowerCase().includes('total') &&
           this.isAccountName(firstCell)) {
-        // This is an account name
+        
         currentAccount = firstCell.trim();
         console.log(`Found GL account: ${currentAccount}`);
         
-        // Try to extract account number if present
+        // Extract account number if present
         const accountMatch = firstCell.match(/^(\d+)\s+(.+)$/);
         if (accountMatch) {
           currentAccountNumber = accountMatch[1];
@@ -532,76 +538,109 @@ class APDataParser {
             transactions: [],
             beginningBalance: 0,
             endingBalance: 0,
+            latestBalance: 0,
+            latestDate: null,
             totalDebits: 0,
             totalCredits: 0
           };
         }
       }
-      // Check if this is a beginning balance row
-      else if (firstCell.toLowerCase().includes('beginning balance')) {
-        if (currentAccount && accounts[currentAccount]) {
-          const balance = this.parseValue(values[values.length - 1]) || 0;
-          accounts[currentAccount].beginningBalance = balance;
-          console.log(`Set beginning balance for ${currentAccount}: ${balance}`);
-        }
-      }
-      // Check if this is a total row
-      else if (firstCell.toLowerCase().includes('total for') && currentAccount) {
-        // Extract totals
-        const debitIndex = headers.findIndex(h => h.toLowerCase().includes('debit'));
-        const creditIndex = headers.findIndex(h => h.toLowerCase().includes('credit'));
-        const balanceIndex = headers.findIndex(h => h.toLowerCase().includes('balance'));
-        
-        if (debitIndex >= 0) {
-          accounts[currentAccount].totalDebits = this.parseValue(values[debitIndex]) || 0;
-        }
-        if (creditIndex >= 0) {
-          accounts[currentAccount].totalCredits = this.parseValue(values[creditIndex]) || 0;
-        }
-        if (balanceIndex >= 0) {
-          accounts[currentAccount].endingBalance = this.parseValue(values[balanceIndex]) || 0;
-        }
-      }
-      // Otherwise it's a transaction row
-      else if (this.isDate(firstCell) && currentAccount) {
+      // Check if this is a transaction with a date
+      else if (this.isDate(firstCell)) {
         const transaction = this.parseTransactionRow(headers, values);
-        transaction.account = currentAccount;
-        transaction.accountNumber = currentAccountNumber;
+        const transDate = new Date(firstCell);
+        const balance = this.parseValue(values[balanceIndex]) || 0;
+        
+        // Get account number from this row if available
+        const rowAccountNum = values[accountNumIndex]?.trim();
+        const rowAccountName = values[accountNameIndex]?.trim();
+        
+        // Determine which account this belongs to
+        let accountKey = currentAccount;
+        let accountNum = currentAccountNumber;
+        
+        // If this row has account info, use it
+        if (rowAccountNum || rowAccountName) {
+          if (rowAccountNum) {
+            accountNum = rowAccountNum;
+            // Find or create account for this number
+            const existingAccount = Object.values(accounts).find(a => a.number === rowAccountNum);
+            if (existingAccount) {
+              accountKey = existingAccount.name;
+            } else if (rowAccountName) {
+              accountKey = rowAccountName;
+            }
+          }
+        }
+        
         transaction.date = firstCell;
+        transaction.balance = balance;
+        transaction.account = accountKey;
+        transaction.accountNumber = accountNum;
         
         transactions.push(transaction);
         
-        if (accounts[currentAccount]) {
-          accounts[currentAccount].transactions.push(transaction);
+        // Track latest balance for this account number
+        if (accountNum) {
+          const key = `acc_${accountNum}`;
+          if (!latestBalances[key] || transDate > latestBalances[key].date) {
+            latestBalances[key] = {
+              date: transDate,
+              balance: balance,
+              accountName: accountKey,
+              accountNumber: accountNum
+            };
+          }
+        }
+        
+        // Also add to account's transactions
+        if (accountKey && accounts[accountKey]) {
+          accounts[accountKey].transactions.push(transaction);
+          
+          // Update latest balance for this account
+          if (!accounts[accountKey].latestDate || transDate > accounts[accountKey].latestDate) {
+            accounts[accountKey].latestDate = transDate;
+            accounts[accountKey].latestBalance = balance;
+            accounts[accountKey].endingBalance = balance; // Use latest as ending
+          }
         }
       }
     }
     
+    // Update accounts with their latest balances
+    Object.keys(accounts).forEach(accountName => {
+      const account = accounts[accountName];
+      if (account.number) {
+        const key = `acc_${account.number}`;
+        if (latestBalances[key]) {
+          account.endingBalance = latestBalances[key].balance;
+          account.latestBalance = latestBalances[key].balance;
+          account.latestDate = latestBalances[key].date;
+          console.log(`Account ${account.number} (${accountName}): Latest balance ${account.endingBalance} on ${latestBalances[key].date}`);
+        }
+      }
+    });
+    
+    // Special handling for accounts 11000, 11200, 11600
+    const targetAccounts = ['11000', '11200', '11600'];
+    targetAccounts.forEach(acctNum => {
+      const key = `acc_${acctNum}`;
+      if (latestBalances[key]) {
+        console.log(`Target account ${acctNum}: Balance ${latestBalances[key].balance} on ${latestBalances[key].date}`);
+      }
+    });
+    
     console.log(`Parsed ${Object.keys(accounts).length} GL accounts`);
     console.log(`Parsed ${transactions.length} GL transactions`);
     
-    // Calculate AP-related metrics from GL
-    const apMetrics = this.calculateAPMetricsFromGL(accounts, transactions);
+    // Calculate AP metrics with latest balances
+    const apMetrics = this.calculateAPMetricsFromGL(accounts, transactions, latestBalances);
     
-    return { accounts, transactions, headers, apMetrics };
-  }
-  
-  // Check if a string looks like an account name
-  isAccountName(str) {
-    if (!str || typeof str !== 'string') return false;
-    const trimmed = str.trim();
-    
-    // Not an account if it's empty, a date, or certain keywords
-    if (!trimmed || this.isDate(trimmed)) return false;
-    
-    // Common GL account patterns
-    // Could be: "11100 Cash", "Accounts Payable", "21100 Accounts Payable", etc.
-    // Must contain at least one letter or start with numbers followed by text
-    return /[a-zA-Z]/.test(trimmed) || /^\d+\s+[a-zA-Z]/.test(trimmed);
+    return { accounts, transactions, headers, apMetrics, latestBalances };
   }
   
   // Calculate AP-related metrics from General Ledger
-  calculateAPMetricsFromGL(accounts, transactions) {
+  calculateAPMetricsFromGL(accounts, transactions, latestBalances) {
     const apMetrics = {
       totalPayables: 0,
       recentPayments: 0,
@@ -612,37 +651,42 @@ class APDataParser {
         cash: 0,
         savingsMMF: 0,
         operatingCash: 0
-      }
+      },
+      bankAccounts: []
     };
     
-    // Look for specific accounts
-    Object.keys(accounts).forEach(accountName => {
-      const account = accounts[accountName];
-      
-      // Check for Accounts Payable account (21100)
-      if (accountName.toLowerCase().includes('accounts payable') || 
-          accountName.toLowerCase().includes('a/p') ||
-          account.number === '21100') {
-        apMetrics.totalPayables = Math.abs(account.endingBalance || 0);
-      }
-      
-      // Check for specific cash accounts using account numbers
-      if (account.number === '11000') {
-        // Operating cash
-        apMetrics.liquidAssets.operatingCash = Math.abs(account.endingBalance || 0);
-        apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
-      } else if (account.number === '11200') {
-        // Savings or money market
-        apMetrics.liquidAssets.savingsMMF = Math.abs(account.endingBalance || 0);
-        apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
-      } else if (account.number === '11600') {
-        // Other cash account
-        apMetrics.liquidAssets.cash += Math.abs(account.endingBalance || 0);
-        apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
+    // Get latest balances for specific accounts
+    const targetAccounts = {
+      '11000': { name: 'Operating - Checking', category: 'operatingCash' },
+      '11200': { name: 'Savings - MMF', category: 'savingsMMF' },
+      '11600': { name: 'Reserve Account', category: 'cash' }
+    };
+    
+    Object.entries(targetAccounts).forEach(([acctNum, info]) => {
+      const key = `acc_${acctNum}`;
+      if (latestBalances && latestBalances[key]) {
+        const balance = Math.abs(latestBalances[key].balance || 0);
+        apMetrics.liquidAssets[info.category] += balance;
+        apMetrics.cashPosition += balance;
+        
+        apMetrics.bankAccounts.push({
+          number: acctNum,
+          name: info.name,
+          balance: balance,
+          date: latestBalances[key].date
+        });
+        
+        console.log(`Bank account ${acctNum} (${info.name}): ${balance} as of ${latestBalances[key].date}`);
       }
     });
     
-    // Analyze recent transactions for MTD bills and payments
+    // Look for AP account
+    const apAccountKey = 'acc_21100';
+    if (latestBalances && latestBalances[apAccountKey]) {
+      apMetrics.totalPayables = Math.abs(latestBalances[apAccountKey].balance || 0);
+    }
+    
+    // Calculate MTD bills and payments
     const currentDate = new Date();
     const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     
@@ -650,39 +694,10 @@ class APDataParser {
       if (trans.date) {
         const transDate = new Date(trans.date);
         
-        // Check if transaction is in current month
         if (transDate >= monthStart) {
-          // Check for AP transactions (bills and payments)
-          // Bills: Credits to AP account or transactions with vendors
-          // Payments: Debits from AP account
-          
-          if (trans.account === '21100 Accounts Payable' || 
-              trans.split === '21100 Accounts Payable' ||
-              (trans.account_number === '21100')) {
-            
-            // This is an AP transaction
-            if (trans.credit > 0) {
-              apMetrics.recentBills += trans.credit;
-            }
-            if (trans.debit > 0) {
-              apMetrics.recentPayments += trans.debit;
-            }
-          }
-          
-          // Also check for vendor transactions
-          if (trans.vendor && trans.amount) {
-            // Use the amount column (R) for MTD calculations
-            const amount = Math.abs(trans.amount || 0);
-            
-            // Determine if it's a bill or payment based on transaction type
-            if (trans.transaction_type) {
-              const type = trans.transaction_type.toLowerCase();
-              if (type.includes('bill') && !type.includes('payment')) {
-                apMetrics.recentBills += amount;
-              } else if (type.includes('payment') || type.includes('check')) {
-                apMetrics.recentPayments += amount;
-              }
-            }
+          if (trans.account === '21100 Accounts Payable' || trans.accountNumber === '21100') {
+            if (trans.credit > 0) apMetrics.recentBills += trans.credit;
+            if (trans.debit > 0) apMetrics.recentPayments += trans.debit;
           }
         }
         
@@ -697,12 +712,8 @@ class APDataParser {
             };
           }
           
-          if (trans.debit > 0) {
-            apMetrics.vendorPayments[trans.vendor].totalPaid += trans.debit;
-          }
-          if (trans.credit > 0) {
-            apMetrics.vendorPayments[trans.vendor].totalBilled += trans.credit;
-          }
+          if (trans.debit > 0) apMetrics.vendorPayments[trans.vendor].totalPaid += trans.debit;
+          if (trans.credit > 0) apMetrics.vendorPayments[trans.vendor].totalBilled += trans.credit;
           apMetrics.vendorPayments[trans.vendor].transactionCount++;
         }
       }
