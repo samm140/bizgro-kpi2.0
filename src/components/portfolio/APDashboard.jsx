@@ -43,7 +43,10 @@ const APDashboard = ({ portfolioId = 'default' }) => {
     setError(null);
 
     try {
-      const { apGoogleSheetsDataService } = await import('../../services/apGoogleSheetsDataService');
+      // Import the default export, not a named export
+      const apGoogleSheetsDataService = (await import('../../services/apGoogleSheetsDataService')).default;
+      
+      // Now call the method
       const allData = await apGoogleSheetsDataService.getAllAPData();
       
       console.log('AP Data received:', allData);
@@ -71,13 +74,12 @@ const APDashboard = ({ portfolioId = 'default' }) => {
     console.log('=====================================');
     
     try {
-      // Import and test the service directly
-      const module = await import('../../services/apGoogleSheetsDataService');
-      const service = module.apGoogleSheetsDataService;
+      // Import the default export
+      const apGoogleSheetsDataService = (await import('../../services/apGoogleSheetsDataService')).default;
       
       // Test fetching data
       console.log('Testing AP data fetch...');
-      const data = await service.getAllAPData();
+      const data = await apGoogleSheetsDataService.getAllAPData();
       console.log('AP Data result:', data);
       
       // Check what's in the summary
@@ -95,14 +97,14 @@ const APDashboard = ({ portfolioId = 'default' }) => {
       }
       
       // Test the connection directly
-      if (service.testConnection) {
+      if (apGoogleSheetsDataService.testConnection) {
         console.log('\nTesting direct sheet connection...');
-        await service.testConnection();
+        await apGoogleSheetsDataService.testConnection();
       }
       
       // Add to window for manual testing
       window.apTestData = data;
-      window.apService = service;
+      window.apService = apGoogleSheetsDataService;
       console.log('\nTest complete! Access data with:');
       console.log('- window.apTestData (to see fetched data)');
       console.log('- window.apService (to access service methods)');
