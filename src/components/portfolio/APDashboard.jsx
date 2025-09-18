@@ -216,15 +216,21 @@ const APDashboard = ({ portfolioId = 'default' }) => {
 
   // Filter vendors based on search
   const getFilteredVendors = () => {
-    if (!data?.apByVendor) return [];
+    if (!data?.apByVendor || data.apByVendor.length === 0) {
+      console.warn('No vendor data available for filtering');
+      return [];
+    }
     
     let filtered = [...data.apByVendor];
     
     if (searchTerm) {
       filtered = filtered.filter(v => 
-        v.vendor.toLowerCase().includes(searchTerm.toLowerCase())
+        v.vendor && v.vendor.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+    
+    // Ensure we have valid data
+    filtered = filtered.filter(v => v.vendor && v.amount > 0);
     
     return filtered.slice(0, topN);
   };
@@ -526,10 +532,10 @@ const APDashboard = ({ portfolioId = 'default' }) => {
         </div>
       )}
 
-      {/* Projects View */}
+      {/* Projects View - Updated title and data source */}
       {selectedView === 'projects' && data?.apByProject && (
         <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
-          <h3 className="text-lg font-semibold text-white mb-4">AP by Project</h3>
+          <h3 className="text-lg font-semibold text-white mb-4">Recent AP Spend on Projects</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -544,7 +550,7 @@ const APDashboard = ({ portfolioId = 'default' }) => {
                   textAnchor="end"
                   height={100}
                 />
-                <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
                 <Bar dataKey="amount" radius={[8, 8, 0, 0]} fill={palette[2]} />
               </BarChart>
