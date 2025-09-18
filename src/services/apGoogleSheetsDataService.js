@@ -366,64 +366,117 @@ class APGoogleSheetsDataService {
       .slice(-3); // Last 3 months
   }
   
-  // Build bank snapshot from GL accounts
+  // Build bank snapshot from GL accounts - specifically accounts 11000, 11200, 11600
   buildBankSnapshot(glData) {
-    if (!glData || !glData.accounts) return [];
+    if (!glData || !glData.accounts) {
+      console.log('No GL data for bank snapshot');
+      return [];
+    }
     
     const bankAccounts = [];
+    
+    // Map specific account numbers to friendly names
+    const accountMapping = {
+      '11000': 'Operating - Checking',
+      '11200': 'Savings - MMF',
+      '11600': 'Reserve Account'
+    };
     
     Object.keys(glData.accounts).forEach(accountName => {
       const account = glData.accounts[accountName];
       
-      // Look for cash/bank accounts
-      if (accountName.toLowerCase().includes('cash') ||
-          accountName.toLowerCase().includes('checking') ||
-          accountName.toLowerCase().includes('savings') ||
-          accountName.toLowerCase().includes('bank') ||
-          (account.number && account.number.startsWith('11'))) {
+      // Check if this is one of our target accounts
+      if (accountMapping[account.number]) {
+        const balance = Math.abs(account.endingBalance || 0);
         
         bankAccounts.push({
-          account: accountName,
-          balance: Math.abs(account.endingBalance || 0)
+          account: accountMapping[account.number] || accountName,
+          accountNumber: account.number,
+          fullName: accountName,
+          balance: balance
         });
+        
+        console.log(`Found bank account ${account.number}: ${accountName} = ${balance}`);
       }
     });
     
+    // Sort by account number for consistent display
+    bankAccounts.sort((a, b) => (a.accountNumber || '').localeCompare(b.accountNumber || ''));
+    
+    console.log('Bank accounts found:', bankAccounts.length);
     return bankAccounts;
   }
   
-  // Build bank trend from GL transactions
+  // Build bank trend from GL transactions for accounts 11000, 11200, 11600
   buildBankTrend(glData) {
-    if (!glData || !glData.transactions) return [];
+    if (!glData || !glData.transactions) {
+      console.log('No GL transactions for bank trend');
+      return [];
+    }
     
-    // Group cash transactions by month
+    // Target accounts
+    const targetAccounts = ['11000', '11200', '11600'];
+    
+    // Group transactions by month for target accounts
     const monthlyBalances = {};
-    let runningBalance = 0;
     
-    // Sort transactions by date
-    const cashTransactions = glData.transactions
-      .filter(t => t.account && (
-        t.account.toLowerCase().includes('cash') ||
-        t.account.toLowerCase().includes('checking')
-      ))
+    // Filter and sort transactions for our target accounts
+    const bankTransactions = glData.transactions
+      .filter(t => {
+        if (!t.account_number) return false;
+        // Check if account number matches our targets
+        return targetAccounts.includes(t.account_number) || 
+               targetAccounts.some(num => t.account && t.account.startsWith(num));
+      })
       .sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    cashTransactions.forEach(trans => {
-      if (trans.date) {
+    console.log(`Found ${bankTransactions.length} bank transactions`);
+    
+    // Calculate monthly ending balances
+    bankTransactions.forEach(trans => {
+      if (trans.date && trans.balance != null) {
         const date = new Date(trans.date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
         
-        // Update running balance
-        runningBalance += (trans.debit || 0) - (trans.credit || 0);
-        monthlyBalances[monthKey] = runningBalance;
+        // Store the balance (use the latest balance for each month)
+        monthlyBalances[monthKey] = Math.abs(trans.balance || 0);
       }
     });
     
-    // Convert to array
-    return Object.entries(monthlyBalances)
-      .map(([date, balance]) => ({ date, balance: Math.abs(balance) }))
+    // If we don't have transaction balances, calculate from debits/credits
+    if (Object.keys(monthlyBalances).length === 0) {
+      let runningBalance = 0;
+      
+      // Get beginning balance from accounts
+      if (glData.accounts) {
+        targetAccounts.forEach(acctNum => {
+          const account = Object.values(glData.accounts).find(a => a.number === acctNum);
+          if (account && account.beginningBalance) {
+            runningBalance += Math.abs(account.beginningBalance);
+          }
+        });
+      }
+      
+      bankTransactions.forEach(trans => {
+        if (trans.date) {
+          const date = new Date(trans.date);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+          
+          // Update running balance
+          runningBalance += (trans.debit || 0) - (trans.credit || 0);
+          monthlyBalances[monthKey] = Math.abs(runningBalance);
+        }
+      });
+    }
+    
+    // Convert to array and get last 6 months
+    const trendData = Object.entries(monthlyBalances)
+      .map(([date, balance]) => ({ date, balance }))
       .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(-3); // Last 3 months
+      .slice(-6); // Last 6 months
+    
+    console.log('Bank trend data points:', trendData.length);
+    return trendData;
   }
   
   // Build liquid assets from GL - specifically from accounts 11000, 11200, 11600
@@ -435,38 +488,42 @@ class APGoogleSheetsDataService {
       other: 0
     };
     
-    if (!glData || !glData.accounts) return assets;
+    if (!glData || !glData.accounts) {
+      console.log('No GL data for liquid assets');
+      return assets;
+    }
     
-    // Use specific account numbers for accurate liquid assets
+    // Map accounts to asset categories
+    const accountCategoryMap = {
+      '11000': 'cash',           // Operating account
+      '11200': 'marketableSecurities', // Savings/MMF
+      '11600': 'cash'            // Reserve account (also cash)
+    };
+    
     Object.keys(glData.accounts).forEach(accountName => {
       const account = glData.accounts[accountName];
-      const balance = Math.abs(account.endingBalance || 0);
       
-      // Check by account number first for precision
-      if (account.number === '11000') {
-        // Primary operating cash
-        assets.cash += balance;
-      } else if (account.number === '11200') {
-        // Savings/money market funds
-        assets.marketableSecurities += balance;
-      } else if (account.number === '11600') {
-        // Other liquid cash account
-        assets.cash += balance;
-      } else if (accountName.toLowerCase().includes('line of credit') ||
-                 accountName.toLowerCase().includes('revolver')) {
-        assets.revolverAvailability += balance;
+      if (account.number && accountCategoryMap[account.number]) {
+        const balance = Math.abs(account.endingBalance || 0);
+        const category = accountCategoryMap[account.number];
+        assets[category] += balance;
+        
+        console.log(`Liquid asset ${account.number} (${category}): ${balance}`);
       }
     });
     
-    // If GL metrics has more specific liquid assets info, use it
+    // Also check if GL metrics has calculated liquid assets
     if (glData.apMetrics && glData.apMetrics.liquidAssets) {
       const glAssets = glData.apMetrics.liquidAssets;
-      if (glAssets.operatingCash > 0 || glAssets.savingsMMF > 0) {
-        assets.cash = (glAssets.operatingCash || 0) + (glAssets.cash || 0);
-        assets.marketableSecurities = glAssets.savingsMMF || 0;
+      
+      // Use the more detailed breakdown if available
+      if ((glAssets.operatingCash > 0 || glAssets.savingsMMF > 0) && assets.cash === 0) {
+        assets.cash = glAssets.operatingCash + (glAssets.cash || 0);
+        assets.marketableSecurities = glAssets.savingsMMF || assets.marketableSecurities;
       }
     }
     
+    console.log('Liquid assets calculated:', assets);
     return assets;
   }
 
