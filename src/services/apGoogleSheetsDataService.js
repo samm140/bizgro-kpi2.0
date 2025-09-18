@@ -1,7 +1,7 @@
 // src/services/apGoogleSheetsDataService.js
 // AP Data Service for Google Sheets with proper parsing
 
-import { APDataParser } from './APDataParser.js'; // Make sure APDataParser.js is in the same directory
+import APDataParser from './APDataParser.js'; // Default import
 
 const AP_SPREADSHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
 const CORS_PROXY = 'https://corsproxy.io/?';
