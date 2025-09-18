@@ -432,31 +432,39 @@ const APDashboard = ({ portfolioId = 'default' }) => {
               </div>
             </div>
 
-            {/* Liquid Assets */}
+            {/* Liquid Assets - Fixed to use GL data */}
             <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-semibold text-white mb-4">Liquid Assets</h3>
               <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={Object.entries(data?.liquidAssets || {}).map(([k, v]) => ({
-                      name: k.charAt(0).toUpperCase() + k.slice(1).replace(/([A-Z])/g, ' $1'),
-                      value: v
-                    }))}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="name" tick={{ fill: '#9CA3AF' }} />
-                    <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
-                    <Bar dataKey="value" radius={[8, 8, 0, 0]} fill={palette[1]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {data?.liquidAssets && (data.liquidAssets.cash > 0 || data.liquidAssets.marketableSecurities > 0) ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        { name: 'Cash (11000/11600)', value: data.liquidAssets.cash },
+                        { name: 'Savings/MMF (11200)', value: data.liquidAssets.marketableSecurities },
+                        { name: 'Credit Line', value: data.liquidAssets.revolverAvailability },
+                        { name: 'Other', value: data.liquidAssets.other }
+                      ].filter(item => item.value > 0)}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 11 }} />
+                      <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
+                      <Bar dataKey="value" radius={[8, 8, 0, 0]} fill={palette[1]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-400">No liquid assets data available</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Vendors View */}
+      {/* Vendors View - Fixed with better visualization */}
       {selectedView === 'vendors' && (
         <div className="space-y-6">
           {/* Search and Filter */}
@@ -484,21 +492,44 @@ const APDashboard = ({ portfolioId = 'default' }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-semibold text-white mb-4">Top Vendors by AP</h3>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[...filteredVendors].reverse()}
-                    layout="horizontal"
-                    margin={{ top: 8, right: 16, left: 80, bottom: 8 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis type="number" tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="vendor" tick={{ fill: '#9CA3AF' }} width={75} />
-                    <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
-                    <Bar dataKey="amount" radius={[0, 8, 8, 0]} fill={palette[0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {filteredVendors && filteredVendors.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={filteredVendors}
+                      margin={{ top: 8, right: 16, left: 16, bottom: 32 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis 
+                        dataKey="vendor" 
+                        tick={{ fill: '#9CA3AF', fontSize: 11 }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval={0}
+                      />
+                      <YAxis 
+                        tick={{ fill: '#9CA3AF' }} 
+                        tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} 
+                      />
+                      <Tooltip 
+                        formatter={(v) => currency(v)} 
+                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                        labelStyle={{ color: '#9CA3AF' }}
+                      />
+                      <Bar 
+                        dataKey="amount" 
+                        fill={palette[0]}
+                        radius={[8, 8, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center">
+                  <p className="text-gray-400">No vendor data available</p>
+                </div>
+              )}
             </div>
 
             <div className="bg-gray-800/50 rounded-lg border border-gray-700 overflow-hidden">
@@ -515,15 +546,26 @@ const APDashboard = ({ portfolioId = 'default' }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700">
-                    {filteredVendors.map((vendor, idx) => (
-                      <tr key={idx} className="hover:bg-gray-800/30">
-                        <td className="px-4 py-3 text-white text-sm">{vendor.vendor}</td>
-                        <td className="px-4 py-3 text-right text-white">{currency(vendor.amount)}</td>
-                        <td className="px-4 py-3 text-right text-gray-400">
-                          {((vendor.amount / metrics.total) * 100).toFixed(1)}%
+                    {filteredVendors && filteredVendors.length > 0 ? (
+                      filteredVendors.map((vendor, idx) => (
+                        <tr key={idx} className="hover:bg-gray-800/30">
+                          <td className="px-4 py-3 text-white text-sm">{vendor.vendor}</td>
+                          <td className="px-4 py-3 text-right text-white">{currency(vendor.amount)}</td>
+                          <td className="px-4 py-3 text-right text-gray-400">
+                            {metrics && metrics.total > 0 ? 
+                              `${((vendor.amount / metrics.total) * 100).toFixed(1)}%` : 
+                              '0%'
+                            }
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                          No vendors found
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -604,7 +646,7 @@ const APDashboard = ({ portfolioId = 'default' }) => {
         </div>
       )}
 
-      {/* Cashflow View */}
+      {/* Cashflow View - Fixed bank accounts and trend */}
       {selectedView === 'cashflow' && (
         <div className="space-y-6">
           {/* Bills vs Payments */}
@@ -615,7 +657,7 @@ const APDashboard = ({ portfolioId = 'default' }) => {
                 <LineChart data={data?.billsVsPayments || []}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="date" tick={{ fill: '#9CA3AF' }} />
-                  <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                  <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
                   <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
                   <Legend />
                   <Line type="monotone" dataKey="bills" stroke={palette[4]} strokeWidth={2} dot={false} name="Bills" />
@@ -629,41 +671,60 @@ const APDashboard = ({ portfolioId = 'default' }) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-semibold text-white mb-4">Bank Accounts</h3>
-              <div className="space-y-3">
-                {data?.bankSnapshot?.map((bank, idx) => (
-                  <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-700">
-                    <span className="text-gray-300">{bank.account}</span>
-                    <span className="text-white font-medium">{currency(bank.balance)}</span>
+              {data?.bankSnapshot && data.bankSnapshot.length > 0 ? (
+                <div className="space-y-3">
+                  {data.bankSnapshot.map((bank, idx) => (
+                    <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-700">
+                      <div>
+                        <span className="text-gray-300 block">{bank.account}</span>
+                        <span className="text-gray-500 text-xs">Account #{bank.accountNumber}</span>
+                      </div>
+                      <span className="text-white font-medium">{currency(bank.balance)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between items-center py-2 font-semibold">
+                    <span className="text-gray-300">Total Cash</span>
+                    <span className="text-green-400">
+                      {currency(data.bankSnapshot.reduce((sum, b) => sum + b.balance, 0))}
+                    </span>
                   </div>
-                ))}
-                <div className="flex justify-between items-center py-2 font-semibold">
-                  <span className="text-gray-300">Total Cash</span>
-                  <span className="text-green-400">
-                    {currency(data?.bankSnapshot?.reduce((sum, b) => sum + b.balance, 0) || 0)}
-                  </span>
                 </div>
-              </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <p>No bank account data available</p>
+                  <p className="text-xs mt-2">Check GL accounts 11000, 11200, 11600</p>
+                </div>
+              )}
             </div>
 
             <div className="bg-gray-800/50 rounded-lg p-6 border border-gray-700">
               <h3 className="text-lg font-semibold text-white mb-4">Cash Trend</h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data?.bankTrend || []}>
-                    <defs>
-                      <linearGradient id="cashGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.05} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="date" tick={{ fill: '#9CA3AF' }} />
-                    <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
-                    <Area type="monotone" dataKey="balance" stroke="#0ea5e9" fill="url(#cashGradient)" strokeWidth={2} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              {data?.bankTrend && data.bankTrend.length > 0 ? (
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={data.bankTrend}>
+                      <defs>
+                        <linearGradient id="cashGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis dataKey="date" tick={{ fill: '#9CA3AF' }} />
+                      <YAxis tick={{ fill: '#9CA3AF' }} tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v) => currency(v)} contentStyle={{ backgroundColor: '#1F2937' }} />
+                      <Area type="monotone" dataKey="balance" stroke="#0ea5e9" fill="url(#cashGradient)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-48">
+                  <p className="text-gray-400 text-center">
+                    No cash trend data available<br/>
+                    <span className="text-xs">Requires GL transaction history</span>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
