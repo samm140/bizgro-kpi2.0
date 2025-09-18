@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 
-const SideHeader = () => {
+const SideHeader = ({ 
+  currentView = 'dashboard', 
+  onNavigate, 
+  user, 
+  dashboardData,
+  onExportDashboard,
+  useGoogleSheets,
+  setUseGoogleSheets,
+  logout 
+}) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeNav, setActiveNav] = useState('dashboard');
+  const [showProfile, setShowProfile] = useState(false);
 
   useEffect(() => {
     // Animate progress bars on mount
@@ -17,10 +26,16 @@ const SideHeader = () => {
     }, 100);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [dashboardData]);
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed);
+  };
+
+  const handleNavClick = (viewId) => {
+    if (onNavigate) {
+      onNavigate(viewId);
+    }
   };
 
   const navItems = {
@@ -82,7 +97,7 @@ const SideHeader = () => {
         )
       },
       { 
-        id: 'weekly-entry', 
+        id: 'entry', 
         label: 'Weekly Entry', 
         badge: 'New',
         icon: (
@@ -113,10 +128,11 @@ const SideHeader = () => {
     ]
   };
 
-  const statsData = [
+  // Get stats data from dashboardData prop
+  const statsData = dashboardData ? [
     {
       title: 'Revenue',
-      value: '$14.20M',
+      value: `$${(dashboardData.revenueYTD / 1000000).toFixed(2)}M`,
       change: '+10.1%',
       changeType: 'positive',
       target: 'Target: $14M',
@@ -130,7 +146,7 @@ const SideHeader = () => {
     },
     {
       title: 'Cash Position',
-      value: '$1.04M',
+      value: `$${(dashboardData.cashPosition / 1000000).toFixed(2)}M`,
       subtitle: 'DSO: 45 days • DPO: 38 days',
       progress: 75,
       icon: (
@@ -142,7 +158,7 @@ const SideHeader = () => {
     },
     {
       title: 'Gross Margin',
-      value: '34.1%',
+      value: `${dashboardData.gpmAverage?.toFixed(1) || '34.1'}%`,
       change: '+4.1%',
       changeType: 'positive',
       target: 'Target: 30%',
@@ -156,10 +172,10 @@ const SideHeader = () => {
     },
     {
       title: 'Backlog',
-      value: '$21.8M',
+      value: `$${(dashboardData.backlog / 1000000).toFixed(1)}M`,
       change: '-18 mo.',
       changeType: 'negative',
-      target: 'Active: 23',
+      target: `Active: ${dashboardData.activeProjects || 23}`,
       progress: 60,
       icon: (
         <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -168,12 +184,16 @@ const SideHeader = () => {
       ),
       iconBg: 'bg-purple-500/10'
     }
-  ];
+  ] : [];
 
-  const activities = [
-    { type: 'success', title: 'Weekly data entry completed for week ending 9/18/2025', time: '2 hours ago' },
-    { type: 'warning', title: 'QuickBooks sync completed successfully - 14 fields updated', time: '5 hours ago' },
-    { type: 'info', title: 'Variance alert: Current AR shows 12% difference from QBO', time: '1 day ago' },
+  const activities = dashboardData?.allEntries ? dashboardData.allEntries.slice(-4).reverse().map((entry, index) => ({
+    type: index === 0 ? 'success' : index === 1 ? 'warning' : 'info',
+    title: `Week ending ${entry.weekEnding} - Revenue: $${parseInt(entry.revenueBilledToDate).toLocaleString()}`,
+    time: `${index + 1} week${index !== 0 ? 's' : ''} ago`
+  })) : [
+    { type: 'success', title: 'Weekly data entry completed', time: '2 hours ago' },
+    { type: 'warning', title: 'QuickBooks sync completed', time: '5 hours ago' },
+    { type: 'info', title: 'Variance alert: AR difference detected', time: '1 day ago' },
     { type: 'success', title: 'Demo Mode - Backend features disabled', time: 'Active' }
   ];
 
@@ -268,14 +288,14 @@ const SideHeader = () => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  setActiveNav(item.id);
+                  handleNavClick(item.id);
                 }}
                 className={`nav-item relative flex items-center px-6 py-3 gap-4 cursor-pointer ${
-                  activeNav === item.id ? 'active text-[#00d4ff]' : 'text-gray-400 hover:text-white'
+                  currentView === item.id ? 'active text-[#00d4ff]' : 'text-gray-400 hover:text-white'
                 }`}
                 title={sidebarCollapsed ? item.label : ''}
               >
-                <span className={activeNav === item.id ? 'text-[#00d4ff]' : ''}>{item.icon}</span>
+                <span className={currentView === item.id ? 'text-[#00d4ff]' : ''}>{item.icon}</span>
                 {!sidebarCollapsed && (
                   <span className="sidebar-text text-sm font-medium">{item.label}</span>
                 )}
@@ -294,10 +314,10 @@ const SideHeader = () => {
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  setActiveNav(item.id);
+                  handleNavClick(item.id);
                 }}
                 className={`nav-item relative flex items-center px-6 py-3 gap-4 cursor-pointer ${
-                  activeNav === item.id ? 'active text-[#00d4ff]' : 'text-gray-400 hover:text-white'
+                  currentView === item.id ? 'active text-[#00d4ff]' : 'text-gray-400 hover:text-white'
                 }`}
                 title={sidebarCollapsed ? item.label : ''}
               >
@@ -318,148 +338,225 @@ const SideHeader = () => {
         </nav>
 
         {/* User Section */}
-        <div className="p-6 border-t border-gray-800 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00d4ff] to-[#00a3cc] flex items-center justify-center font-semibold flex-shrink-0">
-            DU
+        <div className="relative">
+          <div 
+            className="p-6 border-t border-gray-800 flex items-center gap-3 cursor-pointer hover:bg-[#242938] transition-colors"
+            onClick={() => setShowProfile(!showProfile)}
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00d4ff] to-[#00a3cc] flex items-center justify-center font-semibold flex-shrink-0">
+              {user?.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+            </div>
+            {!sidebarCollapsed && (
+              <div className="sidebar-text flex-1">
+                <div className="text-sm font-semibold">{user?.name || 'Demo User'}</div>
+                <div className="text-xs text-gray-500">{user?.role || 'Administrator'}</div>
+              </div>
+            )}
           </div>
-          {!sidebarCollapsed && (
-            <div className="sidebar-text">
-              <div className="text-sm font-semibold">Demo User</div>
-              <div className="text-xs text-gray-500">Administrator</div>
+
+          {/* User Dropdown Menu */}
+          {showProfile && !sidebarCollapsed && (
+            <div className="absolute bottom-full left-6 right-6 mb-2 bg-[#1a1f2e] rounded-xl shadow-xl border border-gray-700 p-4">
+              <div className="mb-4">
+                <div className="text-sm font-semibold mb-2">User Settings</div>
+                <label className="flex items-center justify-between cursor-pointer mb-3">
+                  <span className="text-sm text-gray-400">Google Sheets Sync</span>
+                  <input 
+                    type="checkbox" 
+                    checked={useGoogleSheets}
+                    onChange={(e) => setUseGoogleSheets && setUseGoogleSheets(e.target.checked)}
+                    className="w-5 h-5 rounded bg-gray-700 border-gray-600 text-[#00d4ff] focus:ring-[#00d4ff]"
+                  />
+                </label>
+              </div>
+              
+              <div className="space-y-2">
+                <button
+                  onClick={() => onExportDashboard && onExportDashboard('excel')}
+                  className="w-full px-3 py-2 bg-green-900/50 hover:bg-green-900/70 text-green-400 rounded-lg transition-colors text-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  Export Excel
+                </button>
+                
+                <button
+                  onClick={() => onExportDashboard && onExportDashboard('csv')}
+                  className="w-full px-3 py-2 bg-blue-900/50 hover:bg-blue-900/70 text-blue-400 rounded-lg transition-colors text-sm flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                  </svg>
+                  Export CSV
+                </button>
+                
+                {logout && (
+                  <button
+                    onClick={logout}
+                    className="w-full px-3 py-2 bg-red-900/50 hover:bg-red-900/70 text-red-400 rounded-lg transition-colors text-sm flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Logout
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className={`${sidebarCollapsed ? 'ml-20' : 'ml-[280px]'} min-h-screen transition-all duration-300 p-8`}>
-        {/* Top Bar */}
-        <div className="flex justify-between items-center mb-8 p-6 bg-[#1a1f2e] rounded-2xl border border-gray-800">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Executive Dashboard
-          </h1>
-          <div className="flex gap-3">
-            <button className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#242938] text-gray-400 border border-gray-700 hover:bg-[#1a1f2e] hover:text-white transition-all flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-              Export Excel
-            </button>
-            <button className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#242938] text-gray-400 border border-gray-700 hover:bg-[#1a1f2e] hover:text-white transition-all flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-              </svg>
-              Export CSV
-            </button>
-            <button className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#00d4ff] to-[#00a3cc] text-[#0a0e1a] hover:shadow-lg hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
-              </svg>
-              Connect Sheets
-            </button>
+      {/* Main Content - Dashboard View when currentView is 'dashboard' */}
+      {currentView === 'dashboard' && (
+        <div className={`${sidebarCollapsed ? 'ml-20' : 'ml-[280px]'} min-h-screen transition-all duration-300 p-8`}>
+          {/* Top Bar */}
+          <div className="flex justify-between items-center mb-8 p-6 bg-[#1a1f2e] rounded-2xl border border-gray-800">
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+              Executive Dashboard
+            </h1>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => onExportDashboard && onExportDashboard('excel')}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#242938] text-gray-400 border border-gray-700 hover:bg-[#1a1f2e] hover:text-white transition-all flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Export Excel
+              </button>
+              <button 
+                onClick={() => onExportDashboard && onExportDashboard('csv')}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#242938] text-gray-400 border border-gray-700 hover:bg-[#1a1f2e] hover:text-white transition-all flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+                Export CSV
+              </button>
+              <button 
+                onClick={() => setUseGoogleSheets && setUseGoogleSheets(!useGoogleSheets)}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#00d4ff] to-[#00a3cc] text-[#0a0e1a] hover:shadow-lg hover:shadow-cyan-500/30 hover:-translate-y-0.5 transition-all flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+                {useGoogleSheets ? 'Sheets Connected' : 'Connect Sheets'}
+              </button>
+            </div>
           </div>
-        </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {statsData.map((stat, index) => (
-            <div 
-              key={index}
-              className="stat-card bg-[#1a1f2e] border border-gray-800 rounded-2xl p-6 hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 transition-all"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="text-gray-400 text-sm font-medium">{stat.title}</div>
-                <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
-                  {stat.icon}
+          {/* Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {statsData.map((stat, index) => (
+              <div 
+                key={index}
+                className="stat-card bg-[#1a1f2e] border border-gray-800 rounded-2xl p-6 hover:border-cyan-500/50 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 transition-all"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="text-gray-400 text-sm font-medium">{stat.title}</div>
+                  <div className={`w-10 h-10 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                    {stat.icon}
+                  </div>
                 </div>
-              </div>
-              <div className="text-3xl font-bold mb-2 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                {stat.value}
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                {stat.change && (
-                  <span className={`px-2 py-0.5 rounded-md ${
-                    stat.changeType === 'positive' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-                  } font-semibold`}>
-                    {stat.change}
-                  </span>
+                <div className="text-3xl font-bold mb-2 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                  {stat.value}
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {stat.change && (
+                    <span className={`px-2 py-0.5 rounded-md ${
+                      stat.changeType === 'positive' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+                    } font-semibold`}>
+                      {stat.change}
+                    </span>
+                  )}
+                  <span className="text-gray-500">{stat.target || stat.subtitle}</span>
+                </div>
+                {stat.progress && (
+                  <div className="mt-4 h-1 bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="progress-fill h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full"
+                      style={{ width: 0 }}
+                      data-width={`${Math.min(stat.progress, 100)}%`}
+                    />
+                  </div>
                 )}
-                <span className="text-gray-500">{stat.target || stat.subtitle}</span>
-              </div>
-              {stat.progress && (
-                <div className="mt-4 h-1 bg-gray-700 rounded-full overflow-hidden">
-                  <div 
-                    className="progress-fill h-full bg-gradient-to-r from-cyan-500 to-cyan-400 rounded-full"
-                    style={{ width: 0 }}
-                    data-width={`${Math.min(stat.progress, 100)}%`}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-[#1a1f2e] border border-gray-800 rounded-2xl p-6 mb-8">
-          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-[#242938] border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-[#0a0e1a] hover:border-cyan-500/50 hover:translate-x-1 transition-all flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white">Sync QuickBooks</h4>
-                <p className="text-xs text-gray-500 mt-0.5">Update financial data</p>
-              </div>
-            </div>
-
-            <div className="bg-[#242938] border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-[#0a0e1a] hover:border-cyan-500/50 hover:translate-x-1 transition-all flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v7m3-2h6"/>
-                </svg>
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white">Generate Report</h4>
-                <p className="text-xs text-gray-500 mt-0.5">Weekly KPI summary</p>
-              </div>
-            </div>
-
-            <div className="bg-[#242938] border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-[#0a0e1a] hover:border-cyan-500/50 hover:translate-x-1 transition-all flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white">View Agendas</h4>
-                <p className="text-xs text-gray-500 mt-0.5">Meeting preparation</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Activity Feed */}
-        <div className="bg-[#1a1f2e] border border-gray-800 rounded-2xl p-6">
-          <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-          <div className="space-y-4">
-            {activities.map((activity, index) => (
-              <div key={index} className="flex items-start gap-4 p-4 hover:bg-[#242938] rounded-xl transition-all">
-                <div className={`w-2 h-2 rounded-full ${activityColors[activity.type]} mt-2 flex-shrink-0 ${
-                  index < 3 ? 'animate-pulse' : ''
-                }`}></div>
-                <div className="flex-1">
-                  <div className="text-sm text-white">{activity.title}</div>
-                  <div className="text-xs text-gray-500 mt-1">{activity.time}</div>
-                </div>
               </div>
             ))}
           </div>
+
+          {/* Quick Actions */}
+          <div className="bg-[#1a1f2e] border border-gray-800 rounded-2xl p-6 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div 
+                onClick={() => handleNavClick('entry')}
+                className="bg-[#242938] border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-[#0a0e1a] hover:border-cyan-500/50 hover:translate-x-1 transition-all flex items-center gap-4"
+              >
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Weekly Entry</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Submit weekly data</p>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => handleNavClick('reports')}
+                className="bg-[#242938] border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-[#0a0e1a] hover:border-cyan-500/50 hover:translate-x-1 transition-all flex items-center gap-4"
+              >
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v7m3-2h6"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-white">Generate Report</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Weekly KPI summary</p>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => handleNavClick('insights')}
+                className="bg-[#242938] border border-gray-700 rounded-xl p-4 cursor-pointer hover:bg-[#0a0e1a] hover:border-cyan-500/50 hover:translate-x-1 transition-all flex items-center gap-4"
+              >
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-white">View Insights</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Analytics & trends</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Activity Feed */}
+          <div className="bg-[#1a1f2e] border border-gray-800 rounded-2xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+            <div className="space-y-4">
+              {activities.map((activity, index) => (
+                <div key={index} className="flex items-start gap-4 p-4 hover:bg-[#242938] rounded-xl transition-all">
+                  <div className={`w-2 h-2 rounded-full ${activityColors[activity.type]} mt-2 flex-shrink-0 ${
+                    index < 3 ? 'animate-pulse' : ''
+                  }`}></div>
+                  <div className="flex-1">
+                    <div className="text-sm text-white">{activity.title}</div>
+                    <div className="text-xs text-gray-500 mt-1">{activity.time}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
