@@ -22,6 +22,9 @@ import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
 
+// Import the new SideHeader component
+import SideHeader from './components/SideHeader'; // or './SideHeader' depending on your structure
+
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
 // Enhanced Mock API with all required fields
@@ -208,7 +211,8 @@ const mockApi = {
   }
 };
 
-// Header Component
+// Header Component - COMMENTED OUT
+/*
 const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile, useEnhancedDashboard, setUseEnhancedDashboard, logout }) => {
   return (
     <header className="bg-slate-800/50 backdrop-blur border-b border-slate-700 sticky top-0 z-10">
@@ -224,7 +228,6 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
             </div>
           </div>
           
-          {/* Navigation */}
           <nav className="flex items-center space-x-2">
             <button 
               onClick={() => setCurrentView('dashboard')}
@@ -317,7 +320,6 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
               <i className="fas fa-book mr-2"></i>Metrics
             </button>
             
-            {/* User Menu */}
             <div className="relative ml-4">
               <button
                 onClick={() => setShowProfile(!showProfile)}
@@ -359,6 +361,7 @@ const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile
     </header>
   );
 };
+*/
 
 // Main App Component
 function App() {
@@ -584,20 +587,20 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      {/* Header Component */}
-      <Header 
-        currentView={currentView} 
-        setCurrentView={setCurrentView}
+      {/* NEW: SideHeader Component with props */}
+      <SideHeader 
+        currentView={currentView}
+        onNavigate={setCurrentView}
         user={user}
-        showProfile={showProfile}
-        setShowProfile={setShowProfile}
-        useEnhancedDashboard={useEnhancedDashboard}
-        setUseEnhancedDashboard={setUseEnhancedDashboard}
+        dashboardData={dashboardData}
+        onExportDashboard={handleExportDashboard}
+        useGoogleSheets={useGoogleSheets}
+        setUseGoogleSheets={setUseGoogleSheets}
         logout={logout}
       />
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      {/* Main Content - Added margin-left to account for sidebar */}
+      <main className="ml-[280px] transition-all duration-300 p-8">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
