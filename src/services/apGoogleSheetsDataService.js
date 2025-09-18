@@ -73,7 +73,7 @@ class APGoogleSheetsDataService {
       // Build the final data structure (matching expected format)
       const finalData = {
         apSummary: this.buildSummaryObject(parsedData.summary, aggregatedVendors),
-        apByVendor: this.buildVendorList(aggregatedVendors),
+        apByVendor: this.buildVendorList(parsedData.summary, aggregatedVendors),
         apByProject: this.buildProjectList(parsedData),
         agingTrend: this.buildAgingTrend(parsedData.summary),
         billsVsPayments: this.buildBillsVsPayments(parsedData),
@@ -93,9 +93,11 @@ class APGoogleSheetsDataService {
       console.log('Final AP data structure:', finalData);
       
       // Check if we got real data
-      if (finalData.summary.vendorCount === 0) {
-        console.warn('⚠️ No vendors found - check parser logic');
-        // Don't fall back to mock data - return what we have
+      const vendorCount = Object.keys(aggregatedVendors).length;
+      if (vendorCount === 0) {
+        console.warn('⚠️ No vendors found - but returning parsed data anyway');
+      } else {
+        console.log(`✓ Successfully parsed ${vendorCount} vendors from Google Sheets`);
       }
 
       return finalData;
@@ -204,17 +206,33 @@ class APGoogleSheetsDataService {
   }
 
   // Build vendor list matching expected format
-  buildVendorList(aggregatedVendors) {
+  buildVendorList(summaryData, aggregatedVendors) {
     const vendorArray = [];
     
-    Object.values(aggregatedVendors).forEach(vendor => {
-      if (vendor.summary) {
-        vendorArray.push({
-          vendor: vendor.name,
-          amount: vendor.summary.total || vendor.summary.current || 0
-        });
-      }
-    });
+    // First try to use summary data if available
+    if (summaryData && summaryData.vendors && summaryData.vendors.length > 0) {
+      summaryData.vendors.forEach(vendor => {
+        const name = vendor.vendor_name || vendor.vendor;
+        if (name) {
+          vendorArray.push({
+            vendor: name,
+            amount: vendor.total || vendor.current || 0
+          });
+        }
+      });
+    }
+    
+    // If no summary data, fall back to aggregated vendors
+    if (vendorArray.length === 0 && aggregatedVendors) {
+      Object.values(aggregatedVendors).forEach(vendor => {
+        if (vendor.summary) {
+          vendorArray.push({
+            vendor: vendor.name,
+            amount: vendor.summary.total || vendor.summary.current || 0
+          });
+        }
+      });
+    }
 
     // Sort by amount descending and return top 10
     return vendorArray
@@ -395,25 +413,26 @@ class APGoogleSheetsDataService {
 }
 
 // Create singleton instance
-const apService = new APGoogleSheetsDataService();
+const apGoogleSheetsDataService = new APGoogleSheetsDataService();
 
-// Export for use in the app
-export default apService;
+// Export as default
+export default apGoogleSheetsDataService;
 
-// Also export class for testing
-export { APGoogleSheetsDataService };
+// Also export the class and instance with various names for compatibility
+export { APGoogleSheetsDataService, apGoogleSheetsDataService };
 
 // Make available globally for debugging
 if (typeof window !== 'undefined') {
-  window.apService = apService;
+  window.apService = apGoogleSheetsDataService;
+  window.apGoogleSheetsDataService = apGoogleSheetsDataService;
   
   // Add test function to window
   window.testAPConnection = async () => {
-    const result = await apService.testConnection();
+    const result = await apGoogleSheetsDataService.testConnection();
     if (result) {
       console.log('✅ Connection test passed!');
       console.log('Now testing full data fetch...');
-      const data = await apService.fetchAPData();
+      const data = await apGoogleSheetsDataService.fetchAPData();
       console.log('Full data fetch result:', data);
       return data;
     } else {
