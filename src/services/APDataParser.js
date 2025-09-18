@@ -322,6 +322,202 @@ class APDataParser {
     return { transactions, vendorGroups, headers };
   }
   
+  // Parse GeneralLedgerByAccount - FIXED VERSION
+  parseGeneralLedger(csvData) {
+    console.log('Starting General Ledger parse...');
+    const lines = csvData.split('\n');
+    
+    // Find header line
+    let headerLine = -1;
+    for (let i = 0; i < Math.min(lines.length, 15); i++) {
+      if (lines[i].includes('Transaction Type') && 
+          lines[i].includes('Account') && 
+          lines[i].includes('Debit') &&
+          lines[i].includes('Credit')) {
+        headerLine = i;
+        console.log(`Found GL header line at index ${i}`);
+        break;
+      }
+    }
+    
+    if (headerLine === -1) {
+      console.error('Could not find header line in General Ledger');
+      return { accounts: {}, transactions: [], headers: [], error: 'Header not found' };
+    }
+    
+    const headers = this.parseCSVLine(lines[headerLine]);
+    console.log('Headers found:', headers);
+    
+    const accounts = {};
+    const transactions = [];
+    let currentAccount = null;
+    let currentAccountNumber = null;
+    
+    // Track latest balances for our target accounts
+    const targetAccounts = ['11100', '11200', '11600'];
+    const latestBalances = {};
+    
+    for (let i = headerLine + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const values = this.parseCSVLine(line);
+      if (values.length === 0) continue;
+      
+      const firstCell = values[0];
+      if (!firstCell) continue;
+      
+      // Check if this is an account header (not a date, not "Beginning balance")
+      if (!this.isDate(firstCell) && 
+          !firstCell.toLowerCase().includes('beginning balance') &&
+          !firstCell.toLowerCase().includes('total') &&
+          this.isAccountName(firstCell)) {
+        // This is an account name
+        currentAccount = firstCell.trim();
+        console.log(`Found GL account: ${currentAccount}`);
+        
+        // Try to extract account number if present
+        const accountMatch = firstCell.match(/^(\d+)\s+(.+)$/);
+        if (accountMatch) {
+          currentAccountNumber = accountMatch[1];
+          currentAccount = accountMatch[2];
+        }
+        
+        if (!accounts[currentAccount]) {
+          accounts[currentAccount] = {
+            name: currentAccount,
+            number: currentAccountNumber,
+            transactions: [],
+            beginningBalance: 0,
+            endingBalance: 0,
+            totalDebits: 0,
+            totalCredits: 0
+          };
+        }
+      }
+      // Check if this is a beginning balance row
+      else if (firstCell.toLowerCase().includes('beginning balance')) {
+        if (currentAccount && accounts[currentAccount]) {
+          const balance = this.parseValue(values[values.length - 1]) || 0;
+          accounts[currentAccount].beginningBalance = balance;
+          console.log(`Set beginning balance for ${currentAccount}: ${balance}`);
+        }
+      }
+      // Check if this is a total row
+      else if (firstCell.toLowerCase().includes('total for') && currentAccount) {
+        // Extract totals
+        const debitIndex = headers.findIndex(h => h.toLowerCase().includes('debit'));
+        const creditIndex = headers.findIndex(h => h.toLowerCase().includes('credit'));
+        const balanceIndex = headers.findIndex(h => h.toLowerCase().includes('balance'));
+        
+        if (debitIndex >= 0) {
+          accounts[currentAccount].totalDebits = this.parseValue(values[debitIndex]) || 0;
+        }
+        if (creditIndex >= 0) {
+          accounts[currentAccount].totalCredits = this.parseValue(values[creditIndex]) || 0;
+        }
+        if (balanceIndex >= 0) {
+          accounts[currentAccount].endingBalance = this.parseValue(values[balanceIndex]) || 0;
+        }
+      }
+      // Otherwise it's a transaction row
+      else if (this.isDate(firstCell)) {
+        // THIS IS THE KEY FIX: Extract data from correct columns
+        const transaction = {
+          date: firstCell,
+          transaction_type: values[1] || '',
+          num: values[2] || '',
+          name: values[3] || '',
+          customer: values[4] || '',
+          vendor: values[5] || '',
+          class: values[6] || '',
+          product_service: values[7] || '',
+          memo_description: values[8] || '',
+          qty: this.parseValue(values[9]),
+          rate: this.parseValue(values[10]),
+          account_number: values[11] || '', // Column L - Account number
+          account: values[12] || '',         // Column M - Account name
+          split: values[13] || '',           // Column N - Split
+          amount: this.parseValue(values[14]), // Column O - Amount
+          debit: this.parseValue(values[15]),  // Column P - Debit
+          credit: this.parseValue(values[16]), // Column Q - Credit
+          open_balance: this.parseValue(values[17]), // Column R - Open Balance
+          balance: this.parseValue(values[18]) // Column S - Balance (THIS IS THE KEY!)
+        };
+        
+        // Check if this is a transaction for one of our target bank accounts
+        if (targetAccounts.includes(transaction.account_number)) {
+          console.log(`Found transaction for account ${transaction.account_number}: balance = ${transaction.balance}`);
+          
+          // Track the latest balance for this account
+          if (!latestBalances[transaction.account_number] || 
+              new Date(transaction.date) > new Date(latestBalances[transaction.account_number].date)) {
+            latestBalances[transaction.account_number] = {
+              date: transaction.date,
+              balance: transaction.balance || 0
+            };
+          }
+        }
+        
+        // Store transaction
+        transactions.push(transaction);
+        
+        if (currentAccount && accounts[currentAccount]) {
+          accounts[currentAccount].transactions.push(transaction);
+        }
+      }
+    }
+    
+    // Now ensure we have the bank accounts with their latest balances
+    targetAccounts.forEach(accountNum => {
+      // Find or create the account
+      let accountEntry = Object.values(accounts).find(a => a.number === accountNum);
+      
+      if (!accountEntry) {
+        // Create the account entry
+        const accountNames = {
+          '11100': 'BUS COMPLETE CHK (...0517)',
+          '11200': 'LIVEOAK BANK HYSA',
+          '11600': 'Clearing Account'
+        };
+        
+        const accountName = accountNames[accountNum] || `Account ${accountNum}`;
+        accountEntry = {
+          name: accountName,
+          number: accountNum,
+          transactions: [],
+          beginningBalance: 0,
+          endingBalance: 0,
+          totalDebits: 0,
+          totalCredits: 0
+        };
+        accounts[accountName] = accountEntry;
+      }
+      
+      // Set the ending balance from our tracked latest balances
+      if (latestBalances[accountNum]) {
+        accountEntry.endingBalance = latestBalances[accountNum].balance;
+        console.log(`Set ending balance for account ${accountNum}: ${accountEntry.endingBalance}`);
+      }
+    });
+    
+    console.log(`Parsed ${Object.keys(accounts).length} GL accounts`);
+    console.log(`Parsed ${transactions.length} GL transactions`);
+    
+    // Log bank account balances for debugging
+    targetAccounts.forEach(accountNum => {
+      const account = Object.values(accounts).find(a => a.number === accountNum);
+      if (account) {
+        console.log(`Bank Account ${accountNum} (${account.name}): Balance = ${account.endingBalance}`);
+      }
+    });
+    
+    // Calculate AP-related metrics from GL
+    const apMetrics = this.calculateAPMetricsFromGL(accounts, transactions);
+    
+    return { accounts, transactions, headers, apMetrics };
+  }
+  
   // Helper function to parse CSV line with proper quote handling
   parseCSVLine(line) {
     const result = [];
@@ -466,126 +662,6 @@ class APDataParser {
     return value;
   }
   
-  // Parse GeneralLedgerByAccount
-  // Headers: Date, Transaction Type, Num, Name, Customer, Vendor, Class, Product/Service, Memo/Description, Qty, Rate, Account #, Account, Split, Debit, Credit, Open Balance, Amount, Balance, Tax Amount, Taxable Amount
-  // Note: "Date" column contains Account names, "Beginning balance" labels, and actual dates
-  parseGeneralLedger(csvData) {
-    console.log('Starting General Ledger parse...');
-    const lines = csvData.split('\n');
-    
-    // Find header line
-    let headerLine = -1;
-    for (let i = 0; i < Math.min(lines.length, 15); i++) {
-      if (lines[i].includes('Transaction Type') && 
-          lines[i].includes('Account') && 
-          lines[i].includes('Debit') &&
-          lines[i].includes('Credit')) {
-        headerLine = i;
-        console.log(`Found GL header line at index ${i}`);
-        break;
-      }
-    }
-    
-    if (headerLine === -1) {
-      console.error('Could not find header line in General Ledger');
-      return { accounts: {}, transactions: [], headers: [], error: 'Header not found' };
-    }
-    
-    const headers = this.parseCSVLine(lines[headerLine]);
-    console.log('Headers found:', headers);
-    
-    const accounts = {};
-    const transactions = [];
-    let currentAccount = null;
-    let currentAccountNumber = null;
-    
-    for (let i = headerLine + 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = this.parseCSVLine(line);
-      if (values.length === 0) continue;
-      
-      const firstCell = values[0];
-      if (!firstCell) continue;
-      
-      // Check if this is an account header (not a date, not "Beginning balance")
-      if (!this.isDate(firstCell) && 
-          !firstCell.toLowerCase().includes('beginning balance') &&
-          !firstCell.toLowerCase().includes('total') &&
-          this.isAccountName(firstCell)) {
-        // This is an account name
-        currentAccount = firstCell.trim();
-        console.log(`Found GL account: ${currentAccount}`);
-        
-        // Try to extract account number if present
-        const accountMatch = firstCell.match(/^(\d+)\s+(.+)$/);
-        if (accountMatch) {
-          currentAccountNumber = accountMatch[1];
-          currentAccount = accountMatch[2];
-        }
-        
-        if (!accounts[currentAccount]) {
-          accounts[currentAccount] = {
-            name: currentAccount,
-            number: currentAccountNumber,
-            transactions: [],
-            beginningBalance: 0,
-            endingBalance: 0,
-            totalDebits: 0,
-            totalCredits: 0
-          };
-        }
-      }
-      // Check if this is a beginning balance row
-      else if (firstCell.toLowerCase().includes('beginning balance')) {
-        if (currentAccount && accounts[currentAccount]) {
-          const balance = this.parseValue(values[values.length - 1]) || 0;
-          accounts[currentAccount].beginningBalance = balance;
-          console.log(`Set beginning balance for ${currentAccount}: ${balance}`);
-        }
-      }
-      // Check if this is a total row
-      else if (firstCell.toLowerCase().includes('total for') && currentAccount) {
-        // Extract totals
-        const debitIndex = headers.findIndex(h => h.toLowerCase().includes('debit'));
-        const creditIndex = headers.findIndex(h => h.toLowerCase().includes('credit'));
-        const balanceIndex = headers.findIndex(h => h.toLowerCase().includes('balance'));
-        
-        if (debitIndex >= 0) {
-          accounts[currentAccount].totalDebits = this.parseValue(values[debitIndex]) || 0;
-        }
-        if (creditIndex >= 0) {
-          accounts[currentAccount].totalCredits = this.parseValue(values[creditIndex]) || 0;
-        }
-        if (balanceIndex >= 0) {
-          accounts[currentAccount].endingBalance = this.parseValue(values[balanceIndex]) || 0;
-        }
-      }
-      // Otherwise it's a transaction row
-      else if (this.isDate(firstCell) && currentAccount) {
-        const transaction = this.parseTransactionRow(headers, values);
-        transaction.account = currentAccount;
-        transaction.accountNumber = currentAccountNumber;
-        transaction.date = firstCell;
-        
-        transactions.push(transaction);
-        
-        if (accounts[currentAccount]) {
-          accounts[currentAccount].transactions.push(transaction);
-        }
-      }
-    }
-    
-    console.log(`Parsed ${Object.keys(accounts).length} GL accounts`);
-    console.log(`Parsed ${transactions.length} GL transactions`);
-    
-    // Calculate AP-related metrics from GL
-    const apMetrics = this.calculateAPMetricsFromGL(accounts, transactions);
-    
-    return { accounts, transactions, headers, apMetrics };
-  }
-  
   // Check if a string looks like an account name
   isAccountName(str) {
     if (!str || typeof str !== 'string') return false;
@@ -600,7 +676,7 @@ class APDataParser {
     return /[a-zA-Z]/.test(trimmed) || /^\d+\s+[a-zA-Z]/.test(trimmed);
   }
   
-  // Calculate AP-related metrics from General Ledger
+  // Calculate AP-related metrics from General Ledger - UPDATED
   calculateAPMetricsFromGL(accounts, transactions) {
     const apMetrics = {
       totalPayables: 0,
@@ -626,9 +702,9 @@ class APDataParser {
         apMetrics.totalPayables = Math.abs(account.endingBalance || 0);
       }
       
-      // Check for specific cash accounts using account numbers
-      if (account.number === '11000') {
-        // Operating cash
+      // Check for specific cash accounts using CORRECTED account numbers
+      if (account.number === '11100') {
+        // Operating cash (changed from 11000)
         apMetrics.liquidAssets.operatingCash = Math.abs(account.endingBalance || 0);
         apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
       } else if (account.number === '11200') {
@@ -653,12 +729,8 @@ class APDataParser {
         // Check if transaction is in current month
         if (transDate >= monthStart) {
           // Check for AP transactions (bills and payments)
-          // Bills: Credits to AP account or transactions with vendors
-          // Payments: Debits from AP account
-          
-          if (trans.account === '21100 Accounts Payable' || 
-              trans.split === '21100 Accounts Payable' ||
-              (trans.account_number === '21100')) {
+          if (trans.account_number === '21100' || 
+              trans.split === '21100 Accounts Payable') {
             
             // This is an AP transaction
             if (trans.credit > 0) {
@@ -671,7 +743,6 @@ class APDataParser {
           
           // Also check for vendor transactions
           if (trans.vendor && trans.amount) {
-            // Use the amount column (R) for MTD calculations
             const amount = Math.abs(trans.amount || 0);
             
             // Determine if it's a bill or payment based on transaction type
@@ -796,6 +867,7 @@ class APDataParser {
     
     return { projects, transactions, headers };
   }
+  
   aggregateVendorData(parsedData) {
     const aggregated = {};
     
