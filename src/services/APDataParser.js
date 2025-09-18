@@ -13,6 +13,7 @@ class APDataParser {
       detail: null,
       transactionList: null,
       transactionDetails: null,
+      generalLedger: null,
       error: null
     };
 
@@ -39,6 +40,12 @@ class APDataParser {
         console.log('Parsing Transaction Details...');
         result.transactionDetails = this.parseTransactionDetails(sheetsData.transactionDetails);
         console.log(`Parsed ${result.transactionDetails.transactions.length} transactions from details`);
+      }
+
+      if (sheetsData.generalLedger) {
+        console.log('Parsing General Ledger...');
+        result.generalLedger = this.parseGeneralLedger(sheetsData.generalLedger);
+        console.log(`Parsed ${result.generalLedger.transactions.length} GL transactions`);
       }
     } catch (error) {
       console.error('Error parsing sheets:', error);
@@ -452,6 +459,210 @@ class APDataParser {
     return value;
   }
   
+  // Parse GeneralLedgerByAccount
+  // Headers: Date, Transaction Type, Num, Name, Customer, Vendor, Class, Product/Service, Memo/Description, Qty, Rate, Account #, Account, Split, Debit, Credit, Open Balance, Amount, Balance, Tax Amount, Taxable Amount
+  // Note: "Date" column contains Account names, "Beginning balance" labels, and actual dates
+  parseGeneralLedger(csvData) {
+    console.log('Starting General Ledger parse...');
+    const lines = csvData.split('\n');
+    
+    // Find header line
+    let headerLine = -1;
+    for (let i = 0; i < Math.min(lines.length, 15); i++) {
+      if (lines[i].includes('Transaction Type') && 
+          lines[i].includes('Account') && 
+          lines[i].includes('Debit') &&
+          lines[i].includes('Credit')) {
+        headerLine = i;
+        console.log(`Found GL header line at index ${i}`);
+        break;
+      }
+    }
+    
+    if (headerLine === -1) {
+      console.error('Could not find header line in General Ledger');
+      return { accounts: {}, transactions: [], headers: [], error: 'Header not found' };
+    }
+    
+    const headers = this.parseCSVLine(lines[headerLine]);
+    console.log('Headers found:', headers);
+    
+    const accounts = {};
+    const transactions = [];
+    let currentAccount = null;
+    let currentAccountNumber = null;
+    
+    for (let i = headerLine + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const values = this.parseCSVLine(line);
+      if (values.length === 0) continue;
+      
+      const firstCell = values[0];
+      if (!firstCell) continue;
+      
+      // Check if this is an account header (not a date, not "Beginning balance")
+      if (!this.isDate(firstCell) && 
+          !firstCell.toLowerCase().includes('beginning balance') &&
+          !firstCell.toLowerCase().includes('total') &&
+          this.isAccountName(firstCell)) {
+        // This is an account name
+        currentAccount = firstCell.trim();
+        console.log(`Found GL account: ${currentAccount}`);
+        
+        // Try to extract account number if present
+        const accountMatch = firstCell.match(/^(\d+)\s+(.+)$/);
+        if (accountMatch) {
+          currentAccountNumber = accountMatch[1];
+          currentAccount = accountMatch[2];
+        }
+        
+        if (!accounts[currentAccount]) {
+          accounts[currentAccount] = {
+            name: currentAccount,
+            number: currentAccountNumber,
+            transactions: [],
+            beginningBalance: 0,
+            endingBalance: 0,
+            totalDebits: 0,
+            totalCredits: 0
+          };
+        }
+      }
+      // Check if this is a beginning balance row
+      else if (firstCell.toLowerCase().includes('beginning balance')) {
+        if (currentAccount && accounts[currentAccount]) {
+          const balance = this.parseValue(values[values.length - 1]) || 0;
+          accounts[currentAccount].beginningBalance = balance;
+          console.log(`Set beginning balance for ${currentAccount}: ${balance}`);
+        }
+      }
+      // Check if this is a total row
+      else if (firstCell.toLowerCase().includes('total for') && currentAccount) {
+        // Extract totals
+        const debitIndex = headers.findIndex(h => h.toLowerCase().includes('debit'));
+        const creditIndex = headers.findIndex(h => h.toLowerCase().includes('credit'));
+        const balanceIndex = headers.findIndex(h => h.toLowerCase().includes('balance'));
+        
+        if (debitIndex >= 0) {
+          accounts[currentAccount].totalDebits = this.parseValue(values[debitIndex]) || 0;
+        }
+        if (creditIndex >= 0) {
+          accounts[currentAccount].totalCredits = this.parseValue(values[creditIndex]) || 0;
+        }
+        if (balanceIndex >= 0) {
+          accounts[currentAccount].endingBalance = this.parseValue(values[balanceIndex]) || 0;
+        }
+      }
+      // Otherwise it's a transaction row
+      else if (this.isDate(firstCell) && currentAccount) {
+        const transaction = this.parseTransactionRow(headers, values);
+        transaction.account = currentAccount;
+        transaction.accountNumber = currentAccountNumber;
+        transaction.date = firstCell;
+        
+        transactions.push(transaction);
+        
+        if (accounts[currentAccount]) {
+          accounts[currentAccount].transactions.push(transaction);
+        }
+      }
+    }
+    
+    console.log(`Parsed ${Object.keys(accounts).length} GL accounts`);
+    console.log(`Parsed ${transactions.length} GL transactions`);
+    
+    // Calculate AP-related metrics from GL
+    const apMetrics = this.calculateAPMetricsFromGL(accounts, transactions);
+    
+    return { accounts, transactions, headers, apMetrics };
+  }
+  
+  // Check if a string looks like an account name
+  isAccountName(str) {
+    if (!str || typeof str !== 'string') return false;
+    const trimmed = str.trim();
+    
+    // Not an account if it's empty, a date, or certain keywords
+    if (!trimmed || this.isDate(trimmed)) return false;
+    
+    // Common GL account patterns
+    // Could be: "11100 Cash", "Accounts Payable", "21100 Accounts Payable", etc.
+    // Must contain at least one letter or start with numbers followed by text
+    return /[a-zA-Z]/.test(trimmed) || /^\d+\s+[a-zA-Z]/.test(trimmed);
+  }
+  
+  // Calculate AP-related metrics from General Ledger
+  calculateAPMetricsFromGL(accounts, transactions) {
+    const apMetrics = {
+      totalPayables: 0,
+      recentPayments: 0,
+      recentBills: 0,
+      vendorPayments: {},
+      cashPosition: 0
+    };
+    
+    // Look for AP account (usually 2xxxx accounts)
+    Object.keys(accounts).forEach(accountName => {
+      const account = accounts[accountName];
+      
+      // Check for Accounts Payable account
+      if (accountName.toLowerCase().includes('accounts payable') || 
+          accountName.toLowerCase().includes('a/p') ||
+          (account.number && account.number.startsWith('2'))) {
+        apMetrics.totalPayables = Math.abs(account.endingBalance || 0);
+      }
+      
+      // Check for Cash accounts
+      if (accountName.toLowerCase().includes('cash') || 
+          accountName.toLowerCase().includes('checking') ||
+          (account.number && account.number.startsWith('1'))) {
+        apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
+      }
+    });
+    
+    // Analyze recent transactions for vendor payments
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    transactions.forEach(trans => {
+      if (trans.vendor && trans.date) {
+        const transDate = new Date(trans.date);
+        
+        // Track vendor payments
+        if (!apMetrics.vendorPayments[trans.vendor]) {
+          apMetrics.vendorPayments[trans.vendor] = {
+            vendor: trans.vendor,
+            totalPaid: 0,
+            totalBilled: 0,
+            transactionCount: 0
+          };
+        }
+        
+        if (trans.debit > 0) {
+          apMetrics.vendorPayments[trans.vendor].totalPaid += trans.debit;
+        }
+        if (trans.credit > 0) {
+          apMetrics.vendorPayments[trans.vendor].totalBilled += trans.credit;
+        }
+        apMetrics.vendorPayments[trans.vendor].transactionCount++;
+        
+        // Track recent activity
+        if (transDate >= thirtyDaysAgo) {
+          if (trans.debit > 0) {
+            apMetrics.recentPayments += trans.debit;
+          }
+          if (trans.credit > 0) {
+            apMetrics.recentBills += trans.credit;
+          }
+        }
+      }
+    });
+    
+    return apMetrics;
+  }
+
   // Aggregate vendor data from all sources
   aggregateVendorData(parsedData) {
     const aggregated = {};
@@ -466,7 +677,8 @@ class APDataParser {
             summary: vendor,
             detail: null,
             transactions: [],
-            transactionDetails: []
+            transactionDetails: [],
+            glTransactions: []
           };
         }
       });
@@ -481,7 +693,8 @@ class APDataParser {
             summary: null,
             detail: null,
             transactions: [],
-            transactionDetails: []
+            transactionDetails: [],
+            glTransactions: []
           };
         }
         aggregated[vendorName].detail = parsedData.detail.vendors[vendorName];
@@ -497,7 +710,8 @@ class APDataParser {
             summary: null,
             detail: null,
             transactions: [],
-            transactionDetails: []
+            transactionDetails: [],
+            glTransactions: []
           };
         }
         aggregated[vendorName].transactions = parsedData.transactionList.vendors[vendorName].transactions || [];
@@ -513,10 +727,30 @@ class APDataParser {
             summary: null,
             detail: null,
             transactions: [],
-            transactionDetails: []
+            transactionDetails: [],
+            glTransactions: []
           };
         }
         aggregated[vendorName].transactionDetails = parsedData.transactionDetails.vendorGroups[vendorName] || [];
+      });
+    }
+    
+    // Add GL transactions
+    if (parsedData.generalLedger && parsedData.generalLedger.transactions) {
+      parsedData.generalLedger.transactions.forEach(trans => {
+        if (trans.vendor) {
+          if (!aggregated[trans.vendor]) {
+            aggregated[trans.vendor] = {
+              name: trans.vendor,
+              summary: null,
+              detail: null,
+              transactions: [],
+              transactionDetails: [],
+              glTransactions: []
+            };
+          }
+          aggregated[trans.vendor].glTransactions.push(trans);
+        }
       });
     }
     
