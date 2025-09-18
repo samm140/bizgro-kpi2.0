@@ -28,6 +28,12 @@ const APDashboard = ({ portfolioId = 'default' }) => {
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 5 * 60 * 1000);
+    
+    // Auto-run test in debug mode
+    if (debugMode) {
+      testAPDataFetch();
+    }
+    
     return () => clearInterval(interval);
   }, [portfolioId]);
 
@@ -55,6 +61,56 @@ const APDashboard = ({ portfolioId = 'default' }) => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  // Test function to debug data fetching
+  const testAPDataFetch = async () => {
+    console.log('=====================================');
+    console.log('RUNNING AP DATA FETCH TEST');
+    console.log('=====================================');
+    
+    try {
+      // Import and test the service directly
+      const module = await import('../../services/apGoogleSheetsDataService');
+      const service = module.apGoogleSheetsDataService;
+      
+      // Test fetching data
+      console.log('Testing AP data fetch...');
+      const data = await service.getAllAPData();
+      console.log('AP Data result:', data);
+      
+      // Check what's in the summary
+      console.log('AP Summary:', data.apSummary);
+      console.log('Vendors found:', data.apByVendor?.length || 0);
+      console.log('Projects found:', data.apByProject?.length || 0);
+      console.log('Aging trend points:', data.agingTrend?.length || 0);
+      
+      // Check if we got real data or mock
+      if (data.apSummary?.total > 0) {
+        console.log('✓ Real data loaded successfully!');
+        console.log('Total AP:', data.apSummary.total);
+      } else {
+        console.log('✗ No real data - using mock fallback');
+      }
+      
+      // Test the connection directly
+      if (service.testConnection) {
+        console.log('\nTesting direct sheet connection...');
+        await service.testConnection();
+      }
+      
+      // Add to window for manual testing
+      window.apTestData = data;
+      window.apService = service;
+      console.log('\nTest complete! Access data with:');
+      console.log('- window.apTestData (to see fetched data)');
+      console.log('- window.apService (to access service methods)');
+      console.log('- window.apService.testConnection() (to test connection)');
+      
+    } catch (error) {
+      console.error('Test failed:', error);
+      console.error('Stack trace:', error.stack);
     }
   };
 
@@ -191,12 +247,23 @@ const APDashboard = ({ portfolioId = 'default' }) => {
         <div className="bg-yellow-900/20 border border-yellow-600/50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-yellow-400 font-semibold">Debug Mode - AP Dashboard</h3>
-            <button
-              onClick={fetchData}
-              className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-sm"
-            >
-              Retry Fetch
-            </button>
+            <div className="space-x-2">
+              <button
+                onClick={testAPDataFetch}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm"
+              >
+                Run Test
+              </button>
+              <button
+                onClick={fetchData}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-white text-sm"
+              >
+                Retry Fetch
+              </button>
+            </div>
+          </div>
+          <div className="text-xs text-gray-400 mb-2">
+            Check browser console for detailed test results. Test will auto-run when debug mode is enabled.
           </div>
           <details className="mt-2">
             <summary className="cursor-pointer text-yellow-400 hover:text-yellow-300">
