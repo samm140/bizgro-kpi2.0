@@ -14,6 +14,7 @@ class APDataParser {
       transactionList: null,
       transactionDetails: null,
       generalLedger: null,
+      projectSpend: null,
       error: null
     };
 
@@ -46,6 +47,12 @@ class APDataParser {
         console.log('Parsing General Ledger...');
         result.generalLedger = this.parseGeneralLedger(sheetsData.generalLedger);
         console.log(`Parsed ${result.generalLedger.transactions.length} GL transactions`);
+      }
+
+      if (sheetsData.projectSpend) {
+        console.log('Parsing Project Spend...');
+        result.projectSpend = this.parseProjectSpend(sheetsData.projectSpend);
+        console.log(`Parsed ${Object.keys(result.projectSpend.projects || {}).length} projects`);
       }
     } catch (error) {
       console.error('Error parsing sheets:', error);
@@ -600,62 +607,103 @@ class APDataParser {
       recentPayments: 0,
       recentBills: 0,
       vendorPayments: {},
-      cashPosition: 0
+      cashPosition: 0,
+      liquidAssets: {
+        cash: 0,
+        savingsMMF: 0,
+        operatingCash: 0
+      }
     };
     
-    // Look for AP account (usually 2xxxx accounts)
+    // Look for specific accounts
     Object.keys(accounts).forEach(accountName => {
       const account = accounts[accountName];
       
-      // Check for Accounts Payable account
+      // Check for Accounts Payable account (21100)
       if (accountName.toLowerCase().includes('accounts payable') || 
           accountName.toLowerCase().includes('a/p') ||
-          (account.number && account.number.startsWith('2'))) {
+          account.number === '21100') {
         apMetrics.totalPayables = Math.abs(account.endingBalance || 0);
       }
       
-      // Check for Cash accounts
-      if (accountName.toLowerCase().includes('cash') || 
-          accountName.toLowerCase().includes('checking') ||
-          (account.number && account.number.startsWith('1'))) {
+      // Check for specific cash accounts using account numbers
+      if (account.number === '11000') {
+        // Operating cash
+        apMetrics.liquidAssets.operatingCash = Math.abs(account.endingBalance || 0);
+        apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
+      } else if (account.number === '11200') {
+        // Savings or money market
+        apMetrics.liquidAssets.savingsMMF = Math.abs(account.endingBalance || 0);
+        apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
+      } else if (account.number === '11600') {
+        // Other cash account
+        apMetrics.liquidAssets.cash += Math.abs(account.endingBalance || 0);
         apMetrics.cashPosition += Math.abs(account.endingBalance || 0);
       }
     });
     
-    // Analyze recent transactions for vendor payments
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Analyze recent transactions for MTD bills and payments
+    const currentDate = new Date();
+    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
     
     transactions.forEach(trans => {
-      if (trans.vendor && trans.date) {
+      if (trans.date) {
         const transDate = new Date(trans.date);
         
+        // Check if transaction is in current month
+        if (transDate >= monthStart) {
+          // Check for AP transactions (bills and payments)
+          // Bills: Credits to AP account or transactions with vendors
+          // Payments: Debits from AP account
+          
+          if (trans.account === '21100 Accounts Payable' || 
+              trans.split === '21100 Accounts Payable' ||
+              (trans.account_number === '21100')) {
+            
+            // This is an AP transaction
+            if (trans.credit > 0) {
+              apMetrics.recentBills += trans.credit;
+            }
+            if (trans.debit > 0) {
+              apMetrics.recentPayments += trans.debit;
+            }
+          }
+          
+          // Also check for vendor transactions
+          if (trans.vendor && trans.amount) {
+            // Use the amount column (R) for MTD calculations
+            const amount = Math.abs(trans.amount || 0);
+            
+            // Determine if it's a bill or payment based on transaction type
+            if (trans.transaction_type) {
+              const type = trans.transaction_type.toLowerCase();
+              if (type.includes('bill') && !type.includes('payment')) {
+                apMetrics.recentBills += amount;
+              } else if (type.includes('payment') || type.includes('check')) {
+                apMetrics.recentPayments += amount;
+              }
+            }
+          }
+        }
+        
         // Track vendor payments
-        if (!apMetrics.vendorPayments[trans.vendor]) {
-          apMetrics.vendorPayments[trans.vendor] = {
-            vendor: trans.vendor,
-            totalPaid: 0,
-            totalBilled: 0,
-            transactionCount: 0
-          };
-        }
-        
-        if (trans.debit > 0) {
-          apMetrics.vendorPayments[trans.vendor].totalPaid += trans.debit;
-        }
-        if (trans.credit > 0) {
-          apMetrics.vendorPayments[trans.vendor].totalBilled += trans.credit;
-        }
-        apMetrics.vendorPayments[trans.vendor].transactionCount++;
-        
-        // Track recent activity
-        if (transDate >= thirtyDaysAgo) {
+        if (trans.vendor) {
+          if (!apMetrics.vendorPayments[trans.vendor]) {
+            apMetrics.vendorPayments[trans.vendor] = {
+              vendor: trans.vendor,
+              totalPaid: 0,
+              totalBilled: 0,
+              transactionCount: 0
+            };
+          }
+          
           if (trans.debit > 0) {
-            apMetrics.recentPayments += trans.debit;
+            apMetrics.vendorPayments[trans.vendor].totalPaid += trans.debit;
           }
           if (trans.credit > 0) {
-            apMetrics.recentBills += trans.credit;
+            apMetrics.vendorPayments[trans.vendor].totalBilled += trans.credit;
           }
+          apMetrics.vendorPayments[trans.vendor].transactionCount++;
         }
       }
     });
@@ -663,7 +711,91 @@ class APDataParser {
     return apMetrics;
   }
 
-  // Aggregate vendor data from all sources
+  // Parse Project Spend data
+  // Headers on row 4: Date, Transaction Type, Num, Posting, Customer/Vendor Name, Location, Memo/Description, Account, Account Number, Class, Payment Method, Customer/Vendor Message, Amount, Debit, Credit, Product/Service, Customer/Project
+  parseProjectSpend(csvData) {
+    console.log('Starting Project Spend parse...');
+    const lines = csvData.split('\n');
+    
+    // Header is on row 4 (index 3)
+    const headerLine = 3;
+    if (lines.length <= headerLine) {
+      console.error('Project spend data too short');
+      return { projects: {}, transactions: [] };
+    }
+    
+    const headers = this.parseCSVLine(lines[headerLine]);
+    console.log('Project headers found:', headers);
+    
+    const projects = {};
+    const transactions = [];
+    
+    // Find column indices
+    const projectIndex = headers.findIndex(h => h === 'Customer/Project' || h.includes('Project'));
+    const vendorIndex = headers.findIndex(h => h === 'Customer/Vendor Name' || h.includes('Vendor'));
+    const amountIndex = headers.findIndex(h => h === 'Amount');
+    const dateIndex = 0; // Date is first column
+    
+    for (let i = headerLine + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const values = this.parseCSVLine(line);
+      if (values.length < headers.length) continue;
+      
+      const projectName = values[projectIndex];
+      const vendorName = values[vendorIndex];
+      const amount = this.parseValue(values[amountIndex]) || 0;
+      const date = values[dateIndex];
+      
+      // Only process if we have a project
+      if (projectName && projectName.trim()) {
+        const project = projectName.trim();
+        
+        if (!projects[project]) {
+          projects[project] = {
+            name: project,
+            totalSpend: 0,
+            transactionCount: 0,
+            vendors: {},
+            transactions: []
+          };
+        }
+        
+        // Add to project totals
+        projects[project].totalSpend += Math.abs(amount);
+        projects[project].transactionCount++;
+        
+        // Track vendor spending per project
+        if (vendorName) {
+          if (!projects[project].vendors[vendorName]) {
+            projects[project].vendors[vendorName] = {
+              vendor: vendorName,
+              amount: 0,
+              count: 0
+            };
+          }
+          projects[project].vendors[vendorName].amount += Math.abs(amount);
+          projects[project].vendors[vendorName].count++;
+        }
+        
+        // Create transaction record
+        const transaction = this.parseTransactionRow(headers, values);
+        transaction.project = project;
+        transaction.vendor = vendorName;
+        transaction.amount = amount;
+        transaction.date = date;
+        
+        projects[project].transactions.push(transaction);
+        transactions.push(transaction);
+      }
+    }
+    
+    console.log(`Parsed ${Object.keys(projects).length} projects with spend data`);
+    console.log(`Total project transactions: ${transactions.length}`);
+    
+    return { projects, transactions, headers };
+  }
   aggregateVendorData(parsedData) {
     const aggregated = {};
     
