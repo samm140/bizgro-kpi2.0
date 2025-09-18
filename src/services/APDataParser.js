@@ -524,10 +524,12 @@ class APDataParser {
   }
 }
 
-// Export for use in browser or Node.js
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = APDataParser;
-} else if (typeof window !== 'undefined') {
+// Export for ES6 modules (default and named)
+export default APDataParser;
+export { APDataParser };
+
+// Also make available globally in browser for debugging
+if (typeof window !== 'undefined') {
   window.APDataParser = APDataParser;
 }
 
