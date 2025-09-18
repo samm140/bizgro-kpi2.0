@@ -23,7 +23,7 @@ import { dataExportService } from './services/dataExport';
 import environment from './services/environment'; // Environment service for GitHub Pages compatibility
 
 // Import the new SideHeader component
-import SideHeader from './components/SideHeader'; // or './SideHeader' depending on your structure
+import SideHeader from './SideHeader'; // or './SideHeader' depending on your structure
 
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
