@@ -11,7 +11,8 @@ const SHEET_GIDS = {
   apSummary: '1583100976',       // AgedPayableSummaryByVendor
   apDetail: '1716787487',        // AgedPayableDetailByVendor  
   transactionList: '1012932950', // TransactionListByVendor
-  transactionDetails: '943478698' // TransactionListDetails
+  transactionDetails: '943478698', // TransactionListDetails
+  generalLedger: '457744770'     // GeneralLedgerByAccount
 };
 
 class APGoogleSheetsDataService {
@@ -30,11 +31,12 @@ class APGoogleSheetsDataService {
 
     try {
       // Fetch all sheets in parallel
-      const [apSummary, apDetail, transactionList, transactionDetails] = await Promise.all([
+      const [apSummary, apDetail, transactionList, transactionDetails, generalLedger] = await Promise.all([
         this.fetchSheet('apSummary', SHEET_GIDS.apSummary),
         this.fetchSheet('apDetail', SHEET_GIDS.apDetail),
         this.fetchSheet('transactionList', SHEET_GIDS.transactionList),
-        this.fetchSheet('transactionDetails', SHEET_GIDS.transactionDetails)
+        this.fetchSheet('transactionDetails', SHEET_GIDS.transactionDetails),
+        this.fetchSheet('generalLedger', SHEET_GIDS.generalLedger)
       ]);
 
       console.log('Fetch results:');
@@ -42,13 +44,15 @@ class APGoogleSheetsDataService {
       console.log('- AP Detail fetched:', !!apDetail);
       console.log('- Transaction List fetched:', !!transactionList);
       console.log('- Transaction Details fetched:', !!transactionDetails);
+      console.log('- General Ledger fetched:', !!generalLedger);
 
       // Parse all sheets using the APDataParser
       const parsedData = this.parser.parseAllSheets({
         apSummary,
         apDetail,
         transactionList,
-        transactionDetails
+        transactionDetails,
+        generalLedger
       });
 
       // Log parsing results
@@ -65,6 +69,12 @@ class APGoogleSheetsDataService {
       if (parsedData.transactionDetails) {
         console.log(`- Transaction Details: ${parsedData.transactionDetails.transactions.length} transactions`);
       }
+      if (parsedData.generalLedger) {
+        console.log(`- General Ledger: ${Object.keys(parsedData.generalLedger.accounts).length} accounts, ${parsedData.generalLedger.transactions.length} transactions`);
+        if (parsedData.generalLedger.apMetrics) {
+          console.log(`- GL AP Metrics: Total Payables: ${parsedData.generalLedger.apMetrics.totalPayables}, Cash: ${parsedData.generalLedger.apMetrics.cashPosition}`);
+        }
+      }
 
       // Aggregate vendor data
       const aggregatedVendors = this.parser.aggregateVendorData(parsedData);
@@ -72,21 +82,17 @@ class APGoogleSheetsDataService {
 
       // Build the final data structure (matching expected format)
       const finalData = {
-        apSummary: this.buildSummaryObject(parsedData.summary, aggregatedVendors),
+        apSummary: this.buildSummaryObject(parsedData.summary, aggregatedVendors, parsedData.generalLedger),
         apByVendor: this.buildVendorList(parsedData.summary, aggregatedVendors),
         apByProject: this.buildProjectList(parsedData),
         agingTrend: this.buildAgingTrend(parsedData.summary),
-        billsVsPayments: this.buildBillsVsPayments(parsedData),
-        bankSnapshot: [], // These would come from different data source
-        bankTrend: [],    // These would come from different data source
-        liquidAssets: {   // These would come from different data source
-          cash: 0,
-          marketableSecurities: 0,
-          revolverAvailability: 0,
-          other: 0
-        },
+        billsVsPayments: this.buildBillsVsPayments(parsedData, parsedData.generalLedger),
+        bankSnapshot: this.buildBankSnapshot(parsedData.generalLedger),
+        bankTrend: this.buildBankTrend(parsedData.generalLedger),
+        liquidAssets: this.buildLiquidAssets(parsedData.generalLedger),
         vendors: Object.values(aggregatedVendors),
         invoices: this.extractAllInvoices(parsedData),
+        generalLedger: parsedData.generalLedger, // Include raw GL data for reference
         lastUpdated: new Date().toISOString()
       };
 
@@ -171,10 +177,10 @@ class APGoogleSheetsDataService {
   }
 
   // Build summary object matching expected format
-  buildSummaryObject(summaryData, aggregatedVendors) {
+  buildSummaryObject(summaryData, aggregatedVendors, glData) {
     const vendors = summaryData?.vendors || [];
     
-    // Calculate totals
+    // Calculate totals from summary data
     let total = 0;
     let current = 0;
     let b1_30 = 0;
@@ -191,6 +197,18 @@ class APGoogleSheetsDataService {
       total += vendor.total || 0;
     });
 
+    // Use GL data if available for more accurate metrics
+    let billsMTD = 0;
+    let paymentsMTD = 0;
+    
+    if (glData && glData.apMetrics) {
+      if (glData.apMetrics.totalPayables > 0) {
+        total = total || glData.apMetrics.totalPayables;
+      }
+      billsMTD = glData.apMetrics.recentBills || 0;
+      paymentsMTD = glData.apMetrics.recentPayments || 0;
+    }
+
     return {
       total: total || 0,
       current: current || 0,
@@ -199,10 +217,24 @@ class APGoogleSheetsDataService {
       b61_90: b61_90 || 0,
       b90_plus: b90_plus || 0,
       dpo: Math.round(this.calculateAverageDaysPastDue(vendors)),
-      onTimePct: 88, // This would need invoice data to calculate
-      billsMTD: 0, // This would need transaction data
-      paymentsMTD: 0 // This would need transaction data
+      onTimePct: this.calculateOnTimePayments(glData) || 88,
+      billsMTD: billsMTD,
+      paymentsMTD: paymentsMTD
     };
+  }
+
+  // Calculate on-time payment percentage from GL data
+  calculateOnTimePayments(glData) {
+    if (!glData || !glData.transactions) return null;
+    
+    const paidTransactions = glData.transactions.filter(t => 
+      t.transaction_type && t.transaction_type.toLowerCase().includes('payment')
+    );
+    
+    if (paidTransactions.length === 0) return null;
+    
+    // This is simplified - would need due date comparison
+    return 88; // Default for now
   }
 
   // Build vendor list matching expected format
@@ -282,6 +314,134 @@ class APGoogleSheetsDataService {
   buildBillsVsPayments(parsedData) {
     // This would need transaction history
     return [];
+  }
+
+  // Build bills vs payments from GL data
+  buildBillsVsPayments(parsedData, glData) {
+    if (!glData || !glData.transactions) return [];
+    
+    // Group transactions by month
+    const monthlyData = {};
+    
+    glData.transactions.forEach(trans => {
+      if (trans.date && (trans.debit > 0 || trans.credit > 0)) {
+        const date = new Date(trans.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!monthlyData[monthKey]) {
+          monthlyData[monthKey] = {
+            date: `${monthKey}-01`,
+            bills: 0,
+            payments: 0
+          };
+        }
+        
+        // Credits to AP are bills, debits are payments
+        if (trans.account && trans.account.toLowerCase().includes('payable')) {
+          if (trans.credit > 0) monthlyData[monthKey].bills += trans.credit;
+          if (trans.debit > 0) monthlyData[monthKey].payments += trans.debit;
+        }
+      }
+    });
+    
+    // Convert to array and sort
+    return Object.values(monthlyData)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-3); // Last 3 months
+  }
+  
+  // Build bank snapshot from GL accounts
+  buildBankSnapshot(glData) {
+    if (!glData || !glData.accounts) return [];
+    
+    const bankAccounts = [];
+    
+    Object.keys(glData.accounts).forEach(accountName => {
+      const account = glData.accounts[accountName];
+      
+      // Look for cash/bank accounts
+      if (accountName.toLowerCase().includes('cash') ||
+          accountName.toLowerCase().includes('checking') ||
+          accountName.toLowerCase().includes('savings') ||
+          accountName.toLowerCase().includes('bank') ||
+          (account.number && account.number.startsWith('11'))) {
+        
+        bankAccounts.push({
+          account: accountName,
+          balance: Math.abs(account.endingBalance || 0)
+        });
+      }
+    });
+    
+    return bankAccounts;
+  }
+  
+  // Build bank trend from GL transactions
+  buildBankTrend(glData) {
+    if (!glData || !glData.transactions) return [];
+    
+    // Group cash transactions by month
+    const monthlyBalances = {};
+    let runningBalance = 0;
+    
+    // Sort transactions by date
+    const cashTransactions = glData.transactions
+      .filter(t => t.account && (
+        t.account.toLowerCase().includes('cash') ||
+        t.account.toLowerCase().includes('checking')
+      ))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    cashTransactions.forEach(trans => {
+      if (trans.date) {
+        const date = new Date(trans.date);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+        
+        // Update running balance
+        runningBalance += (trans.debit || 0) - (trans.credit || 0);
+        monthlyBalances[monthKey] = runningBalance;
+      }
+    });
+    
+    // Convert to array
+    return Object.entries(monthlyBalances)
+      .map(([date, balance]) => ({ date, balance: Math.abs(balance) }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-3); // Last 3 months
+  }
+  
+  // Build liquid assets from GL
+  buildLiquidAssets(glData) {
+    const assets = {
+      cash: 0,
+      marketableSecurities: 0,
+      revolverAvailability: 0,
+      other: 0
+    };
+    
+    if (!glData || !glData.accounts) return assets;
+    
+    Object.keys(glData.accounts).forEach(accountName => {
+      const account = glData.accounts[accountName];
+      const balance = Math.abs(account.endingBalance || 0);
+      
+      if (accountName.toLowerCase().includes('cash') ||
+          accountName.toLowerCase().includes('checking') ||
+          accountName.toLowerCase().includes('savings')) {
+        assets.cash += balance;
+      } else if (accountName.toLowerCase().includes('securities') ||
+                 accountName.toLowerCase().includes('investment')) {
+        assets.marketableSecurities += balance;
+      } else if (accountName.toLowerCase().includes('line of credit') ||
+                 accountName.toLowerCase().includes('revolver')) {
+        assets.revolverAvailability += balance;
+      } else if (account.number && account.number.startsWith('1') && balance > 0) {
+        // Other current assets
+        assets.other += balance;
+      }
+    });
+    
+    return assets;
   }
 
   // Extract all invoices from parsed data
