@@ -326,12 +326,6 @@ class APGoogleSheetsDataService {
     return [];
   }
 
-  // Build bills vs payments (would need transaction data)
-  buildBillsVsPayments(parsedData) {
-    // This would need transaction history
-    return [];
-  }
-
   // Build bills vs payments from GL data
   buildBillsVsPayments(parsedData, glData) {
     if (!glData || !glData.transactions) return [];
@@ -366,7 +360,7 @@ class APGoogleSheetsDataService {
       .slice(-3); // Last 3 months
   }
   
-  // Build bank snapshot from GL accounts - specifically accounts 11000, 11200, 11600
+  // Build bank snapshot from GL accounts - FIXED: accounts 11100, 11200, 11600
   buildBankSnapshot(glData) {
     if (!glData || !glData.accounts) {
       console.log('No GL data for bank snapshot');
@@ -375,9 +369,9 @@ class APGoogleSheetsDataService {
     
     const bankAccounts = [];
     
-    // Map specific account numbers to friendly names
+    // FIXED: Updated account mapping with correct account number 11100
     const accountMapping = {
-      '11000': 'Operating - Checking',
+      '11100': 'Operating - Checking',  // CHANGED FROM 11000 to 11100
       '11200': 'Savings - MMF',
       '11600': 'Reserve Account'
     };
@@ -407,15 +401,15 @@ class APGoogleSheetsDataService {
     return bankAccounts;
   }
   
-  // Build bank trend from GL transactions for accounts 11000, 11200, 11600
+  // Build bank trend from GL transactions - FIXED: accounts 11100, 11200, 11600
   buildBankTrend(glData) {
     if (!glData || !glData.transactions) {
       console.log('No GL transactions for bank trend');
       return [];
     }
     
-    // Target accounts
-    const targetAccounts = ['11000', '11200', '11600'];
+    // FIXED: Updated target accounts with 11100
+    const targetAccounts = ['11100', '11200', '11600'];  // CHANGED FROM 11000 to 11100
     
     // Group transactions by month for target accounts
     const monthlyBalances = {};
@@ -479,7 +473,7 @@ class APGoogleSheetsDataService {
     return trendData;
   }
   
-  // Build liquid assets from GL - specifically from accounts 11000, 11200, 11600
+  // Build liquid assets from GL - FIXED: accounts 11100, 11200, 11600
   buildLiquidAssets(glData) {
     const assets = {
       cash: 0,
@@ -493,11 +487,11 @@ class APGoogleSheetsDataService {
       return assets;
     }
     
-    // Map accounts to asset categories
+    // FIXED: Updated account category mapping with 11100
     const accountCategoryMap = {
-      '11000': 'cash',           // Operating account
-      '11200': 'marketableSecurities', // Savings/MMF
-      '11600': 'cash'            // Reserve account (also cash)
+      '11100': 'cash',                    // CHANGED FROM 11000 to 11100
+      '11200': 'marketableSecurities',     // Savings/MMF
+      '11600': 'cash'                      // Reserve account (also cash)
     };
     
     Object.keys(glData.accounts).forEach(accountName => {
