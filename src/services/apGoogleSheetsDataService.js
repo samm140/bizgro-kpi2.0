@@ -12,7 +12,8 @@ const SHEET_GIDS = {
   apDetail: '1716787487',        // AgedPayableDetailByVendor  
   transactionList: '1012932950', // TransactionListByVendor
   transactionDetails: '943478698', // TransactionListDetails
-  generalLedger: '457744770'     // GeneralLedgerByAccount
+  generalLedger: '457744770',     // GeneralLedgerByAccount
+  projectSpend: '1982644865'      // Project spending data
 };
 
 class APGoogleSheetsDataService {
@@ -31,12 +32,13 @@ class APGoogleSheetsDataService {
 
     try {
       // Fetch all sheets in parallel
-      const [apSummary, apDetail, transactionList, transactionDetails, generalLedger] = await Promise.all([
+      const [apSummary, apDetail, transactionList, transactionDetails, generalLedger, projectSpend] = await Promise.all([
         this.fetchSheet('apSummary', SHEET_GIDS.apSummary),
         this.fetchSheet('apDetail', SHEET_GIDS.apDetail),
         this.fetchSheet('transactionList', SHEET_GIDS.transactionList),
         this.fetchSheet('transactionDetails', SHEET_GIDS.transactionDetails),
-        this.fetchSheet('generalLedger', SHEET_GIDS.generalLedger)
+        this.fetchSheet('generalLedger', SHEET_GIDS.generalLedger),
+        this.fetchSheet('projectSpend', SHEET_GIDS.projectSpend)
       ]);
 
       console.log('Fetch results:');
@@ -45,6 +47,7 @@ class APGoogleSheetsDataService {
       console.log('- Transaction List fetched:', !!transactionList);
       console.log('- Transaction Details fetched:', !!transactionDetails);
       console.log('- General Ledger fetched:', !!generalLedger);
+      console.log('- Project Spend fetched:', !!projectSpend);
 
       // Parse all sheets using the APDataParser
       const parsedData = this.parser.parseAllSheets({
@@ -52,7 +55,8 @@ class APGoogleSheetsDataService {
         apDetail,
         transactionList,
         transactionDetails,
-        generalLedger
+        generalLedger,
+        projectSpend
       });
 
       // Log parsing results
@@ -272,11 +276,23 @@ class APGoogleSheetsDataService {
       .slice(0, 10);
   }
 
-  // Build project list (placeholder - would need project mapping)
+  // Build project list from project spend data
   buildProjectList(parsedData) {
-    // This would need a mapping of vendors to projects
-    // For now, return empty or mock data
-    return [];
+    const projectArray = [];
+    
+    if (parsedData.projectSpend && parsedData.projectSpend.projects) {
+      Object.values(parsedData.projectSpend.projects).forEach(project => {
+        projectArray.push({
+          project: project.name,
+          amount: project.totalSpend || 0
+        });
+      });
+    }
+    
+    // Sort by amount descending and return top projects
+    return projectArray
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 10);
   }
 
   // Build aging trend (would need historical data)
@@ -410,7 +426,7 @@ class APGoogleSheetsDataService {
       .slice(-3); // Last 3 months
   }
   
-  // Build liquid assets from GL
+  // Build liquid assets from GL - specifically from accounts 11000, 11200, 11600
   buildLiquidAssets(glData) {
     const assets = {
       cash: 0,
@@ -421,25 +437,35 @@ class APGoogleSheetsDataService {
     
     if (!glData || !glData.accounts) return assets;
     
+    // Use specific account numbers for accurate liquid assets
     Object.keys(glData.accounts).forEach(accountName => {
       const account = glData.accounts[accountName];
       const balance = Math.abs(account.endingBalance || 0);
       
-      if (accountName.toLowerCase().includes('cash') ||
-          accountName.toLowerCase().includes('checking') ||
-          accountName.toLowerCase().includes('savings')) {
+      // Check by account number first for precision
+      if (account.number === '11000') {
+        // Primary operating cash
         assets.cash += balance;
-      } else if (accountName.toLowerCase().includes('securities') ||
-                 accountName.toLowerCase().includes('investment')) {
+      } else if (account.number === '11200') {
+        // Savings/money market funds
         assets.marketableSecurities += balance;
+      } else if (account.number === '11600') {
+        // Other liquid cash account
+        assets.cash += balance;
       } else if (accountName.toLowerCase().includes('line of credit') ||
                  accountName.toLowerCase().includes('revolver')) {
         assets.revolverAvailability += balance;
-      } else if (account.number && account.number.startsWith('1') && balance > 0) {
-        // Other current assets
-        assets.other += balance;
       }
     });
+    
+    // If GL metrics has more specific liquid assets info, use it
+    if (glData.apMetrics && glData.apMetrics.liquidAssets) {
+      const glAssets = glData.apMetrics.liquidAssets;
+      if (glAssets.operatingCash > 0 || glAssets.savingsMMF > 0) {
+        assets.cash = (glAssets.operatingCash || 0) + (glAssets.cash || 0);
+        assets.marketableSecurities = glAssets.savingsMMF || 0;
+      }
+    }
     
     return assets;
   }
