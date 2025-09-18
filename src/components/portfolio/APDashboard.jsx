@@ -800,11 +800,11 @@ const AlertsPanel = ({ data, metrics, concentration }) => {
           <div>
             <h4 className="font-semibold text-gray-300 mb-2">Concentration Targets</h4>
             <ul className="space-y-1 text-gray-400">
-              <li>• Top vendor ≤ 20% (warn > 35%)</li>
-              <li>• Top 3 vendors ≤ 45% (warn > 65%)</li>
-              <li>• Top 5 vendors ≤ 60% (warn > 75%)</li>
-              <li>• HHI ≤ 0.15 (warn > 0.25)</li>
-              <li>• Gini ≤ 0.45 (warn > 0.65)</li>
+              <li>• Top vendor ≤ 20% (warn &gt; 35%)</li>
+              <li>• Top 3 vendors ≤ 45% (warn &gt; 65%)</li>
+              <li>• Top 5 vendors ≤ 60% (warn &gt; 75%)</li>
+              <li>• HHI ≤ 0.15 (warn &gt; 0.25)</li>
+              <li>• Gini ≤ 0.45 (warn &gt; 0.65)</li>
             </ul>
           </div>
           <div>
@@ -812,7 +812,7 @@ const AlertsPanel = ({ data, metrics, concentration }) => {
             <ul className="space-y-1 text-gray-400">
               <li>• On-time payments ≥ 95%</li>
               <li>• DPO 30-45 days optimal</li>
-              <li>• AP > 90 days ≤ 15% of total</li>
+              <li>• AP &gt; 90 days ≤ 15% of total</li>
               <li>• Monthly bill/payment variance ≤ 10%</li>
               <li>• Vendor compliance ≥ 98%</li>
             </ul>
