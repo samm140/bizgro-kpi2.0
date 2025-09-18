@@ -1,559 +1,293 @@
-// Complete AP Data Parser for Google Sheets
-// Handles all 4 tabs with their specific formats and quirks
+// src/services/apGoogleSheetsDataService.js
+// AP Data Service for Google Sheets with proper parsing
 
-class APDataParser {
+import { APDataParser } from './APDataParser.js'; // Make sure APDataParser.js is in the same directory
+
+const AP_SPREADSHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
+const CORS_PROXY = 'https://corsproxy.io/?';
+
+// Sheet GIDs (from the URLs)
+const SHEET_GIDS = {
+  apSummary: '1583100976',       // AgedPayableSummaryByVendor
+  apDetail: '1716787487',        // AgedPayableDetailByVendor  
+  transactionList: '1012932950', // TransactionListByVendor
+  transactionDetails: '943478698' // TransactionListDetails
+};
+
+class APGoogleSheetsDataService {
   constructor() {
-    console.log('APDataParser initialized');
+    this.parser = new APDataParser();
+    this.cache = {};
+    this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
   }
 
-  // Main parsing method that handles all sheets
-  parseAllSheets(sheetsData) {
-    const result = {
-      summary: null,
-      detail: null,
-      transactionList: null,
-      transactionDetails: null,
-      error: null
-    };
+  // Main method to fetch and parse all AP data
+  async fetchAPData() {
+    console.log('=====================================');
+    console.log('Starting AP data fetch from Google Sheets...');
+    console.log('Spreadsheet ID:', AP_SPREADSHEET_ID);
+    console.log('=====================================');
 
     try {
-      if (sheetsData.apSummary) {
-        console.log('Parsing AP Summary...');
-        result.summary = this.parseAPSummary(sheetsData.apSummary);
-        console.log(`Parsed ${result.summary.vendors.length} vendors from summary`);
+      // Fetch all sheets in parallel
+      const [apSummary, apDetail, transactionList, transactionDetails] = await Promise.all([
+        this.fetchSheet('apSummary', SHEET_GIDS.apSummary),
+        this.fetchSheet('apDetail', SHEET_GIDS.apDetail),
+        this.fetchSheet('transactionList', SHEET_GIDS.transactionList),
+        this.fetchSheet('transactionDetails', SHEET_GIDS.transactionDetails)
+      ]);
+
+      console.log('Fetch results:');
+      console.log('- AP Summary fetched:', !!apSummary);
+      console.log('- AP Detail fetched:', !!apDetail);
+      console.log('- Transaction List fetched:', !!transactionList);
+      console.log('- Transaction Details fetched:', !!transactionDetails);
+
+      // Parse all sheets using the APDataParser
+      const parsedData = this.parser.parseAllSheets({
+        apSummary,
+        apDetail,
+        transactionList,
+        transactionDetails
+      });
+
+      // Log parsing results
+      console.log('Parsing results:');
+      if (parsedData.summary) {
+        console.log(`- AP Summary: ${parsedData.summary.vendors.length} vendors`);
+      }
+      if (parsedData.detail) {
+        console.log(`- AP Detail: ${Object.keys(parsedData.detail.vendors).length} vendors`);
+      }
+      if (parsedData.transactionList) {
+        console.log(`- Transaction List: ${Object.keys(parsedData.transactionList.vendors).length} vendors`);
+      }
+      if (parsedData.transactionDetails) {
+        console.log(`- Transaction Details: ${parsedData.transactionDetails.transactions.length} transactions`);
       }
 
-      if (sheetsData.apDetail) {
-        console.log('Parsing AP Detail...');
-        result.detail = this.parseAPDetail(sheetsData.apDetail);
-        console.log(`Parsed ${Object.keys(result.detail.vendors).length} vendors from detail`);
+      // Aggregate vendor data
+      const aggregatedVendors = this.parser.aggregateVendorData(parsedData);
+      console.log(`Total unique vendors: ${Object.keys(aggregatedVendors).length}`);
+
+      // Build the final data structure
+      const finalData = {
+        summary: this.buildSummaryData(parsedData.summary, aggregatedVendors),
+        vendors: aggregatedVendors,
+        details: parsedData,
+        rawData: {
+          apSummary: parsedData.summary,
+          apDetail: parsedData.detail,
+          transactionList: parsedData.transactionList,
+          transactionDetails: parsedData.transactionDetails
+        },
+        fetchedAt: new Date().toISOString()
+      };
+
+      console.log('Final AP data structure:', finalData);
+      
+      // Check if we got real data
+      if (finalData.summary.vendorCount === 0) {
+        console.warn('⚠️ No vendors found - check parser logic');
+        // Don't fall back to mock data - return what we have
       }
 
-      if (sheetsData.transactionList) {
-        console.log('Parsing Transaction List...');
-        result.transactionList = this.parseTransactionList(sheetsData.transactionList);
-        console.log(`Parsed ${Object.keys(result.transactionList.vendors).length} vendors from transaction list`);
+      return finalData;
+
+    } catch (error) {
+      console.error('Error fetching AP data:', error);
+      throw error;
+    }
+  }
+
+  // Fetch a single sheet
+  async fetchSheet(sheetName, gid) {
+    const cacheKey = `${sheetName}_${gid}`;
+    
+    // Check cache
+    if (this.cache[cacheKey]) {
+      const cached = this.cache[cacheKey];
+      if (Date.now() - cached.timestamp < this.cacheExpiry) {
+        console.log(`Using cached data for ${sheetName}`);
+        return cached.data;
+      }
+    }
+
+    // Build CSV export URL
+    const url = `https://docs.google.com/spreadsheets/d/${AP_SPREADSHEET_ID}/export?format=csv&gid=${gid}`;
+    const proxiedUrl = CORS_PROXY + encodeURIComponent(url);
+
+    console.log(`Fetching ${sheetName} from GID ${gid}...`);
+
+    try {
+      const response = await fetch(proxiedUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      if (sheetsData.transactionDetails) {
-        console.log('Parsing Transaction Details...');
-        result.transactionDetails = this.parseTransactionDetails(sheetsData.transactionDetails);
-        console.log(`Parsed ${result.transactionDetails.transactions.length} transactions from details`);
+      const csvData = await response.text();
+      console.log(`✓ Successfully fetched ${sheetName} (${csvData.length} characters)`);
+
+      // Cache the data
+      this.cache[cacheKey] = {
+        data: csvData,
+        timestamp: Date.now()
+      };
+
+      return csvData;
+
+    } catch (error) {
+      console.error(`✗ Failed to fetch ${sheetName}:`, error.message);
+      
+      // Try without proxy as fallback
+      try {
+        console.log(`Trying direct fetch for ${sheetName}...`);
+        const directResponse = await fetch(url);
+        if (directResponse.ok) {
+          const csvData = await directResponse.text();
+          console.log(`✓ Direct fetch successful for ${sheetName}`);
+          
+          this.cache[cacheKey] = {
+            data: csvData,
+            timestamp: Date.now()
+          };
+          
+          return csvData;
+        }
+      } catch (directError) {
+        console.error(`Direct fetch also failed for ${sheetName}`);
+      }
+      
+      throw error;
+    }
+  }
+
+  // Build summary statistics from parsed data
+  buildSummaryData(summaryData, aggregatedVendors) {
+    const vendors = summaryData?.vendors || [];
+    const vendorCount = Object.keys(aggregatedVendors).length;
+    
+    // Calculate totals
+    let totalCurrent = 0;
+    let total1Month = 0;
+    let total2Month = 0;
+    let total3Month = 0;
+    let totalOlder = 0;
+    let grandTotal = 0;
+
+    vendors.forEach(vendor => {
+      totalCurrent += vendor.current || 0;
+      total1Month += vendor['1_months'] || vendor.months_1 || 0;
+      total2Month += vendor['2_months'] || vendor.months_2 || 0;
+      total3Month += vendor['3_months'] || vendor.months_3 || 0;
+      totalOlder += vendor.older || 0;
+      grandTotal += vendor.total || 0;
+    });
+
+    // Get top vendors by total
+    const topVendors = vendors
+      .sort((a, b) => (b.total || 0) - (a.total || 0))
+      .slice(0, 10);
+
+    return {
+      vendorCount,
+      totalAP: grandTotal,
+      current: totalCurrent,
+      aging: {
+        current: totalCurrent,
+        '1_month': total1Month,
+        '2_month': total2Month,
+        '3_month': total3Month,
+        older: totalOlder
+      },
+      topVendors,
+      averageDaysPastDue: this.calculateAverageDaysPastDue(vendors),
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  // Calculate average days past due
+  calculateAverageDaysPastDue(vendors) {
+    const validVendors = vendors.filter(v => 
+      v.past_due_average !== null && 
+      v.past_due_average !== undefined &&
+      !isNaN(v.past_due_average)
+    );
+
+    if (validVendors.length === 0) return 0;
+
+    const sum = validVendors.reduce((acc, v) => acc + (v.past_due_average || 0), 0);
+    return sum / validVendors.length;
+  }
+
+  // Test connection to Google Sheets
+  async testConnection() {
+    console.log('Testing AP Google Sheets connection...');
+    
+    try {
+      const testUrl = `https://docs.google.com/spreadsheets/d/${AP_SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GIDS.apSummary}`;
+      console.log('Test URL:', testUrl);
+
+      // Try with CORS proxy first
+      console.log('Testing with CORS proxy...');
+      const proxiedUrl = CORS_PROXY + encodeURIComponent(testUrl);
+      const response = await fetch(proxiedUrl);
+
+      if (response.ok) {
+        const text = await response.text();
+        console.log('✓ Connection successful!');
+        console.log('Response preview (first 500 chars):', text.substring(0, 500));
+        
+        // Quick parse test
+        const lines = text.split('\n');
+        console.log('Number of lines:', lines.length);
+        
+        // Find header line
+        const headerLine = lines.find(line => line.startsWith('Vendor,'));
+        if (headerLine) {
+          console.log('Header row found:', headerLine.substring(0, 100));
+        }
+        
+        return true;
       }
     } catch (error) {
-      console.error('Error parsing sheets:', error);
-      result.error = error.message;
+      console.error('✗ Connection test failed:', error.message);
+      return false;
     }
-
-    return result;
   }
 
-  // Parse AgedPayableSummaryByVendor
-  // Headers: Vendor, Current, 1 months, 2 months, 3 months, 4 months, 5 months, Older, Total, Past Due Average
-  parseAPSummary(csvData) {
-    console.log('Starting AP Summary parse...');
-    const lines = csvData.split('\n');
-    console.log(`Total lines in AP Summary: ${lines.length}`);
-    
-    // Find the header line by looking for "Vendor" at the start
-    let headerLine = -1;
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
-      if (lines[i].startsWith('Vendor,')) {
-        headerLine = i;
-        console.log(`Found header line at index ${i}: ${lines[i].substring(0, 100)}`);
-        break;
-      }
-    }
-    
-    if (headerLine === -1) {
-      console.error('Could not find header line starting with "Vendor,"');
-      return { vendors: [], totalRow: null, headers: [], error: 'Header not found' };
-    }
-    
-    const headers = this.parseCSVLine(lines[headerLine]);
-    console.log('Headers found:', headers);
-    
-    const vendors = [];
-    let totalRow = null;
-    
-    // Parse data rows starting after header
-    for (let i = headerLine + 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = this.parseCSVLine(line);
-      if (values.length < 2) continue; // Need at least vendor name and one value
-      
-      const vendorName = values[0];
-      
-      // Skip empty vendor names
-      if (!vendorName || vendorName.trim() === '') continue;
-      
-      // Check if this is the total row
-      if (vendorName.toLowerCase().includes('total')) {
-        console.log('Found total row:', vendorName);
-        totalRow = this.parseVendorRow(headers, values);
-        continue;
-      }
-      
-      // Parse regular vendor row
-      const vendorData = this.parseVendorRow(headers, values);
-      vendorData.vendor_name = vendorName; // Ensure vendor name is stored
-      vendors.push(vendorData);
-    }
-    
-    console.log(`Parsed ${vendors.length} vendors from AP Summary`);
-    if (vendors.length > 0) {
-      console.log('Sample vendor:', vendors[0]);
-    }
-    
-    return { vendors, totalRow, headers };
-  }
-  
-  // Parse AgedPayableDetailByVendor
-  // Headers: Date, Due Date, Num, Transaction Type, Terms, Current, 1 months, 2 months, 3 months, 4 months, 5 months, Older, Memo/Description
-  // Note: "Date" column contains both dates AND vendor names
-  parseAPDetail(csvData) {
-    console.log('Starting AP Detail parse...');
-    const lines = csvData.split('\n');
-    
-    // Find header line containing "Due Date" and "Transaction Type"
-    let headerLine = -1;
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
-      if (lines[i].includes('Due Date') && lines[i].includes('Transaction Type')) {
-        headerLine = i;
-        console.log(`Found header line at index ${i}`);
-        break;
-      }
-    }
-    
-    if (headerLine === -1) {
-      console.error('Could not find header line in AP Detail');
-      return { vendors: {}, headers: [], error: 'Header not found' };
-    }
-    
-    const headers = this.parseCSVLine(lines[headerLine]);
-    console.log('Headers found:', headers);
-    
-    const vendors = {};
-    let currentVendor = null;
-    
-    for (let i = headerLine + 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = this.parseCSVLine(line);
-      if (values.length === 0) continue;
-      
-      const firstCell = values[0];
-      if (!firstCell) continue;
-      
-      // Check if this is a vendor name (not a date, not total, not empty)
-      if (this.isVendorName(firstCell) && !firstCell.toLowerCase().includes('total')) {
-        // This is a vendor header row
-        currentVendor = this.cleanVendorName(firstCell);
-        console.log(`Found vendor: ${currentVendor}`);
-        vendors[currentVendor] = {
-          name: currentVendor,
-          transactions: [],
-          total: null
-        };
-      }
-      // Check if this is a total row for current vendor
-      else if (currentVendor && firstCell.toLowerCase().includes('total')) {
-        console.log(`Found total for vendor: ${currentVendor}`);
-        vendors[currentVendor].total = this.parseTransactionRow(headers, values);
-      }
-      // Otherwise it's a transaction row (starts with date)
-      else if (currentVendor && this.isDate(firstCell)) {
-        const transaction = this.parseTransactionRow(headers, values);
-        transaction.vendor = currentVendor;
-        vendors[currentVendor].transactions.push(transaction);
-      }
-    }
-    
-    console.log(`Parsed ${Object.keys(vendors).length} vendors from AP Detail`);
-    return { vendors, headers };
-  }
-  
-  // Parse TransactionListByVendor
-  // Headers: Date, Transaction Type, Num, Posting, Create Date, Created By, Last Modified By, Memo/Description, Account, Split, Terms, Due Date, A/P Paid, Clr, Check Printed, Amount, Open Balance
-  // Note: "Date" column contains both dates AND vendor names
-  parseTransactionList(csvData) {
-    console.log('Starting Transaction List parse...');
-    const lines = csvData.split('\n');
-    
-    // Find header line
-    let headerLine = -1;
-    for (let i = 0; i < Math.min(lines.length, 15); i++) {
-      if (lines[i].includes('Transaction Type') && 
-          lines[i].includes('Due Date') && 
-          lines[i].includes('Amount')) {
-        headerLine = i;
-        console.log(`Found header line at index ${i}`);
-        break;
-      }
-    }
-    
-    if (headerLine === -1) {
-      console.error('Could not find header line in Transaction List');
-      return { vendors: {}, headers: [], error: 'Header not found' };
-    }
-    
-    const headers = this.parseCSVLine(lines[headerLine]);
-    console.log('Headers found:', headers);
-    
-    const vendors = {};
-    let currentVendor = null;
-    
-    for (let i = headerLine + 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = this.parseCSVLine(line);
-      if (values.length === 0) continue;
-      
-      const firstCell = values[0];
-      if (!firstCell) continue;
-      
-      // Check if this is a vendor name
-      if (this.isVendorName(firstCell) && !firstCell.toLowerCase().includes('total')) {
-        currentVendor = this.cleanVendorName(firstCell);
-        console.log(`Found vendor in transaction list: ${currentVendor}`);
-        vendors[currentVendor] = {
-          name: currentVendor,
-          transactions: []
-        };
-      }
-      // Otherwise it's a transaction row
-      else if (currentVendor && this.isDate(firstCell)) {
-        const transaction = this.parseTransactionRow(headers, values);
-        transaction.vendor = currentVendor;
-        transaction.date = firstCell;
-        vendors[currentVendor].transactions.push(transaction);
-      }
-    }
-    
-    console.log(`Parsed ${Object.keys(vendors).length} vendors from Transaction List`);
-    return { vendors, headers };
-  }
-  
-  // Parse TransactionListDetails
-  // Headers: Date, Transaction Type, Num, Adj, Posting, Created, Name, Customer, Vendor, Class, Product/Service, Memo/Description, Qty, Rate, Account, Payment Method, Clr, Amount, Open Balance, Taxable, Online Banking, Debit, Credit
-  // This sheet has a proper "Vendor" column
-  parseTransactionDetails(csvData) {
-    console.log('Starting Transaction Details parse...');
-    const lines = csvData.split('\n');
-    
-    // Find header line
-    let headerLine = -1;
-    for (let i = 0; i < Math.min(lines.length, 15); i++) {
-      if (lines[i].includes('Vendor') && 
-          lines[i].includes('Transaction Type') && 
-          lines[i].includes('Amount')) {
-        headerLine = i;
-        console.log(`Found header line at index ${i}`);
-        break;
-      }
-    }
-    
-    if (headerLine === -1) {
-      console.error('Could not find header line in Transaction Details');
-      return { transactions: [], vendorGroups: {}, headers: [], error: 'Header not found' };
-    }
-    
-    const headers = this.parseCSVLine(lines[headerLine]);
-    console.log('Headers found:', headers);
-    
-    const vendorIndex = headers.findIndex(h => h === 'Vendor' || h.toLowerCase() === 'vendor');
-    if (vendorIndex === -1) {
-      console.error('Could not find Vendor column in headers');
-      return { transactions: [], vendorGroups: {}, headers, error: 'Vendor column not found' };
-    }
-    
-    const transactions = [];
-    
-    for (let i = headerLine + 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      
-      const values = this.parseCSVLine(line);
-      if (values.length < headers.length) continue;
-      
-      const transaction = this.parseTransactionRow(headers, values);
-      
-      // Ensure vendor field exists
-      if (!transaction.vendor && vendorIndex >= 0) {
-        transaction.vendor = values[vendorIndex];
-      }
-      
-      if (transaction.vendor && transaction.vendor.trim()) {
-        transactions.push(transaction);
-      }
-    }
-    
-    // Group transactions by vendor
-    const vendorGroups = {};
-    transactions.forEach(trans => {
-      const vendor = trans.vendor;
-      if (!vendorGroups[vendor]) {
-        vendorGroups[vendor] = [];
-      }
-      vendorGroups[vendor].push(trans);
-    });
-    
-    console.log(`Parsed ${transactions.length} transactions from Transaction Details`);
-    console.log(`Grouped into ${Object.keys(vendorGroups).length} vendors`);
-    
-    return { transactions, vendorGroups, headers };
-  }
-  
-  // Helper function to parse CSV line with proper quote handling
-  parseCSVLine(line) {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          current += '"';
-          i++; // Skip next quote
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    result.push(current.trim());
-    return result;
-  }
-  
-  // Check if a string is a date
-  isDate(str) {
-    if (!str || typeof str !== 'string') return false;
-    // Check for date patterns like MM/DD/YYYY, MM-DD-YYYY, or MM/DD/YY
-    const datePattern = /^\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}/;
-    return datePattern.test(str.trim());
-  }
-  
-  // Check if a string is a vendor name (not a date)
-  isVendorName(str) {
-    if (!str || typeof str !== 'string') return false;
-    const trimmed = str.trim();
-    
-    // Not a vendor if it's empty or a date
-    if (!trimmed || this.isDate(trimmed)) return false;
-    
-    // Not a vendor if it's just numbers or currency
-    if (/^[\d\s\$\.,\-]+$/.test(trimmed)) return false;
-    
-    // Must contain at least one letter
-    return /[a-zA-Z]/.test(trimmed);
-  }
-  
-  // Clean vendor name (remove hyperlink formatting if present)
-  cleanVendorName(name) {
-    if (!name) return '';
-    
-    // Remove Excel hyperlink formula if present
-    // Format: =HYPERLINK("url", "display text")
-    if (name.includes('HYPERLINK')) {
-      // Extract the display text (second parameter)
-      const match = name.match(/HYPERLINK\s*\([^,]+,\s*"([^"]+)"\s*\)/);
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-      // Fallback: try to extract any quoted text after comma
-      const fallbackMatch = name.match(/,\s*"([^"]+)"/);
-      if (fallbackMatch && fallbackMatch[1]) {
-        return fallbackMatch[1].trim();
-      }
-    }
-    
-    return name.trim();
-  }
-  
-  // Parse a vendor row from the summary
-  parseVendorRow(headers, values) {
-    const row = {};
-    headers.forEach((header, index) => {
-      const value = values[index] || '';
-      const normalizedHeader = this.normalizeHeader(header);
-      row[normalizedHeader] = this.parseValue(value);
-    });
-    return row;
-  }
-  
-  // Parse a transaction row
-  parseTransactionRow(headers, values) {
-    const row = {};
-    headers.forEach((header, index) => {
-      const value = values[index] || '';
-      const normalizedHeader = this.normalizeHeader(header);
-      row[normalizedHeader] = this.parseValue(value);
-    });
-    return row;
-  }
-  
-  // Normalize header names for consistency
-  normalizeHeader(header) {
-    if (!header) return '';
-    return header
-      .toLowerCase()
-      .replace(/\//g, '_')      // Replace slashes
-      .replace(/\s+/g, '_')      // Replace spaces
-      .replace(/[^a-z0-9_]/g, '') // Remove special chars
-      .replace(/_+/g, '_')       // Collapse multiple underscores
-      .replace(/^_|_$/g, '');    // Remove leading/trailing underscores
-  }
-  
-  // Parse values (currency, percentages, numbers, etc.)
-  parseValue(value) {
-    if (!value || value === '') return null;
-    
-    // Remove quotes if present
-    if (typeof value === 'string') {
-      value = value.replace(/^["']|["']$/g, '').trim();
-    }
-    
-    // Check for currency
-    if (typeof value === 'string' && value.includes('$')) {
-      // Remove $ and commas, handle parentheses for negatives
-      const cleanValue = value
-        .replace(/\$/g, '')
-        .replace(/,/g, '')
-        .replace(/\(([0-9.]+)\)/, '-$1'); // Convert (123) to -123
-      return parseFloat(cleanValue) || 0;
-    }
-    
-    // Check for percentage
-    if (typeof value === 'string' && value.includes('%')) {
-      return parseFloat(value.replace(/%/g, '')) / 100;
-    }
-    
-    // Check for plain number (including negative)
-    if (typeof value === 'string') {
-      const cleanValue = value.replace(/,/g, '');
-      if (/^-?\d+\.?\d*$/.test(cleanValue)) {
-        return parseFloat(cleanValue);
-      }
-    }
-    
-    // Return as string if not numeric
-    return value;
-  }
-  
-  // Aggregate vendor data from all sources
-  aggregateVendorData(parsedData) {
-    const aggregated = {};
-    
-    // Start with summary data
-    if (parsedData.summary && parsedData.summary.vendors) {
-      parsedData.summary.vendors.forEach(vendor => {
-        const name = vendor.vendor_name || vendor.vendor;
-        if (name) {
-          aggregated[name] = {
-            name: name,
-            summary: vendor,
-            detail: null,
-            transactions: [],
-            transactionDetails: []
-          };
-        }
-      });
-    }
-    
-    // Add detail data
-    if (parsedData.detail && parsedData.detail.vendors) {
-      Object.keys(parsedData.detail.vendors).forEach(vendorName => {
-        if (!aggregated[vendorName]) {
-          aggregated[vendorName] = {
-            name: vendorName,
-            summary: null,
-            detail: null,
-            transactions: [],
-            transactionDetails: []
-          };
-        }
-        aggregated[vendorName].detail = parsedData.detail.vendors[vendorName];
-      });
-    }
-    
-    // Add transaction list data
-    if (parsedData.transactionList && parsedData.transactionList.vendors) {
-      Object.keys(parsedData.transactionList.vendors).forEach(vendorName => {
-        if (!aggregated[vendorName]) {
-          aggregated[vendorName] = {
-            name: vendorName,
-            summary: null,
-            detail: null,
-            transactions: [],
-            transactionDetails: []
-          };
-        }
-        aggregated[vendorName].transactions = parsedData.transactionList.vendors[vendorName].transactions || [];
-      });
-    }
-    
-    // Add transaction details data
-    if (parsedData.transactionDetails && parsedData.transactionDetails.vendorGroups) {
-      Object.keys(parsedData.transactionDetails.vendorGroups).forEach(vendorName => {
-        if (!aggregated[vendorName]) {
-          aggregated[vendorName] = {
-            name: vendorName,
-            summary: null,
-            detail: null,
-            transactions: [],
-            transactionDetails: []
-          };
-        }
-        aggregated[vendorName].transactionDetails = parsedData.transactionDetails.vendorGroups[vendorName] || [];
-      });
-    }
-    
-    return aggregated;
+  // Clear cache
+  clearCache() {
+    this.cache = {};
+    console.log('Cache cleared');
   }
 }
 
-// Export for use in browser or Node.js
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = APDataParser;
-} else if (typeof window !== 'undefined') {
-  window.APDataParser = APDataParser;
-}
+// Create singleton instance
+const apService = new APGoogleSheetsDataService();
 
-// Test function for debugging
-function testAPDataParser() {
-  const parser = new APDataParser();
-  
-  // Test with sample data
-  const sampleSummary = `Aged Payables Summary By Vendor,,,,,,,,,
-Diamondback Masonry Holdings LLC,,,,,,,,,
-As of 17 September 2025,,,,,,,,,
-Aging by Due Date,,,,,,,,,
-Vendor,Current,1 months,2 months,3 months,4 months,5 months,Older,Total,Past Due Average
-Acme Brick Company,"$74,555.34",$0.00,$0.00,$0.00,$0.00,$0.00,$0.00,"$74,555.34",-23.33
-"ACTION GYPSUM SUPPLY, LP","$4,894.13",$0.00,$0.00,$0.00,$0.00,$0.00,$0.00,"$4,894.13",-26.4
-Total,"$79,449.47",$0.00,$0.00,$0.00,$0.00,$0.00,$0.00,"$79,449.47",-24.86`;
+// Export for use in the app
+export default apService;
 
-  const result = parser.parseAPSummary(sampleSummary);
-  console.log('Test parse result:', result);
-  console.log('Vendors found:', result.vendors.length);
-  console.log('First vendor:', result.vendors[0]);
-  
-  return result;
-}
+// Also export class for testing
+export { APGoogleSheetsDataService };
 
-// Make test function available globally in browser
+// Make available globally for debugging
 if (typeof window !== 'undefined') {
-  window.testAPDataParser = testAPDataParser;
+  window.apService = apService;
+  
+  // Add test function to window
+  window.testAPConnection = async () => {
+    const result = await apService.testConnection();
+    if (result) {
+      console.log('✅ Connection test passed!');
+      console.log('Now testing full data fetch...');
+      const data = await apService.fetchAPData();
+      console.log('Full data fetch result:', data);
+      return data;
+    } else {
+      console.log('❌ Connection test failed');
+      return null;
+    }
+  };
 }
