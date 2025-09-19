@@ -1,652 +1,270 @@
-// src/App.jsx
-// Updated to integrate with new Authentication and SideHeader components
-
 import React, { useState, useEffect } from 'react';
-import './App.css';
-import Authentication from './components/Authentication'; // New Authentication component
-import SideHeader from './SideHeader'; // SideHeader is in src folder, not components
-import { MetricsProvider, useMetrics } from './components/MetricsContext';
-import ChartVisualization from './components/ChartVisualization';
-import HistoricalDataView from './components/HistoricalDataView';
-import EnhancedDashboard from './components/EnhancedDashboard';
-import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard';
-import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard';
-import InsightsBoard from './components/InsightsBoard';
-import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
-import MetricsCatalog from './components/MetricsCatalog';
-import QBOSync from './components/shared/QBOSync';
-import DiamondBackDashboard from './components/portfolio/DiamondbackDashboard.jsx';
-import ARDashboard from './components/portfolio/ARDashboard';
-import APDashboard from './components/portfolio/APDashboard';
-import BizGroReports from './components/reports/BizGroReports';
-import { googleSheetsService } from './services/googleSheets';
-import { dataExportService } from './services/dataExport';
-import environment from './services/environment';
+import { 
+  Home, 
+  Briefcase, 
+  BarChart3, 
+  PieChart, 
+  FileText, 
+  TrendingUp, 
+  Calendar, 
+  Clock, 
+  DollarSign,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  LogOut
+} from 'lucide-react';
 
-console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
+const SideHeader = ({ onLogout }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeItem, setActiveItem] = useState('Dashboard');
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-// Enhanced Mock API with all required fields
-const mockApi = {
-  initData: () => {
-    if (!localStorage.getItem('bizgro_kpi_data')) {
-      localStorage.setItem('bizgro_kpi_data', JSON.stringify({
-        revenueYTD: 14204274,
-        priorYearRevenue: 12680000,
-        gpmAverage: 34.08,
-        activeProjects: 23,
-        cashPosition: 1044957,
-        weeks: ['W31', 'W32', 'W33', 'W34', 'W35', 'W36'],
-        weeklyRevenue: [60929, 574503, 227737, 167973, 8828, 593209],
-        weeklyCollections: [206426, 151413, 337294, 323508, 259749, 527147],
-        gpmTrend: [28.5, 26.3, 31.2, 29.8, 30.5, 47.42],
-        currentAR: 2145000,
-        currentAP: 845000,
-        cashOnHand: 445000,
-        backlog: 21800000,
-        allEntries: [
-          { 
-            weekEnding: '2025-08-23', 
-            currentAR: '1900000', 
-            retentionReceivables: '200000', 
-            currentAP: '1100000', 
-            cashInBank: '1300000', 
-            cashOnHand: '8000', 
-            grossProfitAccrual: '120000', 
-            revenueBilledToDate: '450000', 
-            retention: '50000', 
-            collections: '400000', 
-            jobsWonNumber: '3', 
-            invitesExistingGC: '6', 
-            invitesNewGC: '3', 
-            totalEstimates: '1800000', 
-            newEstimatedJobs: '5', 
-            jobsWonDollar: '900000', 
-            jobsStartedDollar: '600000', 
-            jobsStartedNumber: '2', 
-            upcomingJobsDollar: '3800000', 
-            wipDollar: '22000000', 
-            revLeftToBill: '10000000', 
-            fieldEmployees: '34', 
-            supervisors: '5', 
-            office: '6', 
-            newHires: '2', 
-            employeesFired: '1',
-            cogsAccrual: '330000',
-            grossWagesAccrual: '280000',
-            jobsCompleted: '1',
-            changeOrders: '45000',
-            overdueAR: '150000',
-            concentrationRisk: '35',
-            savingsAccount: '500000',
-            locDrawn: '200000',
-            locLimit: '1000000'
-          },
-          { 
-            weekEnding: '2025-08-30', 
-            currentAR: '2000000', 
-            retentionReceivables: '220000', 
-            currentAP: '1200000', 
-            cashInBank: '1400000', 
-            cashOnHand: '10000', 
-            grossProfitAccrual: '140000', 
-            revenueBilledToDate: '480000', 
-            retention: '55000', 
-            collections: '460000', 
-            jobsWonNumber: '2', 
-            invitesExistingGC: '5', 
-            invitesNewGC: '2', 
-            totalEstimates: '1500000', 
-            newEstimatedJobs: '4', 
-            jobsWonDollar: '700000', 
-            jobsStartedDollar: '800000', 
-            jobsStartedNumber: '2', 
-            upcomingJobsDollar: '4000000', 
-            wipDollar: '22500000', 
-            revLeftToBill: '10500000', 
-            fieldEmployees: '35', 
-            supervisors: '5', 
-            office: '6', 
-            newHires: '1', 
-            employeesFired: '0',
-            cogsAccrual: '340000',
-            grossWagesAccrual: '290000',
-            jobsCompleted: '0',
-            changeOrders: '30000',
-            overdueAR: '180000',
-            concentrationRisk: '32',
-            savingsAccount: '500000',
-            locDrawn: '250000',
-            locLimit: '1000000'
-          },
-          { 
-            weekEnding: '2025-09-06', 
-            currentAR: '2300000', 
-            retentionReceivables: '250000', 
-            currentAP: '1500000', 
-            cashInBank: '1700000', 
-            cashOnHand: '12000', 
-            grossProfitAccrual: '200000', 
-            revenueBilledToDate: '700000', 
-            retention: '60000', 
-            collections: '650000', 
-            jobsWonNumber: '1', 
-            invitesExistingGC: '4', 
-            invitesNewGC: '1', 
-            totalEstimates: '1200000', 
-            newEstimatedJobs: '3', 
-            jobsWonDollar: '500000', 
-            jobsStartedDollar: '400000', 
-            jobsStartedNumber: '1', 
-            upcomingJobsDollar: '4100000', 
-            wipDollar: '23000000', 
-            revLeftToBill: '11000000', 
-            fieldEmployees: '36', 
-            supervisors: '5', 
-            office: '6', 
-            newHires: '1', 
-            employeesFired: '0',
-            cogsAccrual: '500000',
-            grossWagesAccrual: '310000',
-            jobsCompleted: '2',
-            changeOrders: '60000',
-            overdueAR: '200000',
-            concentrationRisk: '30',
-            savingsAccount: '550000',
-            locDrawn: '300000',
-            locLimit: '1000000'
-          }
-        ]
-      }));
-    }
-  },
-  getDashboardData: () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = JSON.parse(localStorage.getItem('bizgro_kpi_data'));
-        resolve(data);
-      }, 300);
-    });
-  },
-  submitWeeklyData: (formData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = JSON.parse(localStorage.getItem('bizgro_kpi_data'));
-        
-        // Add to allEntries array
-        data.allEntries.push(formData);
-        if (data.allEntries.length > 10) data.allEntries.shift();
-        
-        // Update summary metrics
-        if (formData.revenueBilledToDate || formData.revenueBilledNet) {
-          data.weeklyRevenue.push(parseFloat(formData.revenueBilledToDate || formData.revenueBilledNet));
-          data.weeklyRevenue.shift();
-        }
-        if (formData.collections) {
-          data.weeklyCollections.push(parseFloat(formData.collections));
-          data.weeklyCollections.shift();
-        }
-        if (formData.grossProfitAccrual) {
-          const revenue = parseFloat(formData.revenueBilledToDate || formData.revenueBilledNet || 1);
-          const gpm = (parseFloat(formData.grossProfitAccrual) / revenue) * 100;
-          data.gpmTrend.push(gpm);
-          data.gpmTrend.shift();
-        }
-        
-        // Update week labels
-        const lastWeek = parseInt(data.weeks[data.weeks.length - 1].replace('W', ''));
-        data.weeks.push(`W${lastWeek + 1}`);
-        data.weeks.shift();
-        
-        // Update cash position if provided
-        if (formData.cashInBank) {
-          data.cashPosition = parseFloat(formData.cashInBank) + parseFloat(formData.cashOnHand || 0);
-        }
-        
-        localStorage.setItem('bizgro_kpi_data', JSON.stringify(data));
-        resolve({ success: true });
-      }, 500);
-    });
-  }
-};
-
-// Main App Component
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [dashboardView, setDashboardView] = useState('agenda');
-  const [loading, setLoading] = useState(false);
-  const [dashboardData, setDashboardData] = useState(null);
-  const [historicalData, setHistoricalData] = useState([]);
-  const [useGoogleSheets, setUseGoogleSheets] = useState(false);
-  const [showSyncWidget, setShowSyncWidget] = useState(true);
-  const [backendAvailable, setBackendAvailable] = useState(false);
-  const [currentPortfolioId, setCurrentPortfolioId] = useState('default');
-
-  // Get updateWeeklyData from context if available
-  const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
-
-  // Check authentication on mount
   useEffect(() => {
-    const checkAuth = async () => {
-      const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
-      const storedAuth = localStorage.getItem('isAuthenticated') || sessionStorage.getItem('isAuthenticated');
-      
-      if (storedUser && storedAuth === 'true') {
-        setUser(JSON.parse(storedUser));
-        setIsAuthenticated(true);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setIsCollapsed(true);
       }
-      
-      setIsLoading(false);
     };
 
-    checkAuth();
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Handle login success
-  const handleLogin = (userData) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-  };
+  const menuItems = [
+    { 
+      category: 'MAIN', 
+      items: [
+        { name: 'Dashboard', icon: Home, path: '/dashboard' },
+        { name: 'Portfolio', icon: Briefcase, path: '/portfolio' },
+        { name: 'AR Dashboard', icon: BarChart3, path: '/ar-dashboard' },
+        { name: 'AP Dashboard', icon: PieChart, path: '/ap-dashboard' }
+      ]
+    },
+    { 
+      category: 'ANALYTICS', 
+      items: [
+        { name: 'Reports', icon: FileText, path: '/reports' },
+        { name: 'Insights', icon: TrendingUp, path: '/insights' },
+        { name: 'Weekly Entry', icon: Calendar, badge: 'New', path: '/weekly-entry' },
+        { name: 'Historical', icon: Clock, path: '/historical' },
+        { name: 'Metrics', icon: DollarSign, path: '/metrics' }
+      ]
+    }
+  ];
 
-  // Handle logout
   const handleLogout = () => {
+    // Clear all auth data
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('isAuthenticated');
     sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
+    localStorage.removeItem('isAuthenticated');
     sessionStorage.removeItem('isAuthenticated');
     
-    setUser(null);
-    setIsAuthenticated(false);
+    // Call the onLogout prop if provided
+    if (onLogout) {
+      onLogout();
+    } else {
+      // Force reload to trigger auth check in App.js
+      window.location.href = '/';
+    }
   };
 
-  // QBO sync handler with backend check
-  const handleQBOSync = async () => {
-    if (!backendAvailable) {
-      console.log('Backend not available - QBO sync disabled');
-      return;
+  // Get user data
+  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+  
+  // Determine avatar display - use Google avatar if available, otherwise initials
+  const getUserAvatar = () => {
+    // Production OAuth - uncomment when Google OAuth is configured
+    /*
+    if (user.provider === 'google' && user.picture) {
+      return (
+        <img 
+          src={user.picture} 
+          alt={user.name}
+          className="w-8 h-8 rounded-full object-cover"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = `
+              <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                ${user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+              </div>
+            `;
+          }}
+        />
+      );
     }
+    */
     
-    try {
-      console.log('Syncing with QuickBooks Online...');
-      await fetchLatestData();
-    } catch (error) {
-      console.error('QBO sync error:', error);
-    }
-  };
-
-  // Function to fetch latest data
-  const fetchLatestData = async () => {
-    try {
-      const data = await mockApi.getDashboardData();
-      setDashboardData(data);
-      
-      if (metricsContext && metricsContext.updateWeeklyData) {
-        metricsContext.updateWeeklyData(data);
-      }
-      
-      if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
-        try {
-          const sheetsData = await googleSheetsService.getHistoricalData(
-            import.meta.env.VITE_GOOGLE_SHEETS_ID
-          );
-          setHistoricalData(sheetsData);
-        } catch (error) {
-          console.log('Google Sheets not configured or accessible');
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching latest data:', error);
-    }
-  };
-
-  // Initial load
-  useEffect(() => {
-    if (isAuthenticated) {
-      mockApi.initData();
-      fetchLatestData();
-    }
-  }, [isAuthenticated]);
-
-  // Check backend availability
-  useEffect(() => {
-    const checkBackend = async () => {
-      const isAvailable = await environment.checkBackendConnection();
-      setBackendAvailable(isAvailable);
-      
-      if (!isAvailable && environment.isGitHubPages()) {
-        console.log('Running on GitHub Pages - Backend features disabled');
-      }
-    };
-    checkBackend();
-  }, []);
-
-  // Polling for updates
-  useEffect(() => {
-    if (isAuthenticated && currentView === 'dashboard') {
-      const interval = setInterval(() => {
-        fetchLatestData();
-      }, 30000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [currentView, isAuthenticated]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.altKey) {
-        switch(e.key) {
-          case 'd': setCurrentView('dashboard'); break;
-          case 'p': 
-            if (e.shiftKey) {
-              setCurrentView('ap-dashboard');
-            } else {
-              setCurrentView('portfolio');
-            }
-            break;
-          case 'a': setCurrentView('ar-dashboard'); break;
-          case 'r': setCurrentView('reports'); break;
-          case 'e': setCurrentView('entry'); break;
-          case 'i': setCurrentView('insights'); break;
-          case 'm': setCurrentView('metrics'); break;
-          case 'h': setCurrentView('historical'); break;
-          case 'q': 
-            if (backendAvailable) {
-              setShowSyncWidget(!showSyncWidget); 
-            }
-            break;
-        }
-      }
-    };
-    
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showSyncWidget, backendAvailable]);
-
-  // Handle weekly submit
-  const handleWeeklySubmit = async (formData) => {
-    setLoading(true);
-    try {
-      if (environment.isGitHubPages() || !backendAvailable) {
-        const result = await mockApi.submitWeeklyData(formData);
-        if (result.success) {
-          const message = environment.isGitHubPages() 
-            ? 'Weekly data saved successfully! (Demo Mode - Data stored locally)'
-            : 'Weekly data saved successfully!';
-          alert(message);
-          
-          await fetchLatestData();
-          setCurrentView('dashboard');
-        }
-      } else {
-        await mockApi.submitWeeklyData(formData);
-        
-        if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
-          await googleSheetsService.submitWeeklyData(
-            formData,
-            import.meta.env.VITE_GOOGLE_SHEETS_ID
-          );
-        }
-        
-        await fetchLatestData();
-        setCurrentView('dashboard');
-      }
-    } catch (error) {
-      console.error('Error saving weekly data:', error);
-      alert('Error saving data. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleExportDashboard = (format) => {
-    if (dashboardData) {
-      dataExportService.exportDashboardData(dashboardData, format);
-    }
-  };
-
-  const handleHistoricalEdit = (id, updatedData) => {
-    setHistoricalData(prev => 
-      prev.map(item => item.id === id ? updatedData : item)
-    );
-  };
-
-  const handleHistoricalDelete = (id) => {
-    setHistoricalData(prev => prev.filter(item => item.id !== id));
-  };
-
-  // Show loading state
-  if (isLoading) {
+    // Default to initials
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+        {user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
       </div>
     );
-  }
+  };
 
-  // Show authentication screen if not authenticated
-  if (!isAuthenticated) {
-    return <Authentication onSuccess={handleLogin} />;
-  }
-
-  // Main app with SideHeader
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      <SideHeader 
-        onLogout={handleLogout}
-        onCollapseChange={setIsCollapsed}
-      />
-      
-      {/* Main Content - Dynamic margin based on sidebar state */}
-      <main className={`transition-all duration-300 p-8 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-biz-primary mx-auto mb-4"></div>
-              <p className="text-gray-300">Loading...</p>
+    <>
+      {/* Sidebar */}
+      <div className={`fixed left-0 top-0 h-full bg-gray-900 border-r border-gray-800 transition-all duration-300 z-50 ${
+        isCollapsed ? 'w-16' : 'w-64'
+      }`}>
+        {/* Logo Section */}
+        <div className="h-20 flex items-center justify-center px-4 border-b border-gray-800 relative">
+          {isCollapsed ? (
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img 
+                src="/bizgro-cube.png" 
+                alt="BizGro" 
+                className="w-10 h-10 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<span class="text-blue-500 font-bold text-2xl">B</span>';
+                }}
+              />
             </div>
-          </div>
-        ) : currentView === 'portfolio' ? (
-          <DiamondBackDashboard />
-        ) : currentView === 'ar-dashboard' ? (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
-              <select
-                value={currentPortfolioId}
-                onChange={(e) => setCurrentPortfolioId(e.target.value)}
-                className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
-              >
-                <option value="default">All Companies</option>
-                <option value="diamondback">DiamondBack Construction</option>
-                <option value="bluestone">BlueStone Builders</option>
-                <option value="ironforge">IronForge Industries</option>
-              </select>
+          ) : (
+            <div className="flex items-center justify-center">
+              <img 
+                src="/bizgro-kpi2.0-logo.png" 
+                alt="BizGro KPI 2.0 System" 
+                className="h-12 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<span class="text-white font-semibold text-lg">BizGro KPI 2.0</span>';
+                }}
+              />
             </div>
-            <ARDashboard portfolioId={currentPortfolioId} />
-          </div>
-        ) : currentView === 'ap-dashboard' ? (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-200">Accounts Payable Dashboard</h2>
-              <select
-                value={currentPortfolioId}
-                onChange={(e) => setCurrentPortfolioId(e.target.value)}
-                className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
-              >
-                <option value="default">All Companies</option>
-                <option value="diamondback">DiamondBack Construction</option>
-                <option value="bluestone">BlueStone Builders</option>
-                <option value="ironforge">IronForge Industries</option>
-              </select>
-            </div>
-            <APDashboard portfolioId={currentPortfolioId} />
-          </div>
-        ) : currentView === 'reports' ? (
-          <BizGroReports />
-        ) : currentView === 'dashboard' ? (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-200">Executive Dashboard</h2>
-              <div className="flex space-x-2">
+          )}
+          
+          {/* Circular Toggle Button */}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={`absolute ${isCollapsed ? '-right-3' : '-right-3'} top-1/2 -translate-y-1/2 w-6 h-6 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 z-10`}
+          >
+            {isCollapsed ? (
+              <ChevronRight size={14} />
+            ) : (
+              <ChevronLeft size={14} />
+            )}
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="mt-6">
+          {menuItems.map((section, idx) => (
+            <div key={idx} className="mb-6">
+              {!isCollapsed && (
+                <div className="px-4 mb-2">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider">
+                    {section.category}
+                  </span>
+                </div>
+              )}
+              
+              {section.items.map((item) => (
                 <button
-                  onClick={() => handleExportDashboard('excel')}
-                  className="px-4 py-2 bg-green-900/50 hover:bg-green-900/70 text-green-400 rounded transition-colors text-sm"
-                >
-                  <i className="fas fa-file-excel mr-2"></i>Export Excel
-                </button>
-                <button
-                  onClick={() => handleExportDashboard('csv')}
-                  className="px-4 py-2 bg-blue-900/50 hover:bg-blue-900/70 text-blue-400 rounded transition-colors text-sm"
-                >
-                  <i className="fas fa-file-csv mr-2"></i>Export CSV
-                </button>
-                <button
-                  onClick={() => setUseGoogleSheets(!useGoogleSheets)}
-                  className={`px-4 py-2 rounded transition-colors text-sm ${
-                    useGoogleSheets 
-                      ? 'bg-green-900/50 text-green-400' 
-                      : 'bg-slate-700 text-gray-400'
+                  key={item.name}
+                  onClick={() => setActiveItem(item.name)}
+                  className={`w-full flex items-center px-4 py-3 text-left transition-all duration-200 relative group ${
+                    activeItem === item.name
+                      ? 'bg-blue-600/10 text-blue-500 border-r-2 border-blue-500'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
                   }`}
                 >
-                  <i className="fas fa-sync mr-2"></i>
-                  {useGoogleSheets ? 'Sheets Connected' : 'Connect Sheets'}
+                  <item.icon size={20} className="flex-shrink-0" />
+                  
+                  {!isCollapsed && (
+                    <>
+                      <span className="ml-3 font-medium">{item.name}</span>
+                      {item.badge && (
+                        <span className="ml-auto bg-cyan-500 text-gray-900 text-xs px-2 py-0.5 rounded-full font-semibold">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+
+                  {/* Tooltip for collapsed state */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-2 px-2 py-1 bg-gray-800 text-white text-sm rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                      {item.name}
+                      {item.badge && (
+                        <span className="ml-2 bg-cyan-500 text-gray-900 text-xs px-1.5 py-0.5 rounded-full">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+
+        {/* User Section at Bottom */}
+        <div className="absolute bottom-0 left-0 right-0 border-t border-gray-800">
+          <div className="relative">
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="w-full flex items-center px-4 py-4 hover:bg-gray-800/50 transition-colors"
+            >
+              {getUserAvatar()}
+              
+              {!isCollapsed && (
+                <>
+                  <div className="ml-3 text-left flex-1">
+                    <div className="text-sm font-medium text-white">
+                      {user.name || 'Demo User'}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {user.email || 'demo@bizgropartners.com'}
+                    </div>
+                  </div>
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${
+                    isUserMenuOpen ? 'rotate-180' : ''
+                  }`} />
+                </>
+              )}
+            </button>
+
+            {/* Dropdown Menu */}
+            {isUserMenuOpen && (
+              <div className={`absolute bottom-full left-0 right-0 mb-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden ${
+                isCollapsed ? 'left-full ml-1 w-48' : ''
+              }`}>
+                <button
+                  onClick={handleLogout}
+                  className="w-full flex items-center px-4 py-3 text-left text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                >
+                  <LogOut size={16} />
+                  <span className="ml-2">Logout</span>
                 </button>
               </div>
-            </div>
-            
-            <div className="flex gap-2 mb-4">
-              <button 
-                onClick={() => setDashboardView('agenda')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'agenda' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-calendar mr-2"></i>Agenda
-              </button>
-              <button 
-                onClick={() => setDashboardView('dynamic')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'dynamic' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-th-large mr-2"></i>Dynamic Metrics
-              </button>
-              <button 
-                onClick={() => setDashboardView('enhanced')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'enhanced' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-chart-bar mr-2"></i>Enhanced View
-              </button>
-              <button 
-                onClick={() => setDashboardView('charts')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'charts' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-chart-line mr-2"></i>Charts View
-              </button>
-            </div>
-            
-            {dashboardView === 'agenda' ? (
-              <ExecutiveDashboard data={dashboardData} />
-            ) : dashboardView === 'dynamic' ? (
-              <EnhancedDynamicDashboard data={dashboardData} />
-            ) : dashboardView === 'enhanced' ? (
-              <EnhancedDashboard data={dashboardData} />
-            ) : (
-              dashboardData && <ChartVisualization data={dashboardData} />
             )}
           </div>
-        ) : currentView === 'entry' ? (
-          <EnhancedWeeklyEntry 
-            onSubmit={handleWeeklySubmit} 
-            onCancel={() => setCurrentView('dashboard')} 
-          />
-        ) : currentView === 'insights' ? (
-          <InsightsBoard data={dashboardData} />
-        ) : currentView === 'historical' ? (
-          <div>
-            <h2 className="text-2xl font-bold mb-6 text-gray-200">Historical Data Analysis</h2>
-            <HistoricalDataView 
-              data={historicalData.length > 0 ? historicalData : dashboardData?.allEntries || []}
-              onEdit={handleHistoricalEdit}
-              onDelete={handleHistoricalDelete}
-            />
-          </div>
-        ) : currentView === 'metrics' ? (
-          <MetricsCatalog />
-        ) : null}
-      </main>
-
-      {/* QBO Sync Widget */}
-      {showSyncWidget && backendAvailable && (
-        <QBOSync 
-          position="fixed"
-          showDetails={true}
-          autoSync={false}
-          syncInterval={300000}
-          onSync={handleQBOSync}
-        />
-      )}
-      
-      {/* Toggle button for QBO sync widget */}
-      {backendAvailable && (
-        <button
-          onClick={() => setShowSyncWidget(!showSyncWidget)}
-          className="fixed bottom-6 left-6 z-50 p-3 bg-slate-800 hover:bg-slate-700 rounded-full shadow-lg transition-all"
-          title={showSyncWidget ? 'Hide QBO Sync Widget (Alt+Q)' : 'Show QBO Sync Widget (Alt+Q)'}
-        >
-          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {showSyncWidget ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-            )}
-          </svg>
-        </button>
-      )}
-      
-      {/* GitHub Pages notification */}
-      {environment.isGitHubPages() && (
-        <div className="fixed bottom-6 left-6 z-40 bg-yellow-900/90 text-yellow-200 px-4 py-2 rounded-lg shadow-lg text-sm">
-          <i className="fas fa-info-circle mr-2"></i>
-          Demo Mode - Backend features disabled
         </div>
-      )}
-      
-      {/* Footer with keyboard shortcuts */}
-      <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
-        Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+A (AR Dashboard), 
-        Shift+Alt+P (AP Dashboard), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), 
-        Alt+M (Metrics), Alt+H (Historical)
-        {backendAvailable && ', Alt+Q (QBO Widget)'}
-      </footer>
-    </div>
-  );
-}
+      </div>
 
-// Wrap App with MetricsProvider
-function AppWithProviders() {
-  return (
-    <MetricsProvider>
-      <App />
-    </MetricsProvider>
-  );
-}
+      {/* Main Content Area */}
+      <div className={`transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+        <div className="min-h-screen bg-gray-950">
+          {/* Header */}
+          <header className="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-end px-6">
+            {/* Removed the BizGro Partners image from here */}
+          </header>
 
-export default AppWithProviders;
+          {/* Page Content */}
+          <main className="p-6">
+            {/* Content will go here */}
+          </main>
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default SideHeader;
