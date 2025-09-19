@@ -92,7 +92,7 @@ const SideHeader = ({ onLogout }) => {
           ) : (
             <div className="flex items-center">
               <img 
-                src="/bizgro-kpi2.0-logo.png" 
+                src="bizgro-kpi2.0-logo.png" 
                 alt="BizGro KPI 2.0 System" 
                 className="h-8 object-contain"
                 onError={(e) => {
