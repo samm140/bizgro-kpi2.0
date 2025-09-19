@@ -60,7 +60,7 @@ const HeaderNavigation = () => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      zIndex: 40, // Lower than SideHeader (which is z-50)
+      zIndex: 40,
     },
     navLeft: {
       display: 'flex',
@@ -151,7 +151,6 @@ const HeaderNavigation = () => {
 
   return (
     <header style={styles.header}>
-      {/* Left Section */}
       <div style={styles.navLeft}>
         <div style={styles.locationGroup}>
           <MapPin size={16} />
@@ -169,7 +168,6 @@ const HeaderNavigation = () => {
         </div>
       </div>
 
-      {/* Right Section */}
       <div style={styles.navRight}>
         {navButtons.map((item, index) => {
           if (item.separator) {
@@ -198,7 +196,6 @@ const HeaderNavigation = () => {
           );
         })}
 
-        {/* Apps Grid */}
         <div 
           style={{
             ...styles.appsGrid,
