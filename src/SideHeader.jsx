@@ -253,7 +253,7 @@ const SideHeader = ({
       {/* Logo in Top Right Corner */}
       <div className="fixed top-4 right-4 z-40">
         <img 
-          src="/bizgro-kpi2.0-logo.png" 
+          src="bizgro-kpi2.0-logo.png" 
           alt="BizGro Logo" 
           className="h-12 w-auto opacity-90 hover:opacity-100 transition-opacity"
         />
@@ -266,7 +266,7 @@ const SideHeader = ({
           <div className="flex items-center gap-3">
             {sidebarCollapsed ? (
               <img 
-                src="/bizgro-cube.png" 
+                src="bizgro-cube.png" 
                 alt="BizGro Cube" 
                 className="w-10 h-10 object-contain"
               />
