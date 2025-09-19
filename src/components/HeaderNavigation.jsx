@@ -53,15 +53,14 @@ const HeaderNavigation = () => {
       left: 0,
       right: 0,
       height: '50px',
-      background: 'linear-gradient(90deg, rgba(30, 41, 59, 0.98) 0%, rgba(45, 49, 66, 0.95) 100%)',
+      background: 'rgba(45, 49, 66, 0.95)',
       backdropFilter: 'blur(10px)',
-      borderBottom: '2px solid rgba(59, 130, 246, 0.3)', // More visible border
+      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      zIndex: 48, // Just below sidebar but above content
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)', // Add shadow for visibility
+      zIndex: 40,
     },
     navLeft: {
       display: 'flex',
@@ -69,25 +68,21 @@ const HeaderNavigation = () => {
       gap: '20px',
       fontSize: '14px',
       color: '#e0e0e0',
-      marginLeft: '244px', // Account for sidebar width
     },
     locationGroup: {
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
-      color: '#94a3b8', // Slightly brighter
     },
     weatherGroup: {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      color: '#fbbf24', // Yellow for weather
     },
     timeGroup: {
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
-      color: '#60a5fa', // Blue for time
     },
     navRight: {
       display: 'flex',
@@ -98,41 +93,39 @@ const HeaderNavigation = () => {
       width: '36px',
       height: '36px',
       borderRadius: '8px',
-      background: 'rgba(255, 255, 255, 0.05)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'transparent',
+      border: 'none',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
       position: 'relative',
-      color: '#94a3b8',
+      color: '#e0e0e0',
     },
     navButtonHover: {
-      background: 'rgba(59, 130, 246, 0.2)',
-      borderColor: 'rgba(59, 130, 246, 0.3)',
-      color: '#e0e0e0',
+      background: 'rgba(255, 255, 255, 0.1)',
     },
     badge: {
       position: 'absolute',
-      top: '4px',
-      right: '4px',
-      minWidth: '16px',
-      height: '16px',
+      top: '6px',
+      right: '6px',
+      minWidth: '18px',
+      height: '18px',
       background: '#ef4444',
       color: 'white',
-      borderRadius: '8px',
+      borderRadius: '9px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontSize: '10px',
+      fontSize: '11px',
       fontWeight: 'bold',
-      padding: '0 3px',
+      padding: '0 4px',
     },
     separator: {
       width: '1px',
       height: '24px',
-      background: 'rgba(148, 163, 184, 0.2)',
+      background: 'rgba(255, 255, 255, 0.1)',
     },
     appsGrid: {
       width: '36px',
@@ -144,17 +137,11 @@ const HeaderNavigation = () => {
       cursor: 'pointer',
       borderRadius: '8px',
       transition: 'all 0.2s ease',
-      background: 'rgba(255, 255, 255, 0.05)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
-    },
-    appsGridHover: {
-      background: 'rgba(59, 130, 246, 0.2)',
-      borderColor: 'rgba(59, 130, 246, 0.3)',
     },
     dot: {
       width: '4px',
       height: '4px',
-      background: '#94a3b8',
+      background: '#e0e0e0',
       borderRadius: '1px',
     }
   };
@@ -164,7 +151,6 @@ const HeaderNavigation = () => {
 
   return (
     <header style={styles.header}>
-      {/* Left Section - Location, Weather, Time */}
       <div style={styles.navLeft}>
         <div style={styles.locationGroup}>
           <MapPin size={16} />
@@ -182,7 +168,6 @@ const HeaderNavigation = () => {
         </div>
       </div>
 
-      {/* Right Section - Icons */}
       <div style={styles.navRight}>
         {navButtons.map((item, index) => {
           if (item.separator) {
@@ -203,7 +188,7 @@ const HeaderNavigation = () => {
               onMouseLeave={() => setHoveredButton(null)}
               title={item.title}
             >
-              <Icon size={18} />
+              <Icon size={20} />
               {item.badge && (
                 <span style={styles.badge}>{item.badge}</span>
               )}
@@ -211,11 +196,10 @@ const HeaderNavigation = () => {
           );
         })}
 
-        {/* Apps Grid */}
         <div 
           style={{
             ...styles.appsGrid,
-            ...(hoveredApps ? styles.appsGridHover : {})
+            ...(hoveredApps ? { background: 'rgba(255, 255, 255, 0.1)' } : {})
           }}
           onMouseEnter={() => setHoveredApps(true)}
           onMouseLeave={() => setHoveredApps(false)}
