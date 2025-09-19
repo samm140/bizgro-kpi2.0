@@ -1,5 +1,5 @@
 // src/components/Authentication.jsx
-// Complete Fixed Authentication with Demo Credentials
+// Complete Fixed Authentication with Working Demo Login
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 
@@ -63,6 +63,21 @@ const authService = {
     return user;
   },
   
+  loginWithGoogle: function(googleUser) {
+    // Mock Google login for demo
+    const user = {
+      id: 'google-' + Date.now(),
+      email: googleUser.email || 'user@bizgropartners.com',
+      name: googleUser.name || 'Google User',
+      role: 'Administrator',
+      provider: 'google',
+      createdAt: new Date().toISOString()
+    };
+    
+    localStorage.setItem('kpi2_current_user', JSON.stringify(user));
+    return user;
+  },
+  
   logout: function() {
     localStorage.removeItem('kpi2_current_user');
   },
@@ -100,7 +115,7 @@ const LoginForm = ({ onSuccess }) => {
     try {
       const user = authService.login(email, password);
       
-      // Small delay for UX
+      // Show loading state briefly
       setTimeout(() => {
         setIsLoading(false);
         if (onSuccess) {
@@ -116,6 +131,27 @@ const LoginForm = ({ onSuccess }) => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError('');
+    
+    // Mock Google sign-in for demo
+    setTimeout(() => {
+      const mockGoogleUser = {
+        email: 'user@bizgropartners.com',
+        name: 'Google User'
+      };
+      
+      const user = authService.loginWithGoogle(mockGoogleUser);
+      
+      if (onSuccess) {
+        onSuccess(user);
+      } else {
+        window.location.reload();
+      }
+    }, 1000);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-slate-800 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
@@ -123,9 +159,20 @@ const LoginForm = ({ onSuccess }) => {
           {/* Logo and Title */}
           <div className="text-center mb-8">
             <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+              {/* Try to load cube image first, fallback to icon */}
+              <img 
+                src="/bizgro-cube.png" 
+                alt="BizGro" 
+                className="w-12 h-12 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = `
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  `;
+                }}
+              />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">BizGro Partners</h1>
             <p className="text-gray-400 text-sm">Sign in to access your dashboard</p>
@@ -134,7 +181,9 @@ const LoginForm = ({ onSuccess }) => {
           {/* Google Sign In Button */}
           <button
             type="button"
-            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-gray-800 rounded-lg hover:bg-gray-100 transition-colors mb-6 font-medium"
+            onClick={handleGoogleSignIn}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white text-gray-800 rounded-lg hover:bg-gray-100 transition-colors mb-6 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -142,7 +191,7 @@ const LoginForm = ({ onSuccess }) => {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Sign in with Google
+            {isLoading ? 'Signing in...' : 'Sign in with Google'}
           </button>
 
           {/* Divider */}
@@ -169,6 +218,7 @@ const LoginForm = ({ onSuccess }) => {
                   className="w-full px-4 py-3 pl-10 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
                   placeholder="you@example.com"
                   required
+                  disabled={isLoading}
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -188,6 +238,7 @@ const LoginForm = ({ onSuccess }) => {
                   className="w-full px-4 py-3 pl-10 pr-12 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
                   placeholder="Enter your password"
                   required
+                  disabled={isLoading}
                 />
                 <svg className="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -258,14 +309,15 @@ const LoginForm = ({ onSuccess }) => {
           <button
             type="button"
             onClick={useDemoCredentials}
-            className="w-full mt-4 py-2 text-center text-sm text-gray-400 hover:text-white transition-colors"
+            disabled={isLoading}
+            className="w-full mt-4 py-3 bg-slate-700/50 border border-slate-600 text-gray-300 rounded-lg hover:bg-slate-700 hover:border-blue-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Use Demo Credentials
           </button>
 
-          {/* Demo Info */}
-          <div className="mt-4 p-3 bg-blue-900/20 border border-blue-800/50 rounded-lg">
-            <p className="text-xs text-blue-400 text-center">
+          {/* Demo Info Text */}
+          <div className="mt-4 text-center">
+            <p className="text-xs text-blue-400">
               Demo: demo@bizgropartners.com / kpi2024
             </p>
           </div>
