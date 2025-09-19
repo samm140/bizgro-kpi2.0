@@ -1,9 +1,10 @@
 // src/App.jsx
-// Updated to integrate the Enhanced Dynamic Dashboard, Executive Dashboard, QBO Integration, Portfolio Companies, BizGro Reports, and AR Dashboard
+// Updated to integrate with new Authentication and SideHeader components
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
-import { AuthProvider, AuthContext, LoginForm, UserProfile } from './components/Authentication';
+import Authentication from './components/Authentication'; // New Authentication component
+import SideHeader from './components/SideHeader'; // New SideHeader component
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
@@ -13,17 +14,14 @@ import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
-import QBOSync from './components/shared/QBOSync'; // QBO Sync Widget
+import QBOSync from './components/shared/QBOSync';
 import DiamondBackDashboard from './components/portfolio/DiamondbackDashboard.jsx';
-import ARDashboard from './components/portfolio/ARDashboard'; // AR Dashboard import
-import APDashboard from './components/portfolio/APDashboard'; // AP Dashboard import
-import BizGroReports from './components/reports/BizGroReports'; // BizGro Reports
+import ARDashboard from './components/portfolio/ARDashboard';
+import APDashboard from './components/portfolio/APDashboard';
+import BizGroReports from './components/reports/BizGroReports';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
-import environment from './services/environment'; // Environment service for GitHub Pages compatibility
-
-// Import the new SideHeader component
-import SideHeader from './SideHeader';
+import environment from './services/environment';
 
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
@@ -211,175 +209,59 @@ const mockApi = {
   }
 };
 
-// Header Component - COMMENTED OUT
-/*
-const Header = ({ currentView, setCurrentView, user, showProfile, setShowProfile, useEnhancedDashboard, setUseEnhancedDashboard, logout }) => {
-  return (
-    <header className="bg-slate-800/50 backdrop-blur border-b border-slate-700 sticky top-0 z-10">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="text-3xl font-bold italic">
-              <img src="bizgro-kpi2.0-logo.png" alt="BizGro Logo" className="h-12 w-auto mr-3" />
-            </div>
-            <div className="ml-3">
-              <h1 className="text-lg font-semibold text-gray-200">KPI 2.0</h1>
-              <p className="text-xs text-gray-400">Financial System</p>
-            </div>
-          </div>
-          
-          <nav className="flex items-center space-x-2">
-            <button 
-              onClick={() => setCurrentView('dashboard')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'dashboard' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-chart-line mr-2"></i>Dashboard
-            </button>
-            <button 
-              onClick={() => setCurrentView('portfolio')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'portfolio' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-building mr-2"></i>Portfolio
-            </button>
-            <button 
-              onClick={() => setCurrentView('ar-dashboard')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'ar-dashboard' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-file-invoice-dollar mr-2"></i>AR Dashboard
-            </button>
-            <button 
-              onClick={() => setCurrentView('ap-dashboard')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'ap-dashboard' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-file-invoice mr-2"></i>AP Dashboard
-            </button>
-            <button 
-              onClick={() => setCurrentView('reports')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'reports' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-chart-bar mr-2"></i>Reports
-            </button>
-            <button 
-              onClick={() => setCurrentView('entry')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'entry' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-edit mr-2"></i>Weekly Entry
-            </button>
-            <button 
-              onClick={() => setCurrentView('insights')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'insights' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-lightbulb mr-2"></i>Insights
-            </button>
-            <button 
-              onClick={() => setCurrentView('historical')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'historical' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-history mr-2"></i>Historical
-            </button>
-            <button 
-              onClick={() => setCurrentView('metrics')}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                currentView === 'metrics' 
-                  ? 'bg-biz-primary text-white' 
-                  : 'bg-slate-700 hover:bg-slate-600 text-gray-300'
-              }`}
-            >
-              <i className="fas fa-book mr-2"></i>Metrics
-            </button>
-            
-            <div className="relative ml-4">
-              <button
-                onClick={() => setShowProfile(!showProfile)}
-                className="flex items-center space-x-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-              >
-                <i className="fas fa-user-circle text-gray-300"></i>
-                <span className="text-sm text-gray-300">{user?.name || 'User'}</span>
-                <i className="fas fa-chevron-down text-gray-400 text-xs"></i>
-              </button>
-              
-              {showProfile && (
-                <div className="absolute right-0 mt-2 w-64 bg-slate-800 rounded-lg shadow-xl border border-slate-700 p-4">
-                  <UserProfile />
-                  <div className="mt-4 pt-4 border-t border-slate-700">
-                    <label className="flex items-center justify-between cursor-pointer">
-                      <span className="text-sm text-gray-300">Enhanced Dashboard</span>
-                      <input 
-                        type="checkbox" 
-                        checked={useEnhancedDashboard}
-                        onChange={(e) => setUseEnhancedDashboard(e.target.checked)}
-                        className="form-checkbox h-5 w-5 text-biz-primary"
-                      />
-                    </label>
-                  </div>
-                  <div className="mt-2">
-                    <button
-                      onClick={logout}
-                      className="w-full px-3 py-2 bg-red-900/50 hover:bg-red-900/70 text-red-400 rounded transition-colors text-sm"
-                    >
-                      <i className="fas fa-sign-out-alt mr-2"></i>Logout
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </nav>
-        </div>
-      </div>
-    </header>
-  );
-};
-*/
-
 // Main App Component
 function App() {
-  const { user, isAuthenticated, logout } = useContext(AuthContext);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState(null);
   const [currentView, setCurrentView] = useState('dashboard');
-  const [dashboardView, setDashboardView] = useState('agenda'); // Default to agenda
+  const [dashboardView, setDashboardView] = useState('agenda');
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
-  const [showProfile, setShowProfile] = useState(false);
   const [useGoogleSheets, setUseGoogleSheets] = useState(false);
-  const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(true);
-  const [showSyncWidget, setShowSyncWidget] = useState(true); // State for QBO sync widget
-  const [backendAvailable, setBackendAvailable] = useState(false); // Backend availability for GitHub Pages
-  const [currentPortfolioId, setCurrentPortfolioId] = useState('default'); // NEW: State for current portfolio ID
+  const [showSyncWidget, setShowSyncWidget] = useState(true);
+  const [backendAvailable, setBackendAvailable] = useState(false);
+  const [currentPortfolioId, setCurrentPortfolioId] = useState('default');
 
   // Get updateWeeklyData from context if available
   const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+      const storedAuth = localStorage.getItem('isAuthenticated') || sessionStorage.getItem('isAuthenticated');
+      
+      if (storedUser && storedAuth === 'true') {
+        setUser(JSON.parse(storedUser));
+        setIsAuthenticated(true);
+      }
+      
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  // Handle login success
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('isAuthenticated');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('isAuthenticated');
+    
+    setUser(null);
+    setIsAuthenticated(false);
+  };
 
   // QBO sync handler with backend check
   const handleQBOSync = async () => {
@@ -389,9 +271,7 @@ function App() {
     }
     
     try {
-      // Call your QBO sync API here
       console.log('Syncing with QuickBooks Online...');
-      // await qboApi.syncWeeklyData();
       await fetchLatestData();
     } catch (error) {
       console.error('QBO sync error:', error);
@@ -404,12 +284,10 @@ function App() {
       const data = await mockApi.getDashboardData();
       setDashboardData(data);
       
-      // Update metrics context if available
       if (metricsContext && metricsContext.updateWeeklyData) {
         metricsContext.updateWeeklyData(data);
       }
       
-      // If Google Sheets is enabled and configured
       if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
         try {
           const sheetsData = await googleSheetsService.getHistoricalData(
@@ -433,13 +311,12 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  // Check backend availability for GitHub Pages deployment
+  // Check backend availability
   useEffect(() => {
     const checkBackend = async () => {
       const isAvailable = await environment.checkBackendConnection();
       setBackendAvailable(isAvailable);
       
-      // Log environment information for debugging
       if (!isAvailable && environment.isGitHubPages()) {
         console.log('Running on GitHub Pages - Backend features disabled');
       }
@@ -447,7 +324,7 @@ function App() {
     checkBackend();
   }, []);
 
-  // Polling for updates every 30 seconds when on dashboard
+  // Polling for updates
   useEffect(() => {
     if (isAuthenticated && currentView === 'dashboard') {
       const interval = setInterval(() => {
@@ -458,7 +335,7 @@ function App() {
     }
   }, [currentView, isAuthenticated]);
 
-  // Keyboard shortcuts - Updated to include AR Dashboard
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.altKey) {
@@ -466,12 +343,12 @@ function App() {
           case 'd': setCurrentView('dashboard'); break;
           case 'p': 
             if (e.shiftKey) {
-              setCurrentView('ap-dashboard'); // Shift+Alt+P for AP
+              setCurrentView('ap-dashboard');
             } else {
-              setCurrentView('portfolio'); // Alt+P for Portfolio
+              setCurrentView('portfolio');
             }
             break;
-          case 'a': setCurrentView('ar-dashboard'); break; // Alt+A for AR Dashboard
+          case 'a': setCurrentView('ar-dashboard'); break;
           case 'r': setCurrentView('reports'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
@@ -490,76 +367,24 @@ function App() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [showSyncWidget, backendAvailable]);
 
-  // Navigation bridge: react to #hash and custom events - Updated to include ar-dashboard and ap-dashboard
-  useEffect(() => {
-    const applyHash = () => {
-      const h = (window.location.hash || '').replace('#', '').toLowerCase();
-      if (h === 'dashboard' || h === 'portfolio' || h === 'ar-dashboard' || h === 'ap-dashboard' || h === 'reports' || h === 'entry' || h === 'insights' || h === 'historical' || h === 'metrics') {
-        setCurrentView(h);
-      }
-    };
-
-    const onHashChange = () => applyHash();
-
-    const onNavigate = (e) => {
-      const dest = (e.detail || '').toLowerCase();
-      if (!dest) return;
-      window.location.hash = `#${dest}`;
-      setCurrentView(dest);
-    };
-
-    // initialize from current hash
-    applyHash();
-
-    window.addEventListener('hashchange', onHashChange);
-    window.addEventListener('bg:navigate', onNavigate);
-    return () => {
-      window.removeEventListener('hashchange', onHashChange);
-      window.removeEventListener('bg:navigate', onNavigate);
-    };
-  }, []);
-
-   // If not authenticated, show login
-  if (!isAuthenticated) {
-    return (
-      <LoginForm 
-        onSuccess={(user) => {
-          console.log('Login successful, reloading...', user);
-          // Force a complete page reload to reinitialize the app
-          setTimeout(() => {
-            window.location.reload();
-          }, 100);
-        }} 
-      />
-    );
-  }
-
-  // Updated handleWeeklySubmit with enhanced error handling and demo mode support
+  // Handle weekly submit
   const handleWeeklySubmit = async (formData) => {
     setLoading(true);
     try {
-      // Check if we're using mock API or real backend
       if (environment.isGitHubPages() || !backendAvailable) {
-        // Submit to mock API (localStorage)
         const result = await mockApi.submitWeeklyData(formData);
         if (result.success) {
-          // Show success message for demo mode
           const message = environment.isGitHubPages() 
             ? 'Weekly data saved successfully! (Demo Mode - Data stored locally)'
             : 'Weekly data saved successfully!';
           alert(message);
           
-          // Refresh dashboard data
           await fetchLatestData();
-          
-          // Switch to dashboard view
           setCurrentView('dashboard');
         }
       } else {
-        // If backend is available, submit to real backend
-        await mockApi.submitWeeklyData(formData); // Replace with real backend call when available
+        await mockApi.submitWeeklyData(formData);
         
-        // If Google Sheets is enabled, submit there too
         if (useGoogleSheets && import.meta.env.VITE_GOOGLE_SHEETS_ID) {
           await googleSheetsService.submitWeeklyData(
             formData,
@@ -567,7 +392,6 @@ function App() {
           );
         }
         
-        // Refresh data and switch to dashboard
         await fetchLatestData();
         setCurrentView('dashboard');
       }
@@ -595,35 +419,27 @@ function App() {
     setHistoricalData(prev => prev.filter(item => item.id !== id));
   };
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show authentication screen if not authenticated
+  if (!isAuthenticated) {
+    return <Authentication onSuccess={handleLogin} />;
+  }
+
+  // Main app with SideHeader
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      {/* Header Component - COMMENTED OUT
-      <Header 
-        currentView={currentView} 
-        setCurrentView={setCurrentView}
-        user={user}
-        showProfile={showProfile}
-        setShowProfile={setShowProfile}
-        useEnhancedDashboard={useEnhancedDashboard}
-        setUseEnhancedDashboard={setUseEnhancedDashboard}
-        logout={logout}
-      />
-      */}
+      <SideHeader onLogout={handleLogout} />
       
-      {/* SideHeader Component - ACTIVE */}
-      <SideHeader 
-        currentView={currentView}
-        onNavigate={setCurrentView}
-        user={user}
-        dashboardData={dashboardData}
-        onExportDashboard={handleExportDashboard}
-        useGoogleSheets={useGoogleSheets}
-        setUseGoogleSheets={setUseGoogleSheets}
-        logout={logout}
-      />
-
-      {/* Main Content - Added margin-left to account for sidebar */}
-      <main className="ml-[280px] transition-all duration-300 p-8">
+      {/* Main Content */}
+      <main className="transition-all duration-300 p-8">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
@@ -634,7 +450,6 @@ function App() {
         ) : currentView === 'portfolio' ? (
           <DiamondBackDashboard />
         ) : currentView === 'ar-dashboard' ? (
-          // AR Dashboard view
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
@@ -652,7 +467,6 @@ function App() {
             <ARDashboard portfolioId={currentPortfolioId} />
           </div>
         ) : currentView === 'ap-dashboard' ? (
-          // AP Dashboard view
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-200">Accounts Payable Dashboard</h2>
@@ -673,7 +487,6 @@ function App() {
           <BizGroReports />
         ) : currentView === 'dashboard' ? (
           <div>
-            {/* Dashboard Header with Export */}
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-200">Executive Dashboard</h2>
               <div className="flex space-x-2">
@@ -703,7 +516,6 @@ function App() {
               </div>
             </div>
             
-            {/* Dashboard view tabs */}
             <div className="flex gap-2 mb-4">
               <button 
                 onClick={() => setDashboardView('agenda')}
@@ -747,7 +559,6 @@ function App() {
               </button>
             </div>
             
-            {/* Conditional rendering */}
             {dashboardView === 'agenda' ? (
               <ExecutiveDashboard data={dashboardData} />
             ) : dashboardView === 'dynamic' ? (
@@ -779,7 +590,7 @@ function App() {
         ) : null}
       </main>
 
-      {/* QBO Sync Widget - Only show if backend is available */}
+      {/* QBO Sync Widget */}
       {showSyncWidget && backendAvailable && (
         <QBOSync 
           position="fixed"
@@ -790,7 +601,7 @@ function App() {
         />
       )}
       
-      {/* Toggle button for QBO sync widget - Only show if backend is available */}
+      {/* Toggle button for QBO sync widget */}
       {backendAvailable && (
         <button
           onClick={() => setShowSyncWidget(!showSyncWidget)}
@@ -815,7 +626,7 @@ function App() {
         </div>
       )}
       
-      {/* Footer with keyboard shortcuts hint - Updated to include AR Dashboard */}
+      {/* Footer with keyboard shortcuts */}
       <footer className="mt-12 pb-4 text-center text-xs text-gray-500">
         Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+A (AR Dashboard), 
         Shift+Alt+P (AP Dashboard), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), 
@@ -826,15 +637,13 @@ function App() {
   );
 }
 
-// Wrap App with AuthProvider and MetricsProvider
-function AppWithAuth() {
+// Wrap App with MetricsProvider
+function AppWithProviders() {
   return (
-    <AuthProvider>
-      <MetricsProvider>
-        <App />
-      </MetricsProvider>
-    </AuthProvider>
+    <MetricsProvider>
+      <App />
+    </MetricsProvider>
   );
 }
 
-export default AppWithAuth;
+export default AppWithProviders;
