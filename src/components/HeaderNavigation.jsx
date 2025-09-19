@@ -17,6 +17,8 @@ const HeaderNavigation = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notifications, setNotifications] = useState(2);
 
+  console.log('HeaderNavigation file loaded');
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
