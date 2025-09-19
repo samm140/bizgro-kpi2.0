@@ -76,46 +76,44 @@ const SideHeader = ({ onLogout }) => {
         isCollapsed ? 'w-16' : 'w-64'
       }`}>
         {/* Logo Section */}
-        <div className="h-20 flex items-center justify-between px-4 border-b border-gray-800">
+        <div className="h-20 flex items-center justify-center px-4 border-b border-gray-800 relative">
           {isCollapsed ? (
-            <div className="w-full flex items-center justify-between">
-              <div className="w-10 h-10 flex items-center justify-center">
-                <img 
-                  src="bizgro-cube.png" 
-                  alt="BizGro" 
-                  className="w-10 h-10 object-contain"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<span class="text-blue-500 font-bold text-2xl">B</span>';
-                  }}
-                />
-              </div>
-              <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="text-gray-400 hover:text-white transition-colors ml-auto"
-              >
-                <ChevronRight size={20} />
-              </button>
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img 
+                src="/bizgro-cube.png" 
+                alt="BizGro" 
+                className="w-10 h-10 object-contain"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<span class="text-blue-500 font-bold text-2xl">B</span>';
+                }}
+              />
             </div>
           ) : (
-            <div className="w-full flex flex-col items-center">
+            <div className="flex items-center justify-center">
               <img 
-                src="bizgro-kpi2.0-logo.png" 
+                src="/bizgro-kpi2.0-logo.png" 
                 alt="BizGro KPI 2.0 System" 
-                className="h-12 object-contain mb-2"
+                className="h-12 object-contain"
                 onError={(e) => {
                   e.target.style.display = 'none';
                   e.target.parentElement.innerHTML = '<span class="text-white font-semibold text-lg">BizGro KPI 2.0</span>';
                 }}
               />
-              <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <ChevronLeft size={20} />
-              </button>
             </div>
           )}
+          
+          {/* Circular Toggle Button */}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={`absolute ${isCollapsed ? '-right-3' : '-right-3'} top-1/2 -translate-y-1/2 w-6 h-6 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-300 z-10`}
+          >
+            {isCollapsed ? (
+              <ChevronRight size={14} />
+            ) : (
+              <ChevronLeft size={14} />
+            )}
+          </button>
         </div>
 
         {/* Navigation */}
