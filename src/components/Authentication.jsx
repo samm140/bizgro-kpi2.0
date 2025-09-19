@@ -335,4 +335,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default { AuthProvider, AuthContext, LoginForm, UserProfile };
+export { AuthProvider, AuthContext, LoginForm, UserProfile, KPI2Logo, useAuth };
