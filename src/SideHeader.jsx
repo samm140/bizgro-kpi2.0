@@ -44,7 +44,7 @@ const SideHeader = ({
 
   // Load user preferences from localStorage
   useEffect(() => {
-    const savedPreferences = localStorage.getItem(`${config.auth.session.storagePrefix}preferences`);
+    const savedPreferences = localStorage.getItem('kpi2_preferences');
     if (savedPreferences) {
       setUserPreferences(JSON.parse(savedPreferences));
     }
@@ -61,7 +61,7 @@ const SideHeader = ({
   };
 
   const savePreferences = () => {
-    localStorage.setItem(`${config.auth.session.storagePrefix}preferences`, JSON.stringify(userPreferences));
+    localStorage.setItem('kpi2_preferences', JSON.stringify(userPreferences));
     // Show success toast/notification
     alert('Settings saved successfully!');
   };
