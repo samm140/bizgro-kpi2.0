@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import Authentication from './components/Authentication'; // New Authentication component
 import SideHeader from './SideHeader'; // New SideHeader component
+import HeaderNavigation from './components/HeaderNavigation'; // To be developed further
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
