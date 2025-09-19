@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Authentication from './components/Authentication'; // New Authentication component
-import SideHeader from './SideHeader'; // SideHeader is in src folder, not components
+import SideHeader from './components/SideHeader'; // New SideHeader component
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
@@ -436,13 +436,10 @@ function App() {
   // Main app with SideHeader
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      <SideHeader 
-        onLogout={handleLogout}
-        onCollapseChange={setIsCollapsed}
-      />
+      <SideHeader onLogout={handleLogout} />
       
-      {/* Main Content - Dynamic margin based on sidebar state */}
-      <main className={`transition-all duration-300 p-8 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
+      {/* Main Content */}
+      <main className="transition-all duration-300 p-8">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
