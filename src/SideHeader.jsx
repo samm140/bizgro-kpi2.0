@@ -15,7 +15,7 @@ import {
   LogOut
 } from 'lucide-react';
 
-const SideHeader = ({ onLogout }) => {
+const SideHeader = ({ onLogout, onCollapsedChange }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeItem, setActiveItem] = useState('Dashboard');
@@ -33,6 +33,13 @@ const SideHeader = ({ onLogout }) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Notify parent of collapse state changes
+  useEffect(() => {
+    if (onCollapsedChange) {
+      onCollapsedChange(isCollapsed);
+    }
+  }, [isCollapsed, onCollapsedChange]);
 
   const menuItems = [
     { 
@@ -246,21 +253,6 @@ const SideHeader = ({ onLogout }) => {
               </div>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      <div className={`transition-all duration-300 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
-        <div className="min-h-screen bg-gray-950">
-          {/* Header */}
-          <header className="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-end px-6">
-            {/* Removed the BizGro Partners image from here */}
-          </header>
-
-          {/* Page Content */}
-          <main className="p-6">
-            {/* Content will go here */}
-          </main>
         </div>
       </div>
     </>
