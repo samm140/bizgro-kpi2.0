@@ -22,6 +22,7 @@ import BizGroReports from './components/reports/BizGroReports';
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment';
+import HeaderNavigation from './components/HeaderNavigation.jsx';  // Add .jsx extension
 
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
