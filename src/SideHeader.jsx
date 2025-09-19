@@ -80,7 +80,7 @@ const SideHeader = ({ onLogout }) => {
           {isCollapsed ? (
             <div className="w-8 h-8 flex items-center justify-center">
               <img 
-                src="/bizgro-cube.png" 
+                src="bizgro-cube.png" 
                 alt="BizGro" 
                 className="w-8 h-8 object-contain"
                 onError={(e) => {
