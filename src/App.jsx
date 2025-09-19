@@ -434,16 +434,17 @@ function App() {
     return <Authentication onSuccess={handleLogin} />;
   }
 
-  // Main app with SideHeader
+  // Main app with SideHeader and HeaderNavigation
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
+      <HeaderNavigation />
       <SideHeader 
         onLogout={handleLogout} 
         onCollapsedChange={setIsSidebarCollapsed}
       />
       
-      {/* Main Content - Adjusted margin based on sidebar state */}
-      <main className={`transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} pt-16`}>
+      {/* Main Content - Adjusted margin based on sidebar state and top header */}
+      <main className={`transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} pt-20`}>
         <div className="p-8">
           {loading ? (
             <div className="flex items-center justify-center h-64">
