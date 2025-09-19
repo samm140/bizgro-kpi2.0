@@ -180,7 +180,7 @@ const Authentication = ({ onSuccess }) => {
   };
 
   const fillDemoCredentials = () => {
-    setEmail('demo@bizgro.io');
+    setEmail('demo@bizgropartners.com');
     setPassword('demo123');
   };
 
