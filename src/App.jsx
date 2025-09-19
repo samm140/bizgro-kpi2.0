@@ -436,10 +436,13 @@ function App() {
   // Main app with SideHeader
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      <SideHeader onLogout={handleLogout} />
+      <SideHeader 
+        onLogout={handleLogout}
+        onCollapseChange={setIsCollapsed}
+      />
       
-      {/* Main Content */}
-      <main className="transition-all duration-300 p-8">
+      {/* Main Content - Dynamic margin based on sidebar state */}
+      <main className={`transition-all duration-300 p-8 ${isCollapsed ? 'ml-16' : 'ml-64'}`}>
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
