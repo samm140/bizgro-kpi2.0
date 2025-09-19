@@ -60,7 +60,7 @@ const HeaderNavigation = () => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      zIndex: 40,
+      zIndex: 40, // Lower than SideHeader (z-50)
     },
     navLeft: {
       display: 'flex',
@@ -68,6 +68,7 @@ const HeaderNavigation = () => {
       gap: '20px',
       fontSize: '14px',
       color: '#e0e0e0',
+      paddingLeft: '264px', // 264px to account for 64px sidebar + some spacing
     },
     locationGroup: {
       display: 'flex',
@@ -151,6 +152,7 @@ const HeaderNavigation = () => {
 
   return (
     <header style={styles.header}>
+      {/* Left Section - Location, Weather, Time */}
       <div style={styles.navLeft}>
         <div style={styles.locationGroup}>
           <MapPin size={16} />
@@ -168,6 +170,7 @@ const HeaderNavigation = () => {
         </div>
       </div>
 
+      {/* Right Section - Icons */}
       <div style={styles.navRight}>
         {navButtons.map((item, index) => {
           if (item.separator) {
@@ -196,6 +199,7 @@ const HeaderNavigation = () => {
           );
         })}
 
+        {/* Apps Grid */}
         <div 
           style={{
             ...styles.appsGrid,
