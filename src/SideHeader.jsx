@@ -250,19 +250,36 @@ const SideHeader = ({
         }
       `}</style>
 
+      {/* Logo in Top Right Corner */}
+      <div className="fixed top-4 right-4 z-40">
+        <img 
+          src="/bizgro-kpi2.0-logo.png" 
+          alt="BizGro Logo" 
+          className="h-12 w-auto opacity-90 hover:opacity-100 transition-opacity"
+        />
+      </div>
+
       {/* Sidebar Navigation */}
       <div className={`sidebar fixed left-0 top-0 h-screen ${sidebarCollapsed ? 'w-20' : 'w-[280px]'} bg-gradient-to-b from-[#151923] to-[#0a0e1a] border-r border-gray-800 flex flex-col z-50 transition-all duration-300`}>
         {/* Logo Section */}
         <div className="p-6 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#00d4ff] to-[#00a3cc] rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">
-              B
-            </div>
-            {!sidebarCollapsed && (
-              <div className="sidebar-text">
-                <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">BizGro</h1>
-                <p className="text-xs text-gray-500 mt-0.5">KPI 2.0 System</p>
-              </div>
+            {sidebarCollapsed ? (
+              <img 
+                src="/bizgro-cube.png" 
+                alt="BizGro Cube" 
+                className="w-10 h-10 object-contain"
+              />
+            ) : (
+              <>
+                <div className="w-10 h-10 bg-gradient-to-br from-[#00d4ff] to-[#00a3cc] rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0">
+                  B
+                </div>
+                <div className="sidebar-text">
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">BizGro</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">KPI 2.0 System</p>
+                </div>
+              </>
             )}
           </div>
           <button 
@@ -344,7 +361,7 @@ const SideHeader = ({
             onClick={() => setShowProfile(!showProfile)}
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00d4ff] to-[#00a3cc] flex items-center justify-center font-semibold flex-shrink-0">
-              {user?.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+              {user?.name ? user.name.substring(0, 2).toUpperCase() : 'SM'}
             </div>
             {!sidebarCollapsed && (
               <div className="sidebar-text flex-1">
