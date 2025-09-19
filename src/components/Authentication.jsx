@@ -88,9 +88,9 @@ const Authentication = ({ onSuccess }) => {
       
       // Demo mode - remove when API is ready
       setTimeout(() => {
-        if (email === 'demo@bizgro.io' && password === 'demo123') {
+        if (email === 'demo@bizgropartners.com' && password === 'demo123') {
           const user = {
-            email: 'demo@bizgro.io',
+            email: 'demo@bizgropartners.com',
             name: 'Demo User',
             role: 'admin',
             provider: 'credentials'
