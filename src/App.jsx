@@ -223,6 +223,7 @@ function App() {
   const [showSyncWidget, setShowSyncWidget] = useState(true);
   const [backendAvailable, setBackendAvailable] = useState(false);
   const [currentPortfolioId, setCurrentPortfolioId] = useState('default');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // Get updateWeeklyData from context if available
   const metricsContext = typeof useMetrics !== 'undefined' ? useMetrics() : null;
@@ -436,158 +437,163 @@ function App() {
   // Main app with SideHeader
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      <SideHeader onLogout={handleLogout} />
+      <SideHeader 
+        onLogout={handleLogout} 
+        onCollapsedChange={setIsSidebarCollapsed}
+      />
       
-      {/* Main Content */}
-      <main className="transition-all duration-300 p-8">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-biz-primary mx-auto mb-4"></div>
-              <p className="text-gray-300">Loading...</p>
-            </div>
-          </div>
-        ) : currentView === 'portfolio' ? (
-          <DiamondBackDashboard />
-        ) : currentView === 'ar-dashboard' ? (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
-              <select
-                value={currentPortfolioId}
-                onChange={(e) => setCurrentPortfolioId(e.target.value)}
-                className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
-              >
-                <option value="default">All Companies</option>
-                <option value="diamondback">DiamondBack Construction</option>
-                <option value="bluestone">BlueStone Builders</option>
-                <option value="ironforge">IronForge Industries</option>
-              </select>
-            </div>
-            <ARDashboard portfolioId={currentPortfolioId} />
-          </div>
-        ) : currentView === 'ap-dashboard' ? (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-200">Accounts Payable Dashboard</h2>
-              <select
-                value={currentPortfolioId}
-                onChange={(e) => setCurrentPortfolioId(e.target.value)}
-                className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
-              >
-                <option value="default">All Companies</option>
-                <option value="diamondback">DiamondBack Construction</option>
-                <option value="bluestone">BlueStone Builders</option>
-                <option value="ironforge">IronForge Industries</option>
-              </select>
-            </div>
-            <APDashboard portfolioId={currentPortfolioId} />
-          </div>
-        ) : currentView === 'reports' ? (
-          <BizGroReports />
-        ) : currentView === 'dashboard' ? (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-200">Executive Dashboard</h2>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleExportDashboard('excel')}
-                  className="px-4 py-2 bg-green-900/50 hover:bg-green-900/70 text-green-400 rounded transition-colors text-sm"
-                >
-                  <i className="fas fa-file-excel mr-2"></i>Export Excel
-                </button>
-                <button
-                  onClick={() => handleExportDashboard('csv')}
-                  className="px-4 py-2 bg-blue-900/50 hover:bg-blue-900/70 text-blue-400 rounded transition-colors text-sm"
-                >
-                  <i className="fas fa-file-csv mr-2"></i>Export CSV
-                </button>
-                <button
-                  onClick={() => setUseGoogleSheets(!useGoogleSheets)}
-                  className={`px-4 py-2 rounded transition-colors text-sm ${
-                    useGoogleSheets 
-                      ? 'bg-green-900/50 text-green-400' 
-                      : 'bg-slate-700 text-gray-400'
-                  }`}
-                >
-                  <i className="fas fa-sync mr-2"></i>
-                  {useGoogleSheets ? 'Sheets Connected' : 'Connect Sheets'}
-                </button>
+      {/* Main Content - Adjusted margin based on sidebar state */}
+      <main className={`transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} pt-16`}>
+        <div className="p-8">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-biz-primary mx-auto mb-4"></div>
+                <p className="text-gray-300">Loading...</p>
               </div>
             </div>
-            
-            <div className="flex gap-2 mb-4">
-              <button 
-                onClick={() => setDashboardView('agenda')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'agenda' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-calendar mr-2"></i>Agenda
-              </button>
-              <button 
-                onClick={() => setDashboardView('dynamic')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'dynamic' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-th-large mr-2"></i>Dynamic Metrics
-              </button>
-              <button 
-                onClick={() => setDashboardView('enhanced')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'enhanced' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-chart-bar mr-2"></i>Enhanced View
-              </button>
-              <button 
-                onClick={() => setDashboardView('charts')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  dashboardView === 'charts' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
-                }`}
-              >
-                <i className="fas fa-chart-line mr-2"></i>Charts View
-              </button>
+          ) : currentView === 'portfolio' ? (
+            <DiamondBackDashboard />
+          ) : currentView === 'ar-dashboard' ? (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
+                <select
+                  value={currentPortfolioId}
+                  onChange={(e) => setCurrentPortfolioId(e.target.value)}
+                  className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
+                >
+                  <option value="default">All Companies</option>
+                  <option value="diamondback">DiamondBack Construction</option>
+                  <option value="bluestone">BlueStone Builders</option>
+                  <option value="ironforge">IronForge Industries</option>
+                </select>
+              </div>
+              <ARDashboard portfolioId={currentPortfolioId} />
             </div>
-            
-            {dashboardView === 'agenda' ? (
-              <ExecutiveDashboard data={dashboardData} />
-            ) : dashboardView === 'dynamic' ? (
-              <EnhancedDynamicDashboard data={dashboardData} />
-            ) : dashboardView === 'enhanced' ? (
-              <EnhancedDashboard data={dashboardData} />
-            ) : (
-              dashboardData && <ChartVisualization data={dashboardData} />
-            )}
-          </div>
-        ) : currentView === 'entry' ? (
-          <EnhancedWeeklyEntry 
-            onSubmit={handleWeeklySubmit} 
-            onCancel={() => setCurrentView('dashboard')} 
-          />
-        ) : currentView === 'insights' ? (
-          <InsightsBoard data={dashboardData} />
-        ) : currentView === 'historical' ? (
-          <div>
-            <h2 className="text-2xl font-bold mb-6 text-gray-200">Historical Data Analysis</h2>
-            <HistoricalDataView 
-              data={historicalData.length > 0 ? historicalData : dashboardData?.allEntries || []}
-              onEdit={handleHistoricalEdit}
-              onDelete={handleHistoricalDelete}
+          ) : currentView === 'ap-dashboard' ? (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-200">Accounts Payable Dashboard</h2>
+                <select
+                  value={currentPortfolioId}
+                  onChange={(e) => setCurrentPortfolioId(e.target.value)}
+                  className="px-4 py-2 bg-slate-700 text-gray-300 rounded-lg border border-slate-600 focus:border-biz-primary focus:outline-none"
+                >
+                  <option value="default">All Companies</option>
+                  <option value="diamondback">DiamondBack Construction</option>
+                  <option value="bluestone">BlueStone Builders</option>
+                  <option value="ironforge">IronForge Industries</option>
+                </select>
+              </div>
+              <APDashboard portfolioId={currentPortfolioId} />
+            </div>
+          ) : currentView === 'reports' ? (
+            <BizGroReports />
+          ) : currentView === 'dashboard' ? (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-200">Executive Dashboard</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleExportDashboard('excel')}
+                    className="px-4 py-2 bg-green-900/50 hover:bg-green-900/70 text-green-400 rounded transition-colors text-sm"
+                  >
+                    <i className="fas fa-file-excel mr-2"></i>Export Excel
+                  </button>
+                  <button
+                    onClick={() => handleExportDashboard('csv')}
+                    className="px-4 py-2 bg-blue-900/50 hover:bg-blue-900/70 text-blue-400 rounded transition-colors text-sm"
+                  >
+                    <i className="fas fa-file-csv mr-2"></i>Export CSV
+                  </button>
+                  <button
+                    onClick={() => setUseGoogleSheets(!useGoogleSheets)}
+                    className={`px-4 py-2 rounded transition-colors text-sm ${
+                      useGoogleSheets 
+                        ? 'bg-green-900/50 text-green-400' 
+                        : 'bg-slate-700 text-gray-400'
+                    }`}
+                  >
+                    <i className="fas fa-sync mr-2"></i>
+                    {useGoogleSheets ? 'Sheets Connected' : 'Connect Sheets'}
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mb-4">
+                <button 
+                  onClick={() => setDashboardView('agenda')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    dashboardView === 'agenda' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <i className="fas fa-calendar mr-2"></i>Agenda
+                </button>
+                <button 
+                  onClick={() => setDashboardView('dynamic')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    dashboardView === 'dynamic' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <i className="fas fa-th-large mr-2"></i>Dynamic Metrics
+                </button>
+                <button 
+                  onClick={() => setDashboardView('enhanced')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    dashboardView === 'enhanced' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <i className="fas fa-chart-bar mr-2"></i>Enhanced View
+                </button>
+                <button 
+                  onClick={() => setDashboardView('charts')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    dashboardView === 'charts' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <i className="fas fa-chart-line mr-2"></i>Charts View
+                </button>
+              </div>
+              
+              {dashboardView === 'agenda' ? (
+                <ExecutiveDashboard data={dashboardData} />
+              ) : dashboardView === 'dynamic' ? (
+                <EnhancedDynamicDashboard data={dashboardData} />
+              ) : dashboardView === 'enhanced' ? (
+                <EnhancedDashboard data={dashboardData} />
+              ) : (
+                dashboardData && <ChartVisualization data={dashboardData} />
+              )}
+            </div>
+          ) : currentView === 'entry' ? (
+            <EnhancedWeeklyEntry 
+              onSubmit={handleWeeklySubmit} 
+              onCancel={() => setCurrentView('dashboard')} 
             />
-          </div>
-        ) : currentView === 'metrics' ? (
-          <MetricsCatalog />
-        ) : null}
+          ) : currentView === 'insights' ? (
+            <InsightsBoard data={dashboardData} />
+          ) : currentView === 'historical' ? (
+            <div>
+              <h2 className="text-2xl font-bold mb-6 text-gray-200">Historical Data Analysis</h2>
+              <HistoricalDataView 
+                data={historicalData.length > 0 ? historicalData : dashboardData?.allEntries || []}
+                onEdit={handleHistoricalEdit}
+                onDelete={handleHistoricalDelete}
+              />
+            </div>
+          ) : currentView === 'metrics' ? (
+            <MetricsCatalog />
+          ) : null}
+        </div>
       </main>
 
       {/* QBO Sync Widget */}
