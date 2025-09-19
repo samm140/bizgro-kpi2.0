@@ -191,7 +191,7 @@ const Authentication = ({ onSuccess }) => {
         <div className="flex justify-center mb-6">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
             <img 
-              src="/bizgro-cube.png" 
+              src="bizgro-cube.png" 
               alt="BizGro Logo"
               className="w-12 h-12 object-contain"
               onError={(e) => {
