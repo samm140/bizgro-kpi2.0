@@ -519,9 +519,19 @@ function App() {
     };
   }, []);
 
-  // If not authenticated, show login
+   // If not authenticated, show login
   if (!isAuthenticated) {
-    return <LoginForm onSuccess={() => window.location.reload()} />;
+    return (
+      <LoginForm 
+        onSuccess={(user) => {
+          console.log('Login successful, reloading...', user);
+          // Force a complete page reload to reinitialize the app
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        }} 
+      />
+    );
   }
 
   // Updated handleWeeklySubmit with enhanced error handling and demo mode support
