@@ -1,488 +1,129 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+// src/components/Authentication.jsx
+// Enhanced Authentication Component with Google OAuth
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import googleAuthService from '../services/googleAuth';
 import config from '../config';
 
-// Debug logging to diagnose authentication issues
-console.log('=== Authentication Debug ===');
-console.log('Config loaded:', config);
-console.log('Demo enabled?', config.auth.demo.enabled);
-console.log('Storage prefix:', config.auth.session.storagePrefix);
-console.log('Existing users:', localStorage.getItem('kpi2_users'));
-
-// Force create demo user if it doesn't exist
-if (!localStorage.getItem('kpi2_users')) {
-  const demoUser = {
-    id: Date.now().toString(),
-    email: 'demo@bizgropartners.com',
-    password: 'kpi2024',
-    name: 'Demo User',
-    role: 'admin',
-    createdAt: new Date().toISOString()
-  };
-  localStorage.setItem('kpi2_users', JSON.stringify([demoUser]));
-  console.log('Demo user created!');
-  console.log('Verify creation:', localStorage.getItem('kpi2_users'));
-} else {
-  console.log('Users already exist:', JSON.parse(localStorage.getItem('kpi2_users')));
-}
-
 // Auth Context
-const AuthContext = createContext(null);
-
-// Mock auth service - replace with real API
-const authService = {
-  users: JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'users') || '[]'),
-  currentUser: JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'current_user') || 'null'),
-  
-  register: function(email, password, name, role = 'user') {
-    console.log('Register attempt:', { email, name, role });
-    if (this.users.find(u => u.email === email)) {
-      throw new Error(config.errors.auth.accountExists);
-    }
-    
-    // Validate email domain
-    const isValidDomain = config.auth.google.allowedDomains.some(domain => 
-      email.endsWith('@' + domain)
-    );
-    if (!isValidDomain) {
-      throw new Error(config.errors.auth.domainNotAllowed);
-    }
-    
-    const user = {
-      id: Date.now().toString(),
-      email,
-      password, // In production, hash this
-      name,
-      role,
-      createdAt: new Date().toISOString()
-    };
-    this.users.push(user);
-    localStorage.setItem(config.auth.session.storagePrefix + 'users', JSON.stringify(this.users));
-    console.log('User registered successfully:', user);
-    return user;
-  },
-  
-  login: function(email, password) {
-    console.log('Login attempt:', { email, password });
-    console.log('Available users:', this.users);
-    
-    // Reload users from localStorage in case they were created after initialization
-    this.users = JSON.parse(localStorage.getItem(config.auth.session.storagePrefix + 'users') || '[]');
-    console.log('Reloaded users from localStorage:', this.users);
-    
-    const user = this.users.find(u => u.email === email && u.password === password);
-    if (!user) {
-      console.log('Login failed - user not found or password mismatch');
-      throw new Error(config.errors.auth.invalidCredentials);
-    }
-    this.currentUser = user;
-    localStorage.setItem(config.auth.session.storagePrefix + 'current_user', JSON.stringify(user));
-    console.log('Login successful:', user);
-    return user;
-  },
-  
-  loginWithGoogle: function(googleUser) {
-    // In production, verify the Google token with your backend
-    let user = this.users.find(u => u.email === googleUser.email);
-    if (!user) {
-      user = {
-        id: Date.now().toString(),
-        email: googleUser.email,
-        name: googleUser.name,
-        picture: googleUser.picture,
-        role: 'user',
-        provider: 'google',
-        createdAt: new Date().toISOString()
-      };
-      this.users.push(user);
-      localStorage.setItem(config.auth.session.storagePrefix + 'users', JSON.stringify(this.users));
-    }
-    this.currentUser = user;
-    localStorage.setItem(config.auth.session.storagePrefix + 'current_user', JSON.stringify(user));
-    return user;
-  },
-  
-  logout: function() {
-    this.currentUser = null;
-    localStorage.removeItem(config.auth.session.storagePrefix + 'current_user');
-  },
-  
-  getCurrentUser: function() {
-    return this.currentUser;
-  }
-};
-
-// Initialize demo user for KPI-2.0 if enabled (backup initialization)
-if (config.auth.demo.enabled && !localStorage.getItem(config.auth.session.storagePrefix + 'users')) {
-  console.log('Attempting to register demo user via authService...');
-  try {
-    authService.register(config.auth.demo.email, config.auth.demo.password, 'Demo User', 'admin');
-    console.log('Demo user registered via authService');
-  } catch (err) {
-    console.log('Demo user registration error (might already exist):', err.message);
-  }
-}
-
-// Logo Component
-const KPI2Logo = ({ size = 'normal', className = '' }) => {
-  const sizeClasses = {
-    small: 'h-10',
-    normal: 'h-14',
-    large: 'h-20',
-    xlarge: 'h-24'
-  };
-  
-  return (
-    <img 
-      src={config.app.logo} 
-      alt={config.app.fullName} 
-      className={`${sizeClasses[size]} w-auto object-contain ${className}`}
-      onError={(e) => {
-        // Fallback if image fails to load
-        e.target.style.display = 'none';
-        e.target.parentElement.innerHTML = `
-          <div class="flex items-center gap-2">
-            <div class="text-3xl font-bold">
-              <span class="text-blue-500">Biz</span>
-              <span class="text-green-500">Gro</span>
-            </div>
-            <div class="text-sm text-gray-400">${config.app.name}</div>
-          </div>
-        `;
-      }}
-    />
-  );
-};
-
-// Google OAuth Button Component - FIXED VERSION
-const GoogleSignInButton = ({ onSuccess }) => {
-  // Use useCallback to ensure stable function reference
-  const handleGoogleResponse = useCallback((response) => {
-    try {
-      // Decode the JWT token
-      const userData = JSON.parse(atob(response.credential.split('.')[1]));
-      const googleUser = {
-        email: userData.email,
-        name: userData.name,
-        picture: userData.picture,
-        id: userData.sub
-      };
-      
-      // Check if email domain is allowed
-      const isValidDomain = config.auth.google.allowedDomains.some(domain => 
-        googleUser.email.endsWith('@' + domain)
-      );
-      
-      if (isValidDomain) {
-        authService.loginWithGoogle(googleUser);
-        onSuccess(googleUser);
-      } else {
-        alert(config.errors.auth.domainNotAllowed);
-      }
-    } catch (error) {
-      console.error('Google sign-in error:', error);
-      alert(config.errors.auth.googleSignInFailed);
-    }
-  }, [onSuccess]);
-
-  useEffect(() => {
-    if (!config.features.googleOAuth) return;
-    
-    // Store the callback in a ref to make it accessible
-    window.googleSignInCallback = handleGoogleResponse;
-    
-    // Load Google Sign-In API
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-    
-    script.onload = () => {
-      if (window.google && window.google.accounts) {
-        try {
-          window.google.accounts.id.initialize({
-            client_id: config.auth.google.clientId,
-            callback: window.googleSignInCallback,
-            auto_select: config.auth.google.autoSelect,
-            cancel_on_tap_outside: config.auth.google.cancelOnTapOutside,
-          });
-          
-          const buttonDiv = document.getElementById('google-signin-button');
-          if (buttonDiv) {
-            window.google.accounts.id.renderButton(
-              buttonDiv,
-              { 
-                theme: 'filled_black',
-                size: 'large',
-                width: 280,
-                text: 'continue_with',
-                shape: 'rectangular',
-                logo_alignment: 'left'
-              }
-            );
-          }
-        } catch (error) {
-          console.error('Error initializing Google Sign-In:', error);
-        }
-      }
-    };
-    
-    return () => {
-      // Cleanup
-      delete window.googleSignInCallback;
-      const scriptTag = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-      if (scriptTag) scriptTag.remove();
-    };
-  }, [handleGoogleResponse]);
-  
-  return (
-    <div>
-      <div id="google-signin-button" className="w-full flex justify-center"></div>
-      {/* Fallback button if Google API fails to load */}
-      <noscript>
-        <button
-          onClick={() => alert('Google Sign-In requires JavaScript to be enabled.')}
-          className="w-full mt-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-          </svg>
-          Continue with Google
-        </button>
-      </noscript>
-    </div>
-  );
-};
-
-// Login Form Component
-const LoginForm = ({ onSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [name, setName] = useState('');
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setError('');
-    
-    console.log('Form submit:', { email, password, isRegistering });
-    
-    try {
-      if (isRegistering) {
-        // Validate email domain
-        const isValidDomain = config.auth.google.allowedDomains.some(domain => 
-          email.endsWith('@' + domain)
-        );
-        if (!isValidDomain) {
-          setError(config.errors.auth.domainNotAllowed);
-          return;
-        }
-        authService.register(email, password, name);
-        authService.login(email, password);
-      } else {
-        authService.login(email, password);
-      }
-      onSuccess();
-    } catch (err) {
-      console.error('Authentication error:', err);
-      setError(err.message);
-    }
-  };
-
-  // Memoize the Google sign-in success handler
-  const handleGoogleSuccess = useCallback(() => {
-    onSuccess();
-  }, [onSuccess]);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-2xl border border-slate-700 p-8">
-          {/* Logo and Title */}
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-4">
-              <KPI2Logo size="xlarge" />
-            </div>
-            <p className="text-gray-400 text-sm mt-4">
-              {isRegistering ? 'Sign up for your financial dashboard' : 'Sign in to access your dashboard'}
-            </p>
-          </div>
-
-          {/* Google Sign In */}
-          {config.features.googleOAuth && (
-            <>
-              <div className="mb-6">
-                <GoogleSignInButton onSuccess={handleGoogleSuccess} />
-              </div>
-
-              <div className="relative mb-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-700"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-slate-800/50 text-gray-400">Or continue with email</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Email/Password Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isRegistering && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-                  placeholder="John Doe"
-                  required
-                />
-              </div>
-            )}
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Email Address
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder={`you@${config.auth.google.allowedDomains[0]}`}
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            
-            {error && (
-              <div className="bg-red-900/50 border border-red-700 text-red-300 px-3 py-2 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-            
-            <button
-              type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-            >
-              {isRegistering ? 'Create Account' : 'Sign In'}
-            </button>
-          </form>
-          
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsRegistering(!isRegistering);
-                setError('');
-              }}
-              className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              {isRegistering ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-            </button>
-          </div>
-          
-          {/* Demo Account Info */}
-          {config.auth.demo.enabled && (
-            <div className="mt-6 p-3 bg-slate-900/50 rounded-lg border border-slate-700">
-              <p className="text-xs text-gray-400 text-center">
-                Demo Account: {config.auth.demo.email} / {config.auth.demo.password}
-              </p>
-            </div>
-          )}
-        </div>
-        
-        {/* Footer */}
-        <div className="mt-4 text-center text-xs text-gray-500">
-          {config.app.copyright}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// User Profile Component
-const UserProfile = () => {
-  const { user, logout } = useContext(AuthContext);
-  
-  if (!user) {
-    return null;
-  }
-  
-  return (
-    <div className="space-y-3">
-      {user.picture && (
-        <div className="flex justify-center">
-          <img src={user.picture} alt={user.name} className="w-16 h-16 rounded-full" />
-        </div>
-      )}
-      <div>
-        <p className="text-sm font-semibold text-gray-200">{user.name}</p>
-        <p className="text-xs text-gray-400">{user.email}</p>
-        <p className="text-xs text-gray-500 mt-1">Role: {user.role}</p>
-        {user.provider && (
-          <p className="text-xs text-gray-500">Provider: {user.provider}</p>
-        )}
-      </div>
-      <button
-        onClick={logout}
-        className="w-full px-3 py-1 bg-red-900/50 hover:bg-red-900/70 text-red-400 rounded transition-colors text-sm"
-      >
-        Sign Out
-      </button>
-    </div>
-  );
-};
+export const AuthContext = createContext(null);
 
 // Auth Provider Component
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => authService.getCurrentUser());
-  const [isAuthenticated, setIsAuthenticated] = useState(() => !!authService.getCurrentUser());
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((email, password) => {
+  // Initialize authentication
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        // Initialize Google OAuth
+        await googleAuthService.init();
+        
+        // Check for existing session
+        const currentUser = googleAuthService.getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          setIsAuthenticated(true);
+          
+          // Set up token refresh interval
+          const refreshInterval = setInterval(() => {
+            googleAuthService.refreshToken();
+          }, 30 * 60 * 1000); // Refresh every 30 minutes
+          
+          return () => clearInterval(refreshInterval);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  // Google Sign In
+  const googleSignIn = async () => {
     try {
-      const user = authService.login(email, password);
-      setUser(user);
+      setLoading(true);
+      const userData = await googleAuthService.signIn();
+      setUser(userData);
       setIsAuthenticated(true);
-      return user;
+      return { success: true, user: userData };
     } catch (error) {
-      throw error;
+      console.error('Google sign-in error:', error);
+      return { 
+        success: false, 
+        error: error.message || config.errors.auth.googleSignInFailed 
+      };
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  };
 
-  const logout = useCallback(() => {
-    authService.logout();
-    setUser(null);
-    setIsAuthenticated(false);
-    window.location.reload();
-  }, []);
+  // Email/Password Sign In (Demo mode)
+  const emailSignIn = async (email, password) => {
+    setLoading(true);
+    
+    // Check demo credentials
+    if (config.auth.demo.enabled && 
+        email === config.auth.demo.email && 
+        password === config.auth.demo.password) {
+      
+      const demoUser = {
+        id: 'demo-user',
+        email: email,
+        name: 'Demo User',
+        picture: null,
+        role: 'Administrator',
+        provider: 'email'
+      };
+      
+      // Store in localStorage
+      localStorage.setItem(config.auth.session.storagePrefix + 'user', JSON.stringify(demoUser));
+      
+      setUser(demoUser);
+      setIsAuthenticated(true);
+      setLoading(false);
+      
+      return { success: true, user: demoUser };
+    }
+    
+    setLoading(false);
+    return { 
+      success: false, 
+      error: config.errors.auth.invalidCredentials 
+    };
+  };
 
-  const value = React.useMemo(() => ({
+  // Sign Out
+  const logout = async () => {
+    try {
+      await googleAuthService.signOut();
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // Clear all localStorage items with our prefix
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(config.auth.session.storagePrefix)) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const value = {
     user,
     isAuthenticated,
-    login,
+    loading,
+    googleSignIn,
+    emailSignIn,
     logout
-  }), [user, isAuthenticated, login, logout]);
+  };
 
   return (
     <AuthContext.Provider value={value}>
@@ -491,13 +132,208 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// Hook for using auth context
-const useAuth = () => {
+// Custom hook to use auth
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };
 
-export { AuthProvider, AuthContext, LoginForm, UserProfile, KPI2Logo, useAuth };
+// Login Form Component
+export const LoginForm = ({ onSuccess }) => {
+  const { googleSignIn, emailSignIn, loading } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    const result = await googleSignIn();
+    if (result.success) {
+      onSuccess && onSuccess(result.user);
+    } else {
+      setError(result.error);
+    }
+  };
+
+  const handleEmailSignIn = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    const result = await emailSignIn(email, password);
+    if (result.success) {
+      onSuccess && onSuccess(result.user);
+    } else {
+      setError(result.error);
+    }
+  };
+
+  useEffect(() => {
+    // Render Google Sign-In button
+    if (!loading) {
+      googleAuthService.renderButton('google-signin-button');
+    }
+  }, [loading]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
+      <div className="bg-slate-800/50 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md border border-slate-700">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <img 
+            src={`/${config.app.logo}`} 
+            alt={config.app.company} 
+            className="h-16 mx-auto mb-4"
+          />
+          <h2 className="text-2xl font-bold text-white">{config.app.fullName}</h2>
+          <p className="text-gray-400 text-sm mt-2">Sign in to your account</p>
+        </div>
+
+        {/* Google Sign-In Button */}
+        <div className="mb-6">
+          <div id="google-signin-button" className="flex justify-center"></div>
+        </div>
+
+        {/* Divider */}
+        <div className="relative mb-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-600"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-4 bg-slate-800 text-gray-400">Or continue with email</span>
+          </div>
+        </div>
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleEmailSignIn} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-colors"
+              placeholder={config.auth.demo.enabled ? config.auth.demo.email : "your@bizgropartners.com"}
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-colors"
+              placeholder={config.auth.demo.enabled ? "Demo: " + config.auth.demo.password : "••••••••"}
+              required
+            />
+          </div>
+
+          {/* Remember Me */}
+          <div className="flex items-center justify-between">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500"
+                defaultChecked={config.auth.session.rememberMe}
+              />
+              <span className="ml-2 text-sm text-gray-400">Remember me</span>
+            </label>
+            <a href="#" className="text-sm text-cyan-500 hover:text-cyan-400">
+              Forgot password?
+            </a>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-3 bg-red-900/20 border border-red-900/50 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white font-semibold rounded-lg hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Signing in...' : (isSignUp ? 'Sign Up' : 'Sign In')}
+          </button>
+        </form>
+
+        {/* Demo Mode Notice */}
+        {config.auth.demo.enabled && (
+          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-900/50 rounded-lg">
+            <p className="text-blue-400 text-sm text-center">
+              <strong>Demo Mode:</strong> Use {config.auth.demo.email} / {config.auth.demo.password}
+            </p>
+          </div>
+        )}
+
+        {/* Sign Up Link */}
+        <p className="text-center text-gray-400 text-sm mt-6">
+          {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+          <button
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-cyan-500 hover:text-cyan-400 font-medium"
+          >
+            {isSignUp ? 'Sign In' : 'Sign Up'}
+          </button>
+        </p>
+
+        {/* Footer */}
+        <p className="text-center text-gray-500 text-xs mt-6">
+          {config.app.copyright}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// User Profile Component
+export const UserProfile = () => {
+  const { user } = useAuth();
+
+  if (!user) return null;
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center space-x-3">
+        {user.picture ? (
+          <img 
+            src={user.picture} 
+            alt={user.name} 
+            className="w-12 h-12 rounded-full"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-white font-bold">
+            {user.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
+          </div>
+        )}
+        <div>
+          <p className="text-sm font-semibold text-white">{user.name || 'User'}</p>
+          <p className="text-xs text-gray-400">{user.email}</p>
+          {user.provider && (
+            <p className="text-xs text-cyan-500">via {user.provider}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default {
+  AuthProvider,
+  AuthContext,
+  useAuth,
+  LoginForm,
+  UserProfile
+};
