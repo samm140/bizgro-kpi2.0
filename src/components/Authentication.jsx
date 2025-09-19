@@ -111,7 +111,7 @@ const authService = {
 };
 
 // Login Form Component
-export const LoginForm = ({ onSuccess }) => {
+  const LoginForm = ({ onSuccess }) => {
   const [email, setEmail] = useState('demo@bizgropartners.com');
   const [password, setPassword] = useState('kpi2024');
   const [error, setError] = useState('');
@@ -287,7 +287,7 @@ export const LoginForm = ({ onSuccess }) => {
 };
 
 // User Profile Component
-export const UserProfile = () => {
+  const UserProfile = () => {
   const { user, logout } = useContext(AuthContext);
   
   if (!user) return null;
@@ -304,7 +304,7 @@ export const UserProfile = () => {
 };
 
 // Auth Provider Component
-export const AuthProvider = ({ children }) => {
+  const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => authService.getCurrentUser());
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!authService.getCurrentUser());
 
@@ -335,4 +335,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export { AuthProvider, AuthContext, LoginForm, UserProfile, KPI2Logo, useAuth };
+export { AuthProvider, AuthContext, LoginForm, UserProfile };
