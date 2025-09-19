@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import config from './config';
+import config from '../config';
 
 const SideHeader = ({ 
   currentView = 'dashboard', 
@@ -251,8 +251,8 @@ const SideHeader = ({
       {/* Logo in Top Right Corner */}
       <div className="fixed top-4 right-4 z-40">
         <img 
-          src={`/${config.app.logo}`} 
-          alt={config.app.company} 
+          src="/bizgro-kpi2.0-logo.png" 
+          alt="BizGro Partners" 
           className="h-12 w-auto opacity-90 hover:opacity-100 transition-opacity"
         />
       </div>
