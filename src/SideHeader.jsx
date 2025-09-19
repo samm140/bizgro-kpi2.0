@@ -15,7 +15,7 @@ import {
   LogOut
 } from 'lucide-react';
 
-const SideHeader = ({ onLogout, onCollapsedChange }) => {
+const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [activeItem, setActiveItem] = useState('Dashboard');
@@ -45,20 +45,20 @@ const SideHeader = ({ onLogout, onCollapsedChange }) => {
     { 
       category: 'MAIN', 
       items: [
-        { name: 'Dashboard', icon: Home, path: '/dashboard' },
-        { name: 'Portfolio', icon: Briefcase, path: '/portfolio' },
-        { name: 'AR Dashboard', icon: BarChart3, path: '/ar-dashboard' },
-        { name: 'AP Dashboard', icon: PieChart, path: '/ap-dashboard' }
+        { name: 'Dashboard', icon: Home, view: 'dashboard' },
+        { name: 'Portfolio', icon: Briefcase, view: 'portfolio' },
+        { name: 'AR Dashboard', icon: BarChart3, view: 'ar-dashboard' },
+        { name: 'AP Dashboard', icon: PieChart, view: 'ap-dashboard' }
       ]
     },
     { 
       category: 'ANALYTICS', 
       items: [
-        { name: 'Reports', icon: FileText, path: '/reports' },
-        { name: 'Insights', icon: TrendingUp, path: '/insights' },
-        { name: 'Weekly Entry', icon: Calendar, badge: 'New', path: '/weekly-entry' },
-        { name: 'Historical', icon: Clock, path: '/historical' },
-        { name: 'Metrics', icon: DollarSign, path: '/metrics' }
+        { name: 'Reports', icon: FileText, view: 'reports' },
+        { name: 'Insights', icon: TrendingUp, view: 'insights' },
+        { name: 'Weekly Entry', icon: Calendar, badge: 'New', view: 'entry' },
+        { name: 'Historical', icon: Clock, view: 'historical' },
+        { name: 'Metrics', icon: DollarSign, view: 'metrics' }
       ]
     }
   ];
@@ -175,7 +175,12 @@ const SideHeader = ({ onLogout, onCollapsedChange }) => {
               {section.items.map((item) => (
                 <button
                   key={item.name}
-                  onClick={() => setActiveItem(item.name)}
+                  onClick={() => {
+                    setActiveItem(item.name);
+                    if (onNavigate) {
+                      onNavigate(item.view);
+                    }
+                  }}
                   className={`w-full flex items-center px-4 py-3 text-left transition-all duration-200 relative group ${
                     activeItem === item.name
                       ? 'bg-blue-600/10 text-blue-500 border-r-2 border-blue-500'
