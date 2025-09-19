@@ -57,17 +57,54 @@ const SideHeader = ({ onLogout }) => {
   ];
 
   const handleLogout = () => {
+    // Clear all auth data
     localStorage.removeItem('user');
     sessionStorage.removeItem('user');
+    localStorage.removeItem('isAuthenticated');
+    sessionStorage.removeItem('isAuthenticated');
+    
+    // Call the onLogout prop if provided
     if (onLogout) {
       onLogout();
     } else {
-      window.location.reload();
+      // Force reload to trigger auth check in App.js
+      window.location.href = '/';
     }
   };
 
   // Get user data
   const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+  
+  // Determine avatar display - use Google avatar if available, otherwise initials
+  const getUserAvatar = () => {
+    // Production OAuth - uncomment when Google OAuth is configured
+    /*
+    if (user.provider === 'google' && user.picture) {
+      return (
+        <img 
+          src={user.picture} 
+          alt={user.name}
+          className="w-8 h-8 rounded-full object-cover"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = `
+              <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+                ${user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+              </div>
+            `;
+          }}
+        />
+      );
+    }
+    */
+    
+    // Default to initials
+    return (
+      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+        {user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -175,9 +212,7 @@ const SideHeader = ({ onLogout }) => {
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
               className="w-full flex items-center px-4 py-4 hover:bg-gray-800/50 transition-colors"
             >
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                {user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
-              </div>
+              {getUserAvatar()}
               
               {!isCollapsed && (
                 <>
