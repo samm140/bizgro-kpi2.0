@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import config from './config';
 
 const SideHeader = ({ 
   currentView = 'dashboard', 
@@ -274,8 +273,8 @@ const SideHeader = ({
                   B
                 </div>
                 <div className="sidebar-text">
-                  <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">{config.app.company.split(' ')[0]}</h1>
-                  <p className="text-xs text-gray-500 mt-0.5">{config.app.name} System</p>
+                  <h1 className="text-xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">BizGro</h1>
+                  <p className="text-xs text-gray-500 mt-0.5">KPI 2.0 System</p>
                 </div>
               </>
             )}
