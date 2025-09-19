@@ -161,7 +161,7 @@ const LoginForm = ({ onSuccess }) => {
             <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
               {/* Try to load cube image first, fallback to icon */}
               <img 
-                src="/bizgro-cube.png" 
+                src="bizgro-cube.png" 
                 alt="BizGro" 
                 className="w-12 h-12 object-contain"
                 onError={(e) => {
@@ -174,7 +174,7 @@ const LoginForm = ({ onSuccess }) => {
                 }}
               />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">BizGro Partners</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">KPI 2.0 Financial System</h1>
             <p className="text-gray-400 text-sm">Sign in to access your dashboard</p>
           </div>
 
@@ -315,12 +315,6 @@ const LoginForm = ({ onSuccess }) => {
             Use Demo Credentials
           </button>
 
-          {/* Demo Info Text */}
-          <div className="mt-4 text-center">
-            <p className="text-xs text-blue-400">
-              Demo: demo@bizgropartners.com / kpi2024
-            </p>
-          </div>
         </div>
       </div>
     </div>
