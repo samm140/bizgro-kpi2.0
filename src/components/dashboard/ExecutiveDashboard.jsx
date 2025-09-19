@@ -4,11 +4,11 @@ import WeeklyEntryQBODashboard from './WeeklyEntryQBODashboard';
 import { Calendar, TrendingUp, Database, BarChart3, FileText, DollarSign } from 'lucide-react';
 
 export default function ExecutiveDashboard({ data }) {
-  const [activeView, setActiveView] = useState('overview'); // overview, agendas, qbo
+  const [activeView, setActiveView] = useState('agendas'); // Changed default from 'overview' to 'agendas'
 
   const navigationItems = [
+    { id: 'agendas', label: 'Meeting Agendas', icon: Calendar, color: 'text-purple-400' }, // Moved to first position
     { id: 'overview', label: 'Overview', icon: BarChart3, color: 'text-blue-400' },
-    { id: 'agendas', label: 'Meeting Agendas', icon: Calendar, color: 'text-purple-400' },
     { id: 'qbo', label: 'QBO Integration', icon: Database, color: 'text-green-400' }
   ];
 
@@ -67,6 +67,24 @@ export default function ExecutiveDashboard({ data }) {
           })}
         </div>
       </div>
+
+      {/* Meeting Agendas Section - Now shown by default */}
+      {activeView === 'agendas' && (
+        <div className="space-y-6">
+          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-5">
+            <div className="flex items-center gap-3 mb-2">
+              <Calendar className="w-6 h-6 text-purple-400" />
+              <h3 className="text-lg font-semibold text-gray-200">Meeting Agendas</h3>
+            </div>
+            <p className="text-base text-gray-400">
+              Standard agendas for KPI calls and board meetings. All calls are recorded with AI notetaker for documentation.
+            </p>
+          </div>
+          
+          {/* Agenda Panels */}
+          <AgendaPanels />
+        </div>
+      )}
 
       {/* Overview Section */}
       {activeView === 'overview' && (
@@ -234,24 +252,6 @@ export default function ExecutiveDashboard({ data }) {
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Meeting Agendas Section */}
-      {activeView === 'agendas' && (
-        <div className="space-y-6">
-          <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-lg p-5">
-            <div className="flex items-center gap-3 mb-2">
-              <Calendar className="w-6 h-6 text-purple-400" />
-              <h3 className="text-lg font-semibold text-gray-200">Meeting Agendas</h3>
-            </div>
-            <p className="text-base text-gray-400">
-              Standard agendas for KPI calls and board meetings. All calls are recorded with AI notetaker for documentation.
-            </p>
-          </div>
-          
-          {/* Agenda Panels */}
-          <AgendaPanels />
         </div>
       )}
 
