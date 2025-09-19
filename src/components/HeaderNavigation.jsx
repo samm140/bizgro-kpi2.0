@@ -10,14 +10,13 @@ import {
   Bookmark,
   MapPin,
   Sun,
-  Clock
+  Clock,
+  Grid3x3
 } from 'lucide-react';
 
 const HeaderNavigation = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notifications, setNotifications] = useState(2);
-
-  console.log('HeaderNavigation file loaded');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -40,11 +39,9 @@ const HeaderNavigation = () => {
     { icon: MessageCircle, title: 'Messages' },
     { icon: User, title: 'Profile' },
     { icon: Heart, title: 'Favorites' },
-    { separator: true },
     { icon: Calendar, title: 'Calendar' },
     { icon: Search, title: 'Search' },
     { icon: HelpCircle, title: 'Help' },
-    { separator: true },
     { icon: Bookmark, title: 'Bookmarks' }
   ];
 
@@ -54,54 +51,52 @@ const HeaderNavigation = () => {
       top: 0,
       left: 0,
       right: 0,
-      height: '50px',
-      background: 'linear-gradient(90deg, rgba(30, 41, 59, 0.98) 0%, rgba(45, 49, 66, 0.95) 100%)',
-      backdropFilter: 'blur(10px)',
-      borderBottom: '2px solid rgba(59, 130, 246, 0.3)', // More visible border
+      height: '40px', // Slimmer header
+      background: 'rgba(30, 41, 59, 0.98)', // Dark slate background
+      backdropFilter: 'blur(8px)',
+      borderBottom: '1px solid rgba(71, 85, 105, 0.3)', // Subtle border
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 20px',
-      zIndex: 49, // Just below SideHeader (50) but above everything else
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)', // Add shadow for visibility
+      padding: '0 16px',
+      zIndex: 49,
     },
-    navLeft: {
+    leftSection: {
       display: 'flex',
       alignItems: 'center',
       gap: '20px',
-      fontSize: '14px',
-      color: '#e0e0e0',
-      marginLeft: '244px', // Account for sidebar width
+      fontSize: '13px',
+      marginLeft: '250px', // Account for sidebar
     },
     locationGroup: {
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
-      color: '#94a3b8', // Slightly brighter
+      gap: '6px',
+      color: '#94a3b8',
     },
     weatherGroup: {
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
-      color: '#fbbf24', // Yellow for weather
+      gap: '4px',
+      color: '#fbbf24',
     },
     timeGroup: {
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
-      color: '#60a5fa', // Blue for time
+      gap: '6px',
+      color: '#94a3b8',
     },
-    navRight: {
+    rightSection: {
       display: 'flex',
       alignItems: 'center',
-      gap: '12px',
+      gap: '8px',
     },
     navButton: {
-      width: '36px',
-      height: '36px',
-      borderRadius: '8px',
-      background: 'rgba(255, 255, 255, 0.05)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      width: '32px',
+      height: '32px',
+      borderRadius: '6px',
+      background: 'transparent',
+      border: 'none',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -111,53 +106,38 @@ const HeaderNavigation = () => {
       color: '#94a3b8',
     },
     navButtonHover: {
-      background: 'rgba(59, 130, 246, 0.2)',
-      borderColor: 'rgba(59, 130, 246, 0.3)',
-      color: '#e0e0e0',
+      background: 'rgba(71, 85, 105, 0.3)',
+      color: '#e2e8f0',
     },
     badge: {
       position: 'absolute',
-      top: '4px',
-      right: '4px',
-      minWidth: '16px',
-      height: '16px',
+      top: '5px',
+      right: '5px',
+      minWidth: '14px',
+      height: '14px',
       background: '#ef4444',
       color: 'white',
-      borderRadius: '8px',
+      borderRadius: '7px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontSize: '10px',
+      fontSize: '9px',
       fontWeight: 'bold',
-      padding: '0 3px',
-    },
-    separator: {
-      width: '1px',
-      height: '24px',
-      background: 'rgba(148, 163, 184, 0.2)',
     },
     appsGrid: {
-      width: '36px',
-      height: '36px',
-      display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)',
-      gap: '2px',
-      padding: '8px',
+      width: '32px',
+      height: '32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
       cursor: 'pointer',
-      borderRadius: '8px',
+      borderRadius: '6px',
       transition: 'all 0.2s ease',
-      background: 'rgba(255, 255, 255, 0.05)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      color: '#94a3b8',
     },
     appsGridHover: {
-      background: 'rgba(59, 130, 246, 0.2)',
-      borderColor: 'rgba(59, 130, 246, 0.3)',
-    },
-    dot: {
-      width: '4px',
-      height: '4px',
-      background: '#94a3b8',
-      borderRadius: '1px',
+      background: 'rgba(71, 85, 105, 0.3)',
+      color: '#e2e8f0',
     }
   };
 
@@ -167,30 +147,26 @@ const HeaderNavigation = () => {
   return (
     <header style={styles.header}>
       {/* Left Section - Location, Weather, Time */}
-      <div style={styles.navLeft}>
+      <div style={styles.leftSection}>
         <div style={styles.locationGroup}>
-          <MapPin size={16} />
+          <MapPin size={14} />
           <span>Hasbrouck Heights, NJ</span>
         </div>
         
         <div style={styles.weatherGroup}>
-          <Sun size={20} />
+          <Sun size={16} />
           <span>72°F</span>
         </div>
         
         <div style={styles.timeGroup}>
-          <Clock size={16} />
+          <Clock size={14} />
           <span>{formatTime(currentTime)}</span>
         </div>
       </div>
 
       {/* Right Section - Icons */}
-      <div style={styles.navRight}>
+      <div style={styles.rightSection}>
         {navButtons.map((item, index) => {
-          if (item.separator) {
-            return <div key={`sep-${index}`} style={styles.separator} />;
-          }
-          
           const Icon = item.icon;
           const isHovered = hoveredButton === index;
           
@@ -205,7 +181,7 @@ const HeaderNavigation = () => {
               onMouseLeave={() => setHoveredButton(null)}
               title={item.title}
             >
-              <Icon size={18} />
+              <Icon size={16} />
               {item.badge && (
                 <span style={styles.badge}>{item.badge}</span>
               )}
@@ -223,9 +199,7 @@ const HeaderNavigation = () => {
           onMouseLeave={() => setHoveredApps(false)}
           title="Apps"
         >
-          {[...Array(9)].map((_, i) => (
-            <div key={i} style={styles.dot} />
-          ))}
+          <Grid3x3 size={16} />
         </div>
       </div>
     </header>
