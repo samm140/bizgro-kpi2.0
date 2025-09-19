@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import Authentication from './components/Authentication'; // New Authentication component
-import SideHeader from './components/SideHeader'; // New SideHeader component
+import SideHeader from './SideHeader'; // New SideHeader component
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
