@@ -5,7 +5,6 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import Authentication from './components/Authentication'; // New Authentication component
 import SideHeader from './SideHeader'; // New SideHeader component
-import HeaderNavigation from './components/HeaderNavigation'; // will be further developed
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
@@ -435,17 +434,17 @@ function App() {
     return <Authentication onSuccess={handleLogin} />;
   }
 
-  // Main app with SideHeader and HeaderNavigation
+  // Main app with SideHeader
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-biz-darker">
-      <HeaderNavigation />
+      {/* <HeaderNavigation /> */}  {/* TODO: Uncomment after creating component */}
       <SideHeader 
         onLogout={handleLogout} 
         onCollapsedChange={setIsSidebarCollapsed}
       />
       
-      {/* Main Content - Adjusted margin based on sidebar state and top header */}
-      <main className={`transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} pt-20`}>
+      {/* Main Content - Adjusted margin based on sidebar state */}
+      <main className={`transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'} pt-16`}>
         <div className="p-8">
           {loading ? (
             <div className="flex items-center justify-center h-64">
