@@ -3,11 +3,11 @@ import { User, Shield, Lock, Settings, Activity, Save, X, Edit2, Trash2, Plus, C
 
 // Mock data - replace with API calls
 const mockUsers = [
-  { id: 1, name: 'John Smith', email: 'john@bizgro.com', role: 'Admin', status: 'active', lastLogin: '2025-01-10 14:23', companies: ['all'] },
-  { id: 2, name: 'Sarah Johnson', email: 'sarah@bizgro.com', role: 'Executive', status: 'active', lastLogin: '2025-01-10 09:15', companies: ['all'] },
-  { id: 3, name: 'Mike Chen', email: 'mike@bizgro.com', role: 'Financial', status: 'active', lastLogin: '2025-01-09 16:45', companies: ['DiamondBack', 'BlueStone'] },
-  { id: 4, name: 'Emily Davis', email: 'emily@bizgro.com', role: 'Operational', status: 'active', lastLogin: '2025-01-10 11:30', projects: ['Project Alpha', 'Project Beta'] },
-  { id: 5, name: 'Tom Wilson', email: 'tom@bizgro.com', role: 'Sales', status: 'inactive', lastLogin: '2025-01-05 10:00', customers: ['Customer A', 'Customer B'] },
+  { id: 1, name: 'John Smith', email: 'john@bizgropartners.com', role: 'Admin', status: 'active', lastLogin: '2025-01-10 14:23', companies: ['all'] },
+  { id: 2, name: 'Sarah Johnson', email: 'sarah@bizgropartners.com', role: 'Executive', status: 'active', lastLogin: '2025-01-10 09:15', companies: ['all'] },
+  { id: 3, name: 'Mike Chen', email: 'mike@bizgropartners.com', role: 'Financial', status: 'active', lastLogin: '2025-01-09 16:45', companies: ['DiamondBack', 'BlueStone'] },
+  { id: 4, name: 'Emily Davis', email: 'emily@bizgropartners.com', role: 'Operational', status: 'active', lastLogin: '2025-01-10 11:30', projects: ['Project Alpha', 'Project Beta'] },
+  { id: 5, name: 'Tom Wilson', email: 'tom@bizgropartners.com', role: 'Sales', status: 'inactive', lastLogin: '2025-01-05 10:00', customers: ['Customer A', 'Customer B'] },
   { id: 6, name: 'Investment Fund LLC', email: 'contact@investfund.com', role: 'Investor', status: 'active', lastLogin: '2025-01-08 13:00', companies: ['portfolio'] }
 ];
 
