@@ -518,3 +518,4 @@ export const can = (permissions, module, action) => {
   if (!permissions) return false;
   return permissions.hasPermission(module, action);
 };
+
