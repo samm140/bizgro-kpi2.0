@@ -418,6 +418,7 @@ export class PermissionManager {
       { name: 'Receivables', module: MODULES.AR, icon: 'dollar-sign', view: 'ar-dashboard' },
       { name: 'Payables', module: MODULES.AP, icon: 'credit-card', view: 'ap-dashboard' },
       { name: 'FP&A Reports', module: MODULES.REPORTS, icon: 'file-text', view: 'reports' },
+      { name: 'CFO Analysis', module: MODULES.REPORTS, icon: 'chart-pie', view: 'cfo-dashboard' },
       { name: 'Insights', module: MODULES.INSIGHTS, icon: 'trending-up', view: 'insights' },
       { name: 'Weekly Entry', module: MODULES.WEEKLY_ENTRY, icon: 'calendar', view: 'entry', badge: 'New' },
       { name: 'Historical', module: MODULES.HISTORICAL, icon: 'clock', view: 'historical' },
