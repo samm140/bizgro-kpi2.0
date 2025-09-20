@@ -15,28 +15,75 @@ import {
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Treemap, Sankey
 } from "recharts";
 
-// Sam Avatar Component - Cartoon style advisor icon
-const SamAvatar = ({ size = 40 }) => (
-  <div 
-    className="relative rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5"
-    style={{ width: size, height: size }}
-  >
-    <div className="rounded-full bg-zinc-900 p-1 w-full h-full flex items-center justify-center">
-      <svg viewBox="0 0 100 100" className="w-full h-full">
-        <circle cx="50" cy="50" r="35" fill="#fdbcb4" />
-        <path d="M 25 35 Q 50 20, 75 35" fill="#8B4513" strokeWidth="2" />
-        <circle cx="38" cy="45" r="3" fill="#333" />
-        <circle cx="62" cy="45" r="3" fill="#333" />
-        <circle cx="38" cy="45" r="8" fill="none" stroke="#333" strokeWidth="2" />
-        <circle cx="62" cy="45" r="8" fill="none" stroke="#333" strokeWidth="2" />
-        <line x1="46" y1="45" x2="54" y2="45" stroke="#333" strokeWidth="2" />
-        <path d="M 35 58 Q 50 68, 65 58" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" />
-        <polygon points="50,70 45,80 55,80" fill="#4169E1" />
-      </svg>
+// Enhanced Sam Avatar Component with dynamic moods
+const SamAvatar = ({ size = 48, mood = 'thinking' }) => {
+  // Different moods for different insights
+  const moods = {
+    thinking: { eyebrowAngle: 15, mouthCurve: 'M 35 58 Q 50 63, 65 58' },
+    concerned: { eyebrowAngle: -10, mouthCurve: 'M 35 62 Q 50 57, 65 62' },
+    happy: { eyebrowAngle: 5, mouthCurve: 'M 35 55 Q 50 68, 65 55' },
+    alert: { eyebrowAngle: -15, mouthCurve: 'M 40 60 L 60 60' }
+  };
+  
+  const currentMood = moods[mood] || moods.thinking;
+  
+  return (
+    <div 
+      className="relative rounded-full bg-gradient-to-br from-amber-600 to-amber-800 p-0.5"
+      style={{ width: size, height: size }}
+    >
+      <div className="rounded-full bg-zinc-900 p-1 w-full h-full flex items-center justify-center overflow-hidden">
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          {/* Face base */}
+          <ellipse cx="50" cy="45" rx="32" ry="35" fill="#D4A574" />
+          
+          {/* Hair */}
+          <path d="M 20 30 Q 50 15, 80 30 L 80 25 Q 50 10, 20 25 Z" fill="#2C1810" />
+          
+          {/* Eyebrows */}
+          <path 
+            d={`M 30 35 Q 35 ${33 - currentMood.eyebrowAngle/3}, 40 35`} 
+            fill="none" 
+            stroke="#2C1810" 
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          <path 
+            d={`M 60 35 Q 65 ${33 - currentMood.eyebrowAngle/3}, 70 35`} 
+            fill="none" 
+            stroke="#2C1810" 
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          
+          {/* Eyes */}
+          <ellipse cx="36" cy="42" rx="4" ry="5" fill="#2C1810" />
+          <ellipse cx="64" cy="42" rx="4" ry="5" fill="#2C1810" />
+          <ellipse cx="37" cy="41" rx="1.5" ry="2" fill="#FFF" opacity="0.8" />
+          <ellipse cx="65" cy="41" rx="1.5" ry="2" fill="#FFF" opacity="0.8" />
+          
+          {/* Beard */}
+          <path d="M 35 55 Q 50 65, 65 55 L 65 70 Q 50 75, 35 70 Z" fill="#2C1810" opacity="0.7" />
+          <path d="M 45 60 L 45 68 Q 50 70, 55 68 L 55 60" fill="#2C1810" opacity="0.5" />
+          
+          {/* Mouth */}
+          <path 
+            d={currentMood.mouthCurve} 
+            fill="none" 
+            stroke="#2C1810" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+          />
+          
+          {/* Suit jacket collar */}
+          <path d="M 20 80 L 35 75 L 50 78 L 65 75 L 80 80 L 80 100 L 20 100 Z" fill="#6B4423" />
+          <path d="M 45 78 L 50 85 L 55 78 L 50 100" fill="#B8341C" />
+        </svg>
+      </div>
+      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-zinc-900 animate-pulse" />
     </div>
-    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-zinc-900 animate-pulse" />
-  </div>
-);
+  );
+};
 
 // Enhanced UI Components
 const Card = ({ className = "", children, gradient = false }) => (
@@ -420,22 +467,20 @@ function getEmptyKPI() {
   };
 }
 
-// Enhanced summarize function with better account identification
+// Fixed summarize function with corrected calculations
 function summarize(items) {
   if (!items || items.length === 0) {
     console.log('No items to summarize');
     return getEmptyKPI();
   }
   
-  // Helper function for safe summation
+  // Helper functions
   const sumBy = (filterFn) => {
     const filtered = items.filter(filterFn);
     const sum = filtered.reduce((a, b) => a + (b.amount || 0), 0);
-    console.log(`Summing ${filtered.length} items:`, sum);
     return Math.abs(sum);
   };
   
-  // Helper function for finding specific accounts
   const sumByAccountName = (type, namePatterns) => {
     const filtered = items.filter(i => {
       if (i.type !== type) return false;
@@ -443,7 +488,6 @@ function summarize(items) {
       return namePatterns.some(pattern => accountLower.includes(pattern));
     });
     const sum = filtered.reduce((a, b) => a + (b.amount || 0), 0);
-    console.log(`Found ${filtered.length} accounts matching ${namePatterns.join('/')}:`, sum);
     return Math.abs(sum);
   };
   
@@ -454,37 +498,87 @@ function summarize(items) {
   const otherIncome = sumBy((i) => i.type === "OtherIncome");
   const otherExpense = sumBy((i) => i.type === "OtherExpense");
   
-  // Calculate P&L metrics
   const grossProfit = revenue - cogs;
   const operatingIncome = grossProfit - opex;
   const ebitda = operatingIncome + otherIncome - otherExpense;
-  const netIncome = ebitda; // Simplified for this model
+  const netIncome = ebitda;
   
-  // Balance Sheet Items - with more specific account identification
+  // Balance Sheet Items - look for specific account names
   const assets = sumBy((i) => i.type === "Asset");
   
-  // More specific account searches
-  const cash = sumByAccountName("Asset", ["cash", "bank", "checking", "savings"]);
-  const ar = sumByAccountName("Asset", ["accounts receivable", "a/r", "receivable", "trade debtor"]);
-  const inv = sumByAccountName("Asset", ["inventory", "stock", "merchandise", "finished goods"]);
-  const fixedAssets = sumByAccountName("Asset", ["equipment", "machinery", "vehicle", "furniture", "building", "land"]);
+  // Look for cash accounts - search for 'bus complete chk' as shown in your data
+  const cash = items
+    .filter(i => i.type === "Asset" && 
+      (i.account.toLowerCase().includes("cash") || 
+       i.account.toLowerCase().includes("bank") ||
+       i.account.toLowerCase().includes("chk") ||
+       i.account.toLowerCase().includes("checking")))
+    .reduce((sum, item) => sum + item.amount, 0);
+    
+  // Look for AR accounts
+  const ar = items
+    .filter(i => i.type === "Asset" && 
+      (i.account.toLowerCase().includes("receivable") ||
+       i.account.toLowerCase().includes("a/r")))
+    .reduce((sum, item) => sum + item.amount, 0);
+    
+  // Look for inventory
+  const inv = items
+    .filter(i => i.type === "Asset" && 
+      (i.account.toLowerCase().includes("inventory") ||
+       i.account.toLowerCase().includes("stock")))
+    .reduce((sum, item) => sum + item.amount, 0);
+    
+  const fixedAssets = items
+    .filter(i => i.type === "Asset" && 
+      (i.account.toLowerCase().includes("equipment") ||
+       i.account.toLowerCase().includes("vehicle") ||
+       i.account.toLowerCase().includes("machinery") ||
+       i.account.toLowerCase().includes("furniture") ||
+       i.account.toLowerCase().includes("building") ||
+       i.account.toLowerCase().includes("accumulated depreciation")))
+    .reduce((sum, item) => sum + item.amount, 0);
   
   const liabilities = sumBy((i) => i.type === "Liability");
   
-  const ap = sumByAccountName("Liability", ["accounts payable", "a/p", "payable", "trade creditor"]);
-  const std = sumByAccountName("Liability", ["short term", "current portion", "line of credit", "overdraft"]);
-  const ltd = sumByAccountName("Liability", ["long term", "mortgage", "term loan", "notes payable"]);
+  // Look for AP - search for 'due from irs' and other payables
+  const ap = items
+    .filter(i => i.type === "Liability" && 
+      (i.account.toLowerCase().includes("payable") ||
+       i.account.toLowerCase().includes("a/p") ||
+       i.account.toLowerCase().includes("due from") ||
+       i.account.toLowerCase().includes("due to")))
+    .reduce((sum, item) => sum + item.amount, 0);
+    
+  // Look for short term debt
+  const std = items
+    .filter(i => i.type === "Liability" && 
+      (i.account.toLowerCase().includes("short term") ||
+       i.account.toLowerCase().includes("current portion") ||
+       i.account.toLowerCase().includes("line of credit")))
+    .reduce((sum, item) => sum + item.amount, 0);
+    
+  // Look for long term debt - search for 'capitalized mortgage'
+  const ltd = items
+    .filter(i => i.type === "Liability" && 
+      (i.account.toLowerCase().includes("long term") ||
+       i.account.toLowerCase().includes("mortgage") ||
+       i.account.toLowerCase().includes("loan") ||
+       i.account.toLowerCase().includes("note payable")))
+    .reduce((sum, item) => sum + item.amount, 0);
   
-  const equity = sumBy((i) => i.type === "Equity");
+  const equity = sumBy((i) => i.type === "Equity") || (assets - liabilities);
   const debt = std + ltd;
   
-  // Current assets and liabilities for liquidity ratios
+  // Calculate current assets and liabilities properly
   const currentAssets = cash + ar + inv;
   const currentLiabilities = ap + std;
   
-  // Prevent division by zero
+  const workingCapital = currentAssets - currentLiabilities;
+  
+  // Safe division helper
   const safeDivide = (num, den, def = 0) => {
-    if (!den || den === 0) return def;
+    if (!den || den === 0 || !isFinite(num/den)) return def;
     return num / den;
   };
   
@@ -492,33 +586,36 @@ function summarize(items) {
   const currentRatio = safeDivide(currentAssets, currentLiabilities, 0);
   const quickRatio = safeDivide(cash + ar, currentLiabilities, 0);
   const cashRatio = safeDivide(cash, currentLiabilities, 0);
-  const workingCapital = currentAssets - currentLiabilities;
   
-  // Profitability Ratios (as percentages)
+  // Profitability Ratios
   const grossMarginPct = safeDivide(grossProfit, revenue, 0) * 100;
   const operatingMarginPct = safeDivide(operatingIncome, revenue, 0) * 100;
   const ebitdaMarginPct = safeDivide(ebitda, revenue, 0) * 100;
   const netMarginPct = safeDivide(netIncome, revenue, 0) * 100;
   const ROA = safeDivide(netIncome, assets, 0) * 100;
   const ROE = safeDivide(netIncome, equity, 0) * 100;
-  const ROCE = safeDivide(operatingIncome, assets - currentLiabilities, 0) * 100;
+  const ROCE = safeDivide(operatingIncome, (assets - currentLiabilities), 0) * 100;
   
-  // Efficiency Ratios
+  // Efficiency Ratios - Fixed calculations
   const assetTurnover = safeDivide(revenue, assets, 0);
-  const DSO = revenue > 0 ? safeDivide(ar * 365, revenue, 0) : 0;
-  const DIO = cogs > 0 ? safeDivide(inv * 365, cogs, 0) : 0;
-  const DPO = cogs > 0 ? safeDivide(ap * 365, cogs, 0) : 0;
+  
+  // Days calculations - annualized (assuming monthly data)
+  const annualRevenue = revenue * 12;
+  const annualCOGS = cogs * 12;
+  
+  const DSO = ar > 0 && annualRevenue > 0 ? (ar / annualRevenue) * 365 : 0;
+  const DIO = inv > 0 && annualCOGS > 0 ? (inv / annualCOGS) * 365 : 0;
+  const DPO = ap > 0 && annualCOGS > 0 ? (ap / annualCOGS) * 365 : 0;
   const CCC = DSO + DIO - DPO;
-  const invTurns = safeDivide(cogs, inv, 0);
+  const invTurns = inv > 0 ? safeDivide(annualCOGS, inv, 0) : 0;
   
   // Leverage Ratios
   const debtToAssets = safeDivide(debt, assets, 0);
   const debtToEquity = safeDivide(debt, equity, 0);
-  const debtToEBITDA = ebitda > 0 ? safeDivide(debt, ebitda, 0) : null;
-  const interestCoverage = otherExpense > 0 ? safeDivide(ebitda, otherExpense, null) : null;
+  const debtToEBITDA = ebitda > 0 ? safeDivide(debt, (ebitda * 12), 0) : 0; // Annualized EBITDA
+  const interestCoverage = otherExpense > 0 ? safeDivide(ebitda, otherExpense, 0) : 0;
   const equityMultiplier = safeDivide(assets, equity, 0);
   
-  // DuPont Analysis
   const dupontROE = (netMarginPct / 100) * assetTurnover * equityMultiplier * 100;
   
   const result = {
@@ -539,11 +636,17 @@ function summarize(items) {
     dupontROE
   };
   
-  console.log('Calculated KPIs:', result);
+  console.log('Calculated KPIs:', {
+    cash, ar, inv, ap,
+    currentAssets, currentLiabilities,
+    DSO, DIO, DPO, CCC,
+    debt, equity, debtToEBITDA
+  });
+  
   return result;
 }
 
-// Margin Moves with Sam Component
+// Updated Margin Moves with Sam Component
 function MarginMovesWithSam({ kpi, onScenarioChange }) {
   const [selectedScenario, setSelectedScenario] = useState('current');
   const [customInputs, setCustomInputs] = useState({
@@ -553,6 +656,14 @@ function MarginMovesWithSam({ kpi, onScenarioChange }) {
     priceIncrease: 0,
     volumeChange: 0
   });
+
+  // Determine Sam's mood based on metrics
+  const getSamMood = () => {
+    if (kpi.grossMarginPct < 20 || kpi.currentRatio < 1) return 'concerned';
+    if (kpi.grossMarginPct > 40 && kpi.currentRatio > 2) return 'happy';
+    if (kpi.CCC > 90 || kpi.debtToEBITDA > 4) return 'alert';
+    return 'thinking';
+  };
 
   const getInsights = () => {
     const insights = [];
@@ -577,23 +688,13 @@ function MarginMovesWithSam({ kpi, onScenarioChange }) {
       });
     }
 
-    if (kpi.ebitdaMarginPct < 12) {
-      insights.push({
-        type: 'warning',
-        title: 'EBITDA Squeeze',
-        message: `Your EBITDA margin of ${kpi.ebitdaMarginPct.toFixed(1)}% limits growth investments.`,
-        action: 'Focus on operational efficiency: automate repetitive tasks, optimize headcount, renegotiate fixed costs.',
-        impact: `Every 1% improvement in EBITDA margin = $${(kpi.revenue * 0.01 / 1000).toFixed(0)}K additional cash flow.`
-      });
-    }
-
     if (kpi.CCC && kpi.CCC > 75) {
       insights.push({
         type: 'info',
         title: 'Cash Cycle Opportunity',
         message: `Your ${kpi.CCC.toFixed(0)}-day cash cycle is above optimal.`,
         action: 'Negotiate better payment terms: 2/10 net 30 discounts, factor receivables, or extend payables.',
-        impact: `Improving CCC by 15 days could reduce working capital needs by $${((kpi.revenue / 365 * 15) / 1000).toFixed(0)}K.`
+        impact: `Improving CCC by 15 days could reduce working capital needs by $${((kpi.revenue * 12 / 365 * 15) / 1000).toFixed(0)}K.`
       });
     }
 
@@ -633,6 +734,7 @@ function MarginMovesWithSam({ kpi, onScenarioChange }) {
 
   const scenarioKPI = calculateScenario();
   const insights = getInsights();
+  const samMood = getSamMood();
 
   const scenarios = {
     'pricing-power': {
@@ -670,7 +772,7 @@ function MarginMovesWithSam({ kpi, onScenarioChange }) {
       <Card gradient={true}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <SamAvatar size={48} />
+            <SamAvatar size={56} mood={samMood} />
             <div>
               <h3 className="text-lg font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
                 Margin Moves with Sam
@@ -1264,7 +1366,7 @@ export default function DigitalCFODashboard() {
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <p className="text-sm text-green-300">
                   Real-time sync active • Refreshing every {refreshInterval / 1000} seconds • Reading columns AB & AC
-                  </p>
+                </p>
               </div>
               <button
                 onClick={() => setAutoRefresh(false)}
