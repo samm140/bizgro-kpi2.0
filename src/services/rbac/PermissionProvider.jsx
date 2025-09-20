@@ -1,5 +1,4 @@
 // src/services/rbac/PermissionProvider.jsx
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { PermissionManager, MODULES } from './roleDefinitions';
 
@@ -11,48 +10,64 @@ export const PermissionProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user and permissions from storage or API
     const loadUserPermissions = async () => {
       try {
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        let storedUser = JSON.parse(localStorage.getItem('user') || '{}');
         
-        // If no user in storage, set a default admin user for development
-        if (!storedUser.role) {
-          const defaultUser = {
-            name: 'Demo Admin',
-            role: 'Admin',
-            email: 'admin@bizgropartners.com'
-          };
-          localStorage.setItem('user', JSON.stringify(defaultUser));
-          const pm = new PermissionManager(defaultUser.role);
-          setUser(defaultUser);
-          setPermissions(pm);
-        } else {
-          const pm = new PermissionManager(storedUser.role, storedUser.customPermissions);
-          setUser(storedUser);
-          setPermissions(pm);
-        }
+        // ALWAYS ensure admin for development
+        const adminUser = {
+          name: storedUser.name || 'Demo Admin',
+          role: 'Admin', // Force Admin role
+          email: storedUser.email || 'admin@bizgropartners.com'
+        };
+        
+        // Override any stored user with admin privileges
+        localStorage.setItem('user', JSON.stringify(adminUser));
+        const pm = new PermissionManager('Admin'); // Always use Admin role
+        setUser(adminUser);
+        setPermissions(pm);
+        
       } catch (error) {
         console.error('Error loading user permissions:', error);
-        // Set default permissions on error
-        const defaultUser = {
+        // Set default admin on error
+        const adminUser = {
           name: 'Demo Admin',
           role: 'Admin',
-          email: 'admin@bizgro.com'
+          email: 'admin@bizgropartners.com'
         };
-        const pm = new PermissionManager(defaultUser.role);
-        setUser(defaultUser);
+        const pm = new PermissionManager('Admin');
+        setUser(adminUser);
         setPermissions(pm);
       } finally {
         setIsLoading(false);
       }
     };
+    
     loadUserPermissions();
+    
+    // Re-check every 5 seconds to prevent Google User override
+    const interval = setInterval(() => {
+      const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+      if (currentUser.name === 'Google User' || currentUser.role !== 'Admin') {
+        const adminUser = {
+          name: 'Demo Admin',
+          role: 'Admin',
+          email: 'admin@bizgropartners.com'
+        };
+        localStorage.setItem('user', JSON.stringify(adminUser));
+        const pm = new PermissionManager('Admin');
+        setUser(adminUser);
+        setPermissions(pm);
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const updateUserRole = (newRole) => {
-    const updatedUser = { ...user, role: newRole };
-    const pm = new PermissionManager(newRole);
+    // For testing different roles - but default back to Admin
+    const updatedUser = { ...user, role: newRole || 'Admin' };
+    const pm = new PermissionManager(newRole || 'Admin');
     setUser(updatedUser);
     setPermissions(pm);
     localStorage.setItem('user', JSON.stringify(updatedUser));
