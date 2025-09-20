@@ -73,16 +73,16 @@ const percent = (n, d = 1) => (isFinite(n) ? `${n.toFixed(d)}%` : "—");
 
 // Google Sheets Integration
 const SHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
-const SHEET_NAME = 'TrialBalanceNew';
+const GID = '451520574'; // Your specific sheet tab GID
 const CORS_PROXY = 'https://corsproxy.io/?';
 
 async function fetchGoogleSheetData() {
   try {
-    // Public CSV export URL
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
+    // Use export URL with specific GID for CSV format
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
     const proxyUrl = CORS_PROXY + encodeURIComponent(url);
     
-    console.log('Fetching from Google Sheets:', url);
+    console.log('Fetching from Google Sheets with GID:', GID);
     const response = await fetch(proxyUrl);
     
     if (!response.ok) {
@@ -92,38 +92,55 @@ async function fetchGoogleSheetData() {
     const text = await response.text();
     console.log('Raw CSV data received, length:', text.length);
     
-    // Parse CSV
+    // Parse CSV - adjust based on your sheet structure
     const rows = text.split('\n').map(row => 
       row.split(',').map(cell => cell.replace(/^"|"$/g, '').trim())
     );
     
-    // Skip to row 5 (index 4) where headers are
-    if (rows.length > 4) {
-      const headers = rows[4];
-      const dataRows = rows.slice(5).filter(row => row.length > 1 && row.some(cell => cell));
-      
-      console.log('Headers found:', headers);
-      console.log('Data rows found:', dataRows.length);
-      
-      // Convert to Trial Balance format
-      const items = [];
-      dataRows.forEach(row => {
-        const account = row[0] || '';
-        const type = row[1] || '';
-        const amount = parseFloat(String(row[2] || '0').replace(/[$,\s]/g, '')) || 0;
-        
-        if (account && type) {
-          items.push({ account, type: normalizeType(type), amount });
-        }
-      });
-      
-      console.log('Parsed items:', items.length);
-      return items;
+    // Find where actual data starts (skip empty rows and headers)
+    let dataStartRow = 0;
+    for (let i = 0; i < rows.length; i++) {
+      // Look for a row that contains "Account" or starts with actual account data
+      if (rows[i].some(cell => cell.toLowerCase().includes('account')) || 
+          (rows[i][0] && rows[i][1] && rows[i][2])) {
+        dataStartRow = i;
+        break;
+      }
     }
     
-    return [];
+    console.log('Data starts at row:', dataStartRow);
+    
+    // Skip header row if found
+    const hasHeader = rows[dataStartRow].some(cell => 
+      cell.toLowerCase().includes('account') || 
+      cell.toLowerCase().includes('type') || 
+      cell.toLowerCase().includes('amount')
+    );
+    
+    const dataRows = rows.slice(hasHeader ? dataStartRow + 1 : dataStartRow)
+      .filter(row => row.length >= 3 && row[0] && row[0].trim() !== '');
+    
+    console.log('Data rows found:', dataRows.length);
+    
+    // Convert to Trial Balance format
+    const items = [];
+    dataRows.forEach(row => {
+      const account = row[0] || '';
+      const type = row[1] || '';
+      const amount = parseFloat(String(row[2] || '0').replace(/[$,\s]/g, '')) || 0;
+      
+      if (account && type && !isNaN(amount)) {
+        items.push({ account, type: normalizeType(type), amount });
+        console.log('Added item:', { account, type: normalizeType(type), amount });
+      }
+    });
+    
+    console.log('Parsed items:', items.length);
+    return items;
+    
   } catch (error) {
     console.error('Error fetching Google Sheets data:', error);
+    // Return null to fall back to demo data
     return null;
   }
 }
@@ -132,7 +149,7 @@ async function fetchGoogleSheetData() {
 const normalizeType = (tRaw = "") => {
   const t = String(tRaw).trim().toLowerCase();
   const typeMap = {
-    'revenue': ['rev', 'sales', 'revenue', 'income'],
+    'Revenue': ['rev', 'sales', 'revenue', 'income'],
     'COGS': ['cogs', 'cost of goods sold', 'cost of sales', 'direct costs'],
     'Expense': ['exp', 'opex', 'expense', 'operating expense', 'sg&a'],
     'Asset': ['asset', 'assets', 'current asset', 'fixed asset'],
