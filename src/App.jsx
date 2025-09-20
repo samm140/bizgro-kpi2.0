@@ -587,9 +587,21 @@ function App() {
                 >
                   <i className="fas fa-chart-line mr-2"></i>Charts View
                 </button>
+                <button 
+                  onClick={() => setDashboardView('cfo')}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    dashboardView === 'cfo' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-slate-700 text-gray-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <i className="fas fa-chart-pie mr-2"></i>CFO Analysis
+                </button>
               </div>
               
-              {dashboardView === 'agenda' ? (
+              {dashboardView === 'cfo' ? (
+                <DigitalCFODashboard />
+              ) : dashboardView === 'agenda' ? (
                 <ExecutiveDashboard data={dashboardData} />
               ) : dashboardView === 'dynamic' ? (
                 <EnhancedDynamicDashboard data={dashboardData} />
