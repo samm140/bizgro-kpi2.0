@@ -21,7 +21,7 @@ export const PermissionProvider = ({ children }) => {
           const defaultUser = {
             name: 'Demo Admin',
             role: 'Admin',
-            email: 'admin@bizgro.com'
+            email: 'admin@bizgropartners.com'
           };
           localStorage.setItem('user', JSON.stringify(defaultUser));
           const pm = new PermissionManager(defaultUser.role);
