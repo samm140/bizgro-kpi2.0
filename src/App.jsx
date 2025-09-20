@@ -515,6 +515,9 @@ function App() {
             </div>
           ) : currentView === 'reports' ? (
             <BizGroReports />
+          ) : currentView === 'cfo-dashboard' ? (
+            <DigitalCFODashboard />
+      
           ) : currentView === 'dashboard' ? (
             <div>
               <div className="flex justify-between items-center mb-6">
