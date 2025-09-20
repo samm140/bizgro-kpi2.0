@@ -45,19 +45,19 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
       category: 'MAIN', 
       items: [
         { name: 'Dashboard', icon: Home, view: 'dashboard' },
-        { name: 'Portfolio', icon: Briefcase, view: 'portfolio' },
-        { name: 'AR Dashboard', icon: BarChart3, view: 'ar-dashboard' },
-        { name: 'AP Dashboard', icon: PieChart, view: 'ap-dashboard' }
+        { name: 'Work in Progress', icon: Briefcase, view: 'portfolio' },
+        { name: 'Receivables', icon: BarChart3, view: 'ar-dashboard' },
+        { name: 'Payables', icon: PieChart, view: 'ap-dashboard' }
       ]
     },
     { 
       category: 'ANALYTICS', 
       items: [
-        { name: 'Reports', icon: FileText, view: 'reports' },
+        { name: 'FP&A Reports', icon: FileText, view: 'reports' },
         { name: 'Insights', icon: TrendingUp, view: 'insights' },
         { name: 'Weekly Entry', icon: Calendar, badge: 'New', view: 'entry' },
         { name: 'Historical', icon: Clock, view: 'historical' },
-        { name: 'Metrics', icon: DollarSign, view: 'metrics' }
+        { name: 'Ratio Glossary', icon: DollarSign, view: 'metrics' }
       ]
     }
   ];
