@@ -24,7 +24,8 @@
     "lucide-react": "^0.294.0",
     "axios": "^1.6.0",
     "recharts": "^2.10.0",
-    "date-fns": "^3.0.0"
+    "date-fns": "^3.0.0",
+    "framer-motion": "^10.16.16"
   },
   "devDependencies": {
     "@eslint/js": "^9.13.0",
