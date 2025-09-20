@@ -76,13 +76,68 @@ const SHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
 const GID = '451520574'; // Your specific sheet tab GID
 const CORS_PROXY = 'https://corsproxy.io/?';
 
+// Map account names to categories for classification
+const accountTypeMap = {
+  // Revenue accounts
+  'revenue': ['revenue', 'sales', 'income', 'contract revenue'],
+  
+  // COGS accounts
+  'cogs': ['cost of goods', 'cogs', 'cost of sales', 'direct cost', 'd - materials', 'd payroll', 
+           'd fuel', 'd - equipment', 'd - subcontractors', 'd - vehicle'],
+  
+  // Operating Expenses
+  'expense': ['expense', 'payroll', 'rent', 'utilities', 'insurance', 'professional', 
+              'office', 'admin', 'advertising', 'marketing', 'meals', 'travel', 
+              'i wages', 'i payroll', 'indirect'],
+  
+  // Assets
+  'asset': ['cash', 'bank', 'accounts receivable', 'inventory', 'prepaid', 'equipment', 
+            'vehicle', 'furniture', 'building', 'land', 'asset', 'deposit'],
+  
+  // Liabilities
+  'liability': ['accounts payable', 'payable', 'accrued', 'loan', 'debt', 'credit card', 
+                'liability', 'mortgage', 'note payable'],
+  
+  // Equity
+  'equity': ['equity', 'capital', 'retained earnings', 'distribution', 'drawing', 'dividend'],
+  
+  // Other Income/Expense
+  'otherincome': ['other income', 'interest income', 'gain'],
+  'otherexpense': ['other expense', 'interest expense', 'loss', 'depreciation', 'amortization']
+};
+
+// Function to determine account type from account name
+function getAccountType(accountName) {
+  const nameLower = accountName.toLowerCase();
+  
+  for (const [type, patterns] of Object.entries(accountTypeMap)) {
+    if (patterns.some(pattern => nameLower.includes(pattern))) {
+      // Normalize to expected format
+      switch(type) {
+        case 'revenue': return 'Revenue';
+        case 'cogs': return 'COGS';
+        case 'expense': return 'Expense';
+        case 'asset': return 'Asset';
+        case 'liability': return 'Liability';
+        case 'equity': return 'Equity';
+        case 'otherincome': return 'OtherIncome';
+        case 'otherexpense': return 'OtherExpense';
+        default: return 'Expense';
+      }
+    }
+  }
+  
+  // Default to Expense if no match
+  return 'Expense';
+}
+
 async function fetchGoogleSheetData() {
   try {
     // Use export URL with specific GID for CSV format
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
     const proxyUrl = CORS_PROXY + encodeURIComponent(url);
     
-    console.log('Fetching from Google Sheets with GID:', GID);
+    console.log('Fetching ledger data from Google Sheets with GID:', GID);
     const response = await fetch(proxyUrl);
     
     if (!response.ok) {
@@ -92,60 +147,139 @@ async function fetchGoogleSheetData() {
     const text = await response.text();
     console.log('Raw CSV data received, length:', text.length);
     
-    // Parse CSV - adjust based on your sheet structure
-    const rows = text.split('\n').map(row => 
-      row.split(',').map(cell => cell.replace(/^"|"$/g, '').trim())
-    );
+    // Parse CSV
+    const rows = text.split('\n').map(row => {
+      // Handle CSV with potential commas in values
+      const cells = [];
+      let current = '';
+      let inQuotes = false;
+      
+      for (let i = 0; i < row.length; i++) {
+        const char = row[i];
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          cells.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      cells.push(current.trim());
+      
+      return cells.map(cell => cell.replace(/^"|"$/g, '').trim());
+    });
     
-    // Find where actual data starts (skip empty rows and headers)
-    let dataStartRow = 0;
-    for (let i = 0; i < rows.length; i++) {
-      // Look for a row that contains "Account" or starts with actual account data
-      if (rows[i].some(cell => cell.toLowerCase().includes('account')) || 
-          (rows[i][0] && rows[i][1] && rows[i][2])) {
-        dataStartRow = i;
+    // Headers are on row 5 (index 4)
+    if (rows.length < 6) {
+      throw new Error('Sheet has insufficient data');
+    }
+    
+    const headers = rows[4];
+    console.log('Headers found:', headers);
+    
+    // Find the most recent month's columns (rightmost debit/credit pair)
+    let mostRecentDebitCol = -1;
+    let mostRecentCreditCol = -1;
+    
+    // Scan from right to left to find the last debit/credit pair
+    for (let i = headers.length - 2; i >= 5; i -= 2) {
+      // Look for debit column (should be at even position from F onwards)
+      if (i >= 5) {
+        mostRecentDebitCol = i;
+        mostRecentCreditCol = i + 1;
+        console.log(`Using columns ${i} (debit) and ${i + 1} (credit) for most recent month`);
         break;
       }
     }
     
-    console.log('Data starts at row:', dataStartRow);
+    if (mostRecentDebitCol === -1) {
+      // Fallback to columns F and G (indices 5 and 6)
+      mostRecentDebitCol = 5;
+      mostRecentCreditCol = 6;
+      console.log('Using default columns F and G');
+    }
     
-    // Skip header row if found
-    const hasHeader = rows[dataStartRow].some(cell => 
-      cell.toLowerCase().includes('account') || 
-      cell.toLowerCase().includes('type') || 
-      cell.toLowerCase().includes('amount')
-    );
+    // Process data rows (starting from row 6, index 5)
+    const accountBalances = new Map();
+    const dataRows = rows.slice(5).filter(row => row.length > mostRecentCreditCol && row[0]);
     
-    const dataRows = rows.slice(hasHeader ? dataStartRow + 1 : dataStartRow)
-      .filter(row => row.length >= 3 && row[0] && row[0].trim() !== '');
+    console.log('Processing', dataRows.length, 'data rows');
     
-    console.log('Data rows found:', dataRows.length);
-    
-    // Convert to Trial Balance format
-    const items = [];
-    dataRows.forEach(row => {
-      const account = row[0] || '';
-      const type = row[1] || '';
-      const amount = parseFloat(String(row[2] || '0').replace(/[$,\s]/g, '')) || 0;
+    dataRows.forEach((row, idx) => {
+      const accountName = row[0];
+      const accountNumber = row[1] || '';
       
-      if (account && type && !isNaN(amount)) {
-        items.push({ account, type: normalizeType(type), amount });
-        console.log('Added item:', { account, type: normalizeType(type), amount });
+      if (!accountName || accountName.trim() === '') return;
+      
+      // Get debit and credit values for the most recent month
+      const debitStr = row[mostRecentDebitCol] || '0';
+      const creditStr = row[mostRecentCreditCol] || '0';
+      
+      const debit = parseFloat(String(debitStr).replace(/[$,\s()]/g, '')) || 0;
+      const credit = parseFloat(String(creditStr).replace(/[$,\s()]/g, '')) || 0;
+      
+      // Calculate net balance (debit - credit for most accounts)
+      let balance = debit - credit;
+      
+      // Determine account type
+      const accountType = getAccountType(accountName);
+      
+      // For revenue and liability accounts, credits increase the balance
+      if (accountType === 'Revenue' || accountType === 'Liability' || accountType === 'Equity') {
+        balance = credit - debit;
+      }
+      
+      // Aggregate by account name (sum up all entries for the same account)
+      const key = accountName;
+      if (accountBalances.has(key)) {
+        accountBalances.set(key, {
+          account: accountName,
+          number: accountNumber,
+          type: accountType,
+          amount: accountBalances.get(key).amount + balance
+        });
+      } else {
+        accountBalances.set(key, {
+          account: accountName,
+          number: accountNumber,
+          type: accountType,
+          amount: balance
+        });
+      }
+      
+      if (idx < 10) { // Log first few entries for debugging
+        console.log(`Row ${idx}: ${accountName} (${accountType}) - Debit: ${debit}, Credit: ${credit}, Balance: ${balance}`);
       }
     });
     
-    console.log('Parsed items:', items.length);
+    // Convert map to array and filter out zero balances
+    const items = Array.from(accountBalances.values())
+      .filter(item => Math.abs(item.amount) > 0.01);
+    
+    console.log('Aggregated accounts:', items.length);
+    console.log('Sample aggregated data:', items.slice(0, 5));
+    
+    // Log summary by type
+    const summary = {};
+    items.forEach(item => {
+      if (!summary[item.type]) {
+        summary[item.type] = { count: 0, total: 0 };
+      }
+      summary[item.type].count++;
+      summary[item.type].total += item.amount;
+    });
+    console.log('Summary by type:', summary);
+    
     return items;
     
   } catch (error) {
     console.error('Error fetching Google Sheets data:', error);
-    // Return null to fall back to demo data
     return null;
   }
 }
 
-// Enhanced Type Normalization
+// Enhanced Type Normalization (keeping for backward compatibility)
 const normalizeType = (tRaw = "") => {
   const t = String(tRaw).trim().toLowerCase();
   const typeMap = {
@@ -188,26 +322,32 @@ function summarize(items) {
   const sumBy = (filterFn) => items.filter(filterFn).reduce((a, b) => a + b.amount, 0);
   
   // P&L Items
-  const revenue = sumBy((i) => i.type === "Revenue");
-  const cogs = sumBy((i) => i.type === "COGS");
-  const opex = sumBy((i) => i.type === "Expense");
-  const otherIncome = sumBy((i) => i.type === "OtherIncome");
-  const otherExpense = sumBy((i) => i.type === "OtherExpense");
+  const revenue = Math.abs(sumBy((i) => i.type === "Revenue"));
+  const cogs = Math.abs(sumBy((i) => i.type === "COGS"));
+  const opex = Math.abs(sumBy((i) => i.type === "Expense"));
+  const otherIncome = Math.abs(sumBy((i) => i.type === "OtherIncome"));
+  const otherExpense = Math.abs(sumBy((i) => i.type === "OtherExpense"));
   const grossProfit = revenue - cogs;
   const operatingIncome = grossProfit - opex;
   const ebitda = grossProfit - opex + otherIncome - otherExpense;
   const netIncome = ebitda;
 
   // Balance Sheet Items
-  const assets = sumBy((i) => i.type === "Asset");
-  const cash = items.find((i) => i.account.toLowerCase().includes("cash"))?.amount ?? 0;
-  const ar = items.find((i) => i.account.toLowerCase().includes("accounts receivable"))?.amount ?? 0;
-  const inv = items.find((i) => i.account.toLowerCase().includes("inventory"))?.amount ?? 0;
-  const liabilities = sumBy((i) => i.type === "Liability");
-  const ap = items.find((i) => i.account.toLowerCase().includes("accounts payable"))?.amount ?? 0;
-  const std = items.find((i) => i.account.toLowerCase().includes("short term debt"))?.amount ?? 0;
-  const ltd = items.find((i) => i.account.toLowerCase().includes("long term debt"))?.amount ?? 0;
-  const equity = sumBy((i) => i.type === "Equity") || (assets - liabilities);
+  const assets = Math.abs(sumBy((i) => i.type === "Asset"));
+  const cash = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("cash"))
+    .reduce((sum, item) => sum + item.amount, 0));
+  const ar = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("accounts receivable"))
+    .reduce((sum, item) => sum + item.amount, 0));
+  const inv = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("inventory"))
+    .reduce((sum, item) => sum + item.amount, 0));
+  const liabilities = Math.abs(sumBy((i) => i.type === "Liability"));
+  const ap = Math.abs(items.filter(i => i.type === "Liability" && i.account.toLowerCase().includes("accounts payable"))
+    .reduce((sum, item) => sum + item.amount, 0));
+  const std = Math.abs(items.filter(i => i.type === "Liability" && i.account.toLowerCase().includes("short term"))
+    .reduce((sum, item) => sum + item.amount, 0));
+  const ltd = Math.abs(items.filter(i => i.type === "Liability" && i.account.toLowerCase().includes("long term"))
+    .reduce((sum, item) => sum + item.amount, 0));
+  const equity = Math.abs(sumBy((i) => i.type === "Equity")) || (assets - liabilities);
   const debt = std + ltd;
 
   // Liquidity Ratios
@@ -691,7 +831,7 @@ export default function DigitalCFODashboard() {
           <SectionTitle 
             icon={FileSpreadsheet} 
             title="Trial Balance Input" 
-            subtitle="Account,Type,Amount format"
+            subtitle="Account,Type,Amount format (Auto-aggregated from ledger)"
             action={
               <Badge tone="info" pulse={isLoadingSheets}>
                 {items.length} accounts loaded
