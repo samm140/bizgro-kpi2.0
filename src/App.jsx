@@ -6,7 +6,7 @@ import './App.css';
 import Authentication from './components/Authentication';
 import SideHeader from './SideHeader';
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
-import { PermissionProvider } from './services/rbac/roleDefinitions'; // Add permission provider
+import { PermissionProvider } from './services/rbac/PermissionProvider'; // FIXED: Import from PermissionProvider.jsx
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
