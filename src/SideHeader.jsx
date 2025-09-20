@@ -82,7 +82,7 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
     { 
       category: 'ANALYTICS', 
       items: navigationItems.filter(item => 
-        ['FP&A Reports', 'Insights', 'Weekly Entry', 'Historical', 'Ratio Glossary'].includes(item.name)
+        ['FP&A Reports', 'CFO Analysis', 'Insights', 'Weekly Entry', 'Historical', 'Ratio Glossary'].includes(item.name)
       ).map(item => ({
         name: item.name,
         icon: iconMap[item.icon] || FileText,
