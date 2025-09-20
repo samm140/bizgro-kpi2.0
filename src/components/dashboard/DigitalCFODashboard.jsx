@@ -76,58 +76,81 @@ const SHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
 const GID = '451520574'; // Your specific sheet tab GID
 const CORS_PROXY = 'https://corsproxy.io/?';
 
-// Map account names to categories for classification
-const accountTypeMap = {
-  // Revenue accounts
-  'revenue': ['revenue', 'sales', 'income', 'contract revenue'],
+// Enhanced account type mapping using main type and subtype
+function getAccountTypeFromClassification(mainType, subType) {
+  const mainTypeLower = (mainType || '').toLowerCase();
+  const subTypeLower = (subType || '').toLowerCase();
   
-  // COGS accounts
-  'cogs': ['cost of goods', 'cogs', 'cost of sales', 'direct cost', 'd - materials', 'd payroll', 
-           'd fuel', 'd - equipment', 'd - subcontractors', 'd - vehicle'],
+  // Check main type first (column D)
+  if (mainTypeLower.includes('asset')) return 'Asset';
+  if (mainTypeLower.includes('liability')) return 'Liability';
+  if (mainTypeLower.includes('equity')) return 'Equity';
+  if (mainTypeLower.includes('revenue') || mainTypeLower.includes('income')) return 'Revenue';
+  if (mainTypeLower.includes('expense')) return 'Expense';
+  if (mainTypeLower.includes('cogs') || mainTypeLower.includes('cost of goods')) return 'COGS';
   
-  // Operating Expenses
-  'expense': ['expense', 'payroll', 'rent', 'utilities', 'insurance', 'professional', 
-              'office', 'admin', 'advertising', 'marketing', 'meals', 'travel', 
-              'i wages', 'i payroll', 'indirect'],
+  // Check subtype for more specific classification (column E)
+  if (subTypeLower.includes('revenue') || subTypeLower.includes('sales')) return 'Revenue';
+  if (subTypeLower.includes('direct cost') || subTypeLower.includes('cogs')) return 'COGS';
+  if (subTypeLower.includes('operating expense') || subTypeLower.includes('overhead')) return 'Expense';
+  if (subTypeLower.includes('other income')) return 'OtherIncome';
+  if (subTypeLower.includes('other expense') || subTypeLower.includes('interest expense')) return 'OtherExpense';
+  if (subTypeLower.includes('current asset')) return 'Asset';
+  if (subTypeLower.includes('fixed asset')) return 'Asset';
+  if (subTypeLower.includes('current liability')) return 'Liability';
+  if (subTypeLower.includes('long term liability')) return 'Liability';
   
-  // Assets
-  'asset': ['cash', 'bank', 'accounts receivable', 'inventory', 'prepaid', 'equipment', 
-            'vehicle', 'furniture', 'building', 'land', 'asset', 'deposit'],
-  
-  // Liabilities
-  'liability': ['accounts payable', 'payable', 'accrued', 'loan', 'debt', 'credit card', 
-                'liability', 'mortgage', 'note payable'],
-  
-  // Equity
-  'equity': ['equity', 'capital', 'retained earnings', 'distribution', 'drawing', 'dividend'],
-  
-  // Other Income/Expense
-  'otherincome': ['other income', 'interest income', 'gain'],
-  'otherexpense': ['other expense', 'interest expense', 'loss', 'depreciation', 'amortization']
-};
+  // Fallback to account name analysis if type columns are empty
+  return null;
+}
 
-// Function to determine account type from account name
-function getAccountType(accountName) {
+// Fallback function using account name (if type columns are empty)
+function getAccountTypeFromName(accountName) {
   const nameLower = accountName.toLowerCase();
   
-  for (const [type, patterns] of Object.entries(accountTypeMap)) {
-    if (patterns.some(pattern => nameLower.includes(pattern))) {
-      // Normalize to expected format
-      switch(type) {
-        case 'revenue': return 'Revenue';
-        case 'cogs': return 'COGS';
-        case 'expense': return 'Expense';
-        case 'asset': return 'Asset';
-        case 'liability': return 'Liability';
-        case 'equity': return 'Equity';
-        case 'otherincome': return 'OtherIncome';
-        case 'otherexpense': return 'OtherExpense';
-        default: return 'Expense';
-      }
-    }
+  // Revenue accounts
+  if (nameLower.includes('revenue') || nameLower.includes('sales') || 
+      nameLower.includes('income') && !nameLower.includes('tax')) {
+    return 'Revenue';
   }
   
-  // Default to Expense if no match
+  // COGS accounts
+  if (nameLower.includes('cost of goods') || nameLower.includes('cogs') || 
+      nameLower.includes('direct cost') || nameLower.includes('d - ')) {
+    return 'COGS';
+  }
+  
+  // Asset accounts
+  if (nameLower.includes('cash') || nameLower.includes('bank') || 
+      nameLower.includes('receivable') || nameLower.includes('inventory') || 
+      nameLower.includes('prepaid') || nameLower.includes('equipment') || 
+      nameLower.includes('vehicle') || nameLower.includes('building')) {
+    return 'Asset';
+  }
+  
+  // Liability accounts
+  if (nameLower.includes('payable') || nameLower.includes('loan') || 
+      nameLower.includes('debt') || nameLower.includes('credit card') || 
+      nameLower.includes('mortgage')) {
+    return 'Liability';
+  }
+  
+  // Equity accounts
+  if (nameLower.includes('equity') || nameLower.includes('capital') || 
+      nameLower.includes('retained earnings') || nameLower.includes('distribution')) {
+    return 'Equity';
+  }
+  
+  // Other Income/Expense
+  if (nameLower.includes('other income') || nameLower.includes('interest income')) {
+    return 'OtherIncome';
+  }
+  if (nameLower.includes('other expense') || nameLower.includes('interest expense') || 
+      nameLower.includes('depreciation') || nameLower.includes('amortization')) {
+    return 'OtherExpense';
+  }
+  
+  // Default to Expense
   return 'Expense';
 }
 
@@ -147,9 +170,8 @@ async function fetchGoogleSheetData() {
     const text = await response.text();
     console.log('Raw CSV data received, length:', text.length);
     
-    // Parse CSV
+    // Parse CSV with proper quote handling
     const rows = text.split('\n').map(row => {
-      // Handle CSV with potential commas in values
       const cells = [];
       let current = '';
       let inQuotes = false;
@@ -177,15 +199,20 @@ async function fetchGoogleSheetData() {
     
     const headers = rows[4];
     console.log('Headers found:', headers);
+    console.log('Column A (Account Name):', headers[0]);
+    console.log('Column B (Account Number):', headers[1]);
+    console.log('Column D (Main Type):', headers[3]);
+    console.log('Column E (Sub Type):', headers[4]);
     
     // Find the most recent month's columns (rightmost debit/credit pair)
+    // Starting from column F (index 5), columns alternate debit/credit
     let mostRecentDebitCol = -1;
     let mostRecentCreditCol = -1;
     
-    // Scan from right to left to find the last debit/credit pair
+    // Scan from right to left to find the last valid debit/credit pair
     for (let i = headers.length - 2; i >= 5; i -= 2) {
-      // Look for debit column (should be at even position from F onwards)
-      if (i >= 5) {
+      // Check if this could be a debit column (odd index from F onwards)
+      if ((i - 5) % 2 === 0) {
         mostRecentDebitCol = i;
         mostRecentCreditCol = i + 1;
         console.log(`Using columns ${i} (debit) and ${i + 1} (credit) for most recent month`);
@@ -209,6 +236,8 @@ async function fetchGoogleSheetData() {
     dataRows.forEach((row, idx) => {
       const accountName = row[0];
       const accountNumber = row[1] || '';
+      const mainType = row[3] || ''; // Column D - Main classification
+      const subType = row[4] || '';  // Column E - Sub classification
       
       if (!accountName || accountName.trim() === '') return;
       
@@ -216,46 +245,67 @@ async function fetchGoogleSheetData() {
       const debitStr = row[mostRecentDebitCol] || '0';
       const creditStr = row[mostRecentCreditCol] || '0';
       
-      const debit = parseFloat(String(debitStr).replace(/[$,\s()]/g, '')) || 0;
-      const credit = parseFloat(String(creditStr).replace(/[$,\s()]/g, '')) || 0;
+      // Parse amounts, handling parentheses for negative numbers
+      const debit = parseFloat(String(debitStr).replace(/[$,\s()]/g, '').replace(/\((.+)\)/, '-$1')) || 0;
+      const credit = parseFloat(String(creditStr).replace(/[$,\s()]/g, '').replace(/\((.+)\)/, '-$1')) || 0;
       
-      // Calculate net balance (debit - credit for most accounts)
-      let balance = debit - credit;
+      // Determine account type using classification columns first, then fallback to name
+      let accountType = getAccountTypeFromClassification(mainType, subType);
+      if (!accountType) {
+        accountType = getAccountTypeFromName(accountName);
+      }
       
-      // Determine account type
-      const accountType = getAccountType(accountName);
+      // Calculate net balance based on account type
+      let balance;
       
-      // For revenue and liability accounts, credits increase the balance
-      if (accountType === 'Revenue' || accountType === 'Liability' || accountType === 'Equity') {
+      // Normal debit balance accounts (Assets, Expenses, COGS)
+      if (accountType === 'Asset' || accountType === 'Expense' || 
+          accountType === 'COGS' || accountType === 'OtherExpense') {
+        balance = debit - credit;
+      } 
+      // Normal credit balance accounts (Liabilities, Equity, Revenue)
+      else {
         balance = credit - debit;
       }
       
-      // Aggregate by account name (sum up all entries for the same account)
+      // Aggregate by account name
       const key = accountName;
       if (accountBalances.has(key)) {
+        const existing = accountBalances.get(key);
         accountBalances.set(key, {
           account: accountName,
           number: accountNumber,
           type: accountType,
-          amount: accountBalances.get(key).amount + balance
+          mainType: mainType,
+          subType: subType,
+          amount: existing.amount + balance
         });
       } else {
         accountBalances.set(key, {
           account: accountName,
           number: accountNumber,
           type: accountType,
+          mainType: mainType,
+          subType: subType,
           amount: balance
         });
       }
       
-      if (idx < 10) { // Log first few entries for debugging
-        console.log(`Row ${idx}: ${accountName} (${accountType}) - Debit: ${debit}, Credit: ${credit}, Balance: ${balance}`);
+      // Log first few entries for debugging
+      if (idx < 10) {
+        console.log(`Row ${idx}: ${accountName} (${mainType}/${subType} -> ${accountType})`);
+        console.log(`  Debit: ${debit}, Credit: ${credit}, Balance: ${balance}`);
       }
     });
     
     // Convert map to array and filter out zero balances
     const items = Array.from(accountBalances.values())
-      .filter(item => Math.abs(item.amount) > 0.01);
+      .filter(item => Math.abs(item.amount) > 0.01)
+      .map(item => ({
+        account: item.account,
+        type: item.type,
+        amount: Math.abs(item.amount) // Use absolute values for display
+      }));
     
     console.log('Aggregated accounts:', items.length);
     console.log('Sample aggregated data:', items.slice(0, 5));
