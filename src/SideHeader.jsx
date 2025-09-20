@@ -17,7 +17,7 @@ import {
   Settings,
   CreditCard
 } from 'lucide-react';
-import { usePermissions } from '../services/rbac/roleDefinitions';
+import { usePermissions } from './services/rbac/roleDefinitions';
 
 const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
