@@ -27,6 +27,7 @@ import environment from './services/environment';
 import HeaderNavigation from './components/HeaderNavigation.jsx';
 import DigitalCFODashboard from './components/dashboard/DigitalCFODashboard';
 
+console.log('DigitalCFODashboard component:', DigitalCFODashboard);
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
 // Enhanced Mock API with all required fields
