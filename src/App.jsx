@@ -25,6 +25,7 @@ import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment';
 import HeaderNavigation from './components/HeaderNavigation.jsx';
+import DigitalCFODashboard from './components/dashboard/DigitalCFODashboard';
 
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
