@@ -12,7 +12,6 @@ import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
 import EnhancedDynamicDashboard from './components/dashboard/EnhancedDynamicDashboard';
 import ExecutiveDashboard from './components/dashboard/ExecutiveDashboard';
-import DigitalCFODashboard from './components/dashboard/DigitalCFODashboard';
 import InsightsBoard from './components/InsightsBoard';
 import EnhancedWeeklyEntry from './components/EnhancedWeeklyEntry';
 import MetricsCatalog from './components/MetricsCatalog';
@@ -26,6 +25,8 @@ import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment';
 import HeaderNavigation from './components/HeaderNavigation.jsx';
+import { lazy, Suspense } from 'react';
+   const DigitalCFODashboard = lazy(() => import('./components/dashboard/DigitalCFODashboard'));
 
 console.log('DigitalCFODashboard component:', DigitalCFODashboard);
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
@@ -518,7 +519,9 @@ function App() {
           ) : currentView === 'reports' ? (
             <BizGroReports />
           ) : currentView === 'cfo-dashboard' ? (
-            <DigitalCFODashboard />
+     <Suspense fallback={<div>Loading CFO Dashboard...</div>}>
+       <DigitalCFODashboard />
+     </Suspense>
       
           ) : currentView === 'dashboard' ? (
             <div>
