@@ -12,13 +12,20 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  LogOut
+  LogOut,
+  Shield,
+  Settings,
+  CreditCard
 } from 'lucide-react';
+import { usePermissions } from '../services/rbac/roleDefinitions';
 
 const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  
+  // Get permissions from context
+  const { permissions, user } = usePermissions();
 
   useEffect(() => {
     const handleResize = () => {
@@ -40,27 +47,65 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
     }
   }, [isCollapsed, onCollapsedChange]);
 
+  // Map icon names to components
+  const iconMap = {
+    'home': Home,
+    'briefcase': Briefcase,
+    'dollar-sign': DollarSign,
+    'credit-card': CreditCard,
+    'file-text': FileText,
+    'trending-up': TrendingUp,
+    'calendar': Calendar,
+    'clock': Clock,
+    'bar-chart': BarChart3,
+    'shield': Shield,
+    'settings': Settings
+  };
+
+  // Get navigation items based on permissions
+  const navigationItems = permissions ? permissions.getNavigationItems() : [];
+
+  // Build menu structure from navigation items
   const menuItems = [
     { 
       category: 'MAIN', 
-      items: [
-        { name: 'Dashboard', icon: Home, view: 'dashboard' },
-        { name: 'Work in Progress', icon: Briefcase, view: 'portfolio' },
-        { name: 'Receivables', icon: BarChart3, view: 'ar-dashboard' },
-        { name: 'Payables', icon: PieChart, view: 'ap-dashboard' }
-      ]
+      items: navigationItems.filter(item => 
+        ['Dashboard', 'Work in Progress', 'Receivables', 'Payables'].includes(item.name)
+      ).map(item => ({
+        name: item.name,
+        icon: iconMap[item.icon] || Home,
+        view: item.view,
+        badge: item.badge
+      }))
     },
     { 
       category: 'ANALYTICS', 
-      items: [
-        { name: 'FP&A Reports', icon: FileText, view: 'reports' },
-        { name: 'Insights', icon: TrendingUp, view: 'insights' },
-        { name: 'Weekly Entry', icon: Calendar, badge: 'New', view: 'entry' },
-        { name: 'Historical', icon: Clock, view: 'historical' },
-        { name: 'Ratio Glossary', icon: DollarSign, view: 'metrics' }
-      ]
+      items: navigationItems.filter(item => 
+        ['FP&A Reports', 'Insights', 'Weekly Entry', 'Historical', 'Ratio Glossary'].includes(item.name)
+      ).map(item => ({
+        name: item.name,
+        icon: iconMap[item.icon] || FileText,
+        view: item.view,
+        badge: item.badge
+      }))
     }
   ];
+
+  // Add admin section if user has permission
+  const adminItems = navigationItems.filter(item => 
+    ['Admin Console', 'Settings'].includes(item.name)
+  );
+  
+  if (adminItems.length > 0) {
+    menuItems.push({
+      category: 'ADMINISTRATION',
+      items: adminItems.map(item => ({
+        name: item.name,
+        icon: iconMap[item.icon] || Shield,
+        view: item.view
+      }))
+    });
+  }
 
   const handleLogout = () => {
     // Clear all auth data
@@ -84,36 +129,25 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
     }
   };
 
-  // Get user data
-  const user = JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
-  
-  // Determine avatar display - use Google avatar if available, otherwise initials
+  // Get user avatar with role badge
   const getUserAvatar = () => {
-    // Production OAuth - uncomment when Google OAuth is configured
-    /*
-    if (user.provider === 'google' && user.picture) {
-      return (
-        <img 
-          src={user.picture} 
-          alt={user.name}
-          className="w-8 h-8 rounded-full object-cover"
-          onError={(e) => {
-            e.target.style.display = 'none';
-            e.target.parentElement.innerHTML = `
-              <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-                ${user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
-              </div>
-            `;
-          }}
-        />
-      );
-    }
-    */
-    
-    // Default to initials
+    const roleColors = {
+      Admin: 'bg-red-500',
+      Executive: 'bg-purple-500',
+      Financial: 'bg-green-500',
+      Operational: 'bg-blue-500',
+      Sales: 'bg-orange-500',
+      Investor: 'bg-indigo-500'
+    };
+
     return (
-      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
-        {user.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+      <div className="relative">
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold">
+          {user?.name ? user.name.substring(0, 2).toUpperCase() : 'DU'}
+        </div>
+        {user?.role && (
+          <div className={`absolute -top-1 -right-1 w-3 h-3 ${roleColors[user.role] || 'bg-gray-500'} rounded-full border border-gray-900`}></div>
+        )}
       </div>
     );
   };
@@ -230,10 +264,15 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
                 <>
                   <div className="ml-3 text-left flex-1">
                     <div className="text-sm font-medium text-white">
-                      {user.name || 'Demo User'}
+                      {user?.name || 'Demo User'}
                     </div>
-                    <div className="text-xs text-gray-400">
-                      {user.email || 'demo@bizgropartners.com'}
+                    <div className="text-xs text-gray-400 flex items-center">
+                      <span>{user?.email || 'demo@bizgropartners.com'}</span>
+                      {user?.role && (
+                        <span className="ml-2 px-2 py-0.5 bg-gray-700 rounded text-xs">
+                          {user.role}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <ChevronDown size={16} className={`text-gray-400 transition-transform ${
@@ -248,6 +287,14 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
               <div className={`absolute bottom-full left-0 right-0 mb-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden ${
                 isCollapsed ? 'left-full ml-1 w-48' : ''
               }`}>
+                {/* Show user role and permissions summary */}
+                {!isCollapsed && user?.role && (
+                  <div className="px-4 py-3 border-b border-gray-700">
+                    <p className="text-xs text-gray-500">Role</p>
+                    <p className="text-sm text-gray-300 font-medium">{user.role}</p>
+                  </div>
+                )}
+                
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center px-4 py-3 text-left text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
