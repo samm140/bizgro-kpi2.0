@@ -1,22 +1,50 @@
 // src/services/rbac/PermissionProvider.jsx
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { PermissionManager } from './roleDefinitions';
+import { PermissionManager, MODULES } from './roleDefinitions';
 
 const PermissionContext = createContext();
 
 export const PermissionProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [permissions, setPermissions] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Load user and permissions from storage or API
     const loadUserPermissions = async () => {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      if (storedUser.role) {
-        const pm = new PermissionManager(storedUser.role, storedUser.customPermissions);
-        setUser(storedUser);
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        // If no user in storage, set a default admin user for development
+        if (!storedUser.role) {
+          const defaultUser = {
+            name: 'Demo Admin',
+            role: 'Admin',
+            email: 'admin@bizgro.com'
+          };
+          localStorage.setItem('user', JSON.stringify(defaultUser));
+          const pm = new PermissionManager(defaultUser.role);
+          setUser(defaultUser);
+          setPermissions(pm);
+        } else {
+          const pm = new PermissionManager(storedUser.role, storedUser.customPermissions);
+          setUser(storedUser);
+          setPermissions(pm);
+        }
+      } catch (error) {
+        console.error('Error loading user permissions:', error);
+        // Set default permissions on error
+        const defaultUser = {
+          name: 'Demo Admin',
+          role: 'Admin',
+          email: 'admin@bizgro.com'
+        };
+        const pm = new PermissionManager(defaultUser.role);
+        setUser(defaultUser);
         setPermissions(pm);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadUserPermissions();
@@ -31,8 +59,8 @@ export const PermissionProvider = ({ children }) => {
   };
 
   return (
-    <PermissionContext.Provider value={{ user, permissions, updateUserRole }}>
-      {children}
+    <PermissionContext.Provider value={{ user, permissions, updateUserRole, isLoading }}>
+      {!isLoading ? children : <div>Loading permissions...</div>}
     </PermissionContext.Provider>
   );
 };
