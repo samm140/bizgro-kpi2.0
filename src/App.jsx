@@ -1,11 +1,12 @@
 // src/App.jsx
-// Updated to integrate with new Authentication and SideHeader components
+// Updated to integrate with new Authentication, SideHeader, and Permission components
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import Authentication from './components/Authentication'; // New Authentication component
-import SideHeader from './SideHeader'; // New SideHeader component
+import Authentication from './components/Authentication';
+import SideHeader from './SideHeader';
 import { MetricsProvider, useMetrics } from './components/MetricsContext';
+import { PermissionProvider } from './services/rbac/roleDefinitions'; // Add permission provider
 import ChartVisualization from './components/ChartVisualization';
 import HistoricalDataView from './components/HistoricalDataView';
 import EnhancedDashboard from './components/EnhancedDashboard';
@@ -19,10 +20,11 @@ import DiamondBackDashboard from './components/portfolio/DiamondbackDashboard.js
 import ARDashboard from './components/portfolio/ARDashboard';
 import APDashboard from './components/portfolio/APDashboard';
 import BizGroReports from './components/reports/BizGroReports';
+import AdminConsole from './components/admin/AdminConsole'; // Add AdminConsole import
 import { googleSheetsService } from './services/googleSheets';
 import { dataExportService } from './services/dataExport';
 import environment from './services/environment';
-import HeaderNavigation from './components/HeaderNavigation.jsx';  // Add .jsx extension
+import HeaderNavigation from './components/HeaderNavigation.jsx';
 
 console.log('EnhancedWeeklyEntry imported:', EnhancedWeeklyEntry);
 
@@ -236,7 +238,13 @@ function App() {
       const storedAuth = localStorage.getItem('isAuthenticated') || sessionStorage.getItem('isAuthenticated');
       
       if (storedUser && storedAuth === 'true') {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        // Ensure user has a role, default to 'Operational' if not set
+        if (!userData.role) {
+          userData.role = 'Operational';
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+        setUser(userData);
         setIsAuthenticated(true);
       }
       
@@ -248,6 +256,11 @@ function App() {
 
   // Handle login success
   const handleLogin = (userData) => {
+    // Ensure new users get a default role
+    if (!userData.role) {
+      userData.role = 'Operational'; // Default role for new users
+    }
+    localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
     setIsAuthenticated(true);
   };
@@ -350,7 +363,13 @@ function App() {
               setCurrentView('portfolio');
             }
             break;
-          case 'a': setCurrentView('ar-dashboard'); break;
+          case 'a': 
+            if (e.shiftKey) {
+              setCurrentView('admin');
+            } else {
+              setCurrentView('ar-dashboard');
+            }
+            break;
           case 'r': setCurrentView('reports'); break;
           case 'e': setCurrentView('entry'); break;
           case 'i': setCurrentView('insights'); break;
@@ -456,12 +475,14 @@ function App() {
                 <p className="text-gray-300">Loading...</p>
               </div>
             </div>
+          ) : currentView === 'admin' ? (
+            <AdminConsole />
           ) : currentView === 'portfolio' ? (
             <DiamondBackDashboard />
           ) : currentView === 'ar-dashboard' ? (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-200">Accounts Receivable Dashboard</h2>
+                <h2 className="text-2xl font-bold text-gray-200">Receivables Dashboard</h2>
                 <select
                   value={currentPortfolioId}
                   onChange={(e) => setCurrentPortfolioId(e.target.value)}
@@ -478,7 +499,7 @@ function App() {
           ) : currentView === 'ap-dashboard' ? (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-200">Accounts Payable Dashboard</h2>
+                <h2 className="text-2xl font-bold text-gray-200">Payables Dashboard</h2>
                 <select
                   value={currentPortfolioId}
                   onChange={(e) => setCurrentPortfolioId(e.target.value)}
@@ -596,6 +617,11 @@ function App() {
             </div>
           ) : currentView === 'metrics' ? (
             <MetricsCatalog />
+          ) : currentView === 'settings' ? (
+            <div className="bg-slate-800 rounded-lg p-6">
+              <h2 className="text-2xl font-bold mb-6 text-gray-200">System Settings</h2>
+              <p className="text-gray-400">System settings configuration coming soon...</p>
+            </div>
           ) : null}
         </div>
       </main>
@@ -641,18 +667,21 @@ function App() {
         Keyboard shortcuts: Alt+D (Dashboard), Alt+P (Portfolio), Alt+A (AR Dashboard), 
         Shift+Alt+P (AP Dashboard), Alt+R (Reports), Alt+E (Entry), Alt+I (Insights), 
         Alt+M (Metrics), Alt+H (Historical)
+        {user?.role === 'Admin' && ', Shift+Alt+A (Admin Console)'}
         {backendAvailable && ', Alt+Q (QBO Widget)'}
       </footer>
     </div>
   );
 }
 
-// Wrap App with MetricsProvider
+// Wrap App with Providers
 function AppWithProviders() {
   return (
-    <MetricsProvider>
-      <App />
-    </MetricsProvider>
+    <PermissionProvider>
+      <MetricsProvider>
+        <App />
+      </MetricsProvider>
+    </PermissionProvider>
   );
 }
 
