@@ -58,6 +58,7 @@ const SideHeader = ({ onLogout, onCollapsedChange, onNavigate, currentView }) =>
     'calendar': Calendar,
     'clock': Clock,
     'bar-chart': BarChart3,
+    'chart-pie': PieChart,
     'shield': Shield,
     'settings': Settings
   };
