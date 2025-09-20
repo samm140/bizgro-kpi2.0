@@ -5,7 +5,7 @@ import {
   BarChart2, PieChart, Layers3, Activity, DollarSign, Landmark, 
   PiggyBank, Building2, FileSpreadsheet, ArrowRightLeft, RefreshCw,
   Database, Cloud, AlertCircle, Info, ChevronRight, Eye, EyeOff,
-  Zap, Shield, TrendingDown as TrendDown
+  Zap, Shield, TrendingDown as TrendDown, User, Brain, Lightbulb
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,6 +14,35 @@ import {
   ComposedChart, Scatter, PieChart as RPieChart, Pie, Cell, RadarChart,
   PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Treemap, Sankey
 } from "recharts";
+
+// Sam Avatar Component - Cartoon style advisor icon
+const SamAvatar = ({ size = 40 }) => (
+  <div 
+    className="relative rounded-full bg-gradient-to-br from-blue-500 to-purple-600 p-0.5"
+    style={{ width: size, height: size }}
+  >
+    <div className="rounded-full bg-zinc-900 p-1 w-full h-full flex items-center justify-center">
+      <svg viewBox="0 0 100 100" className="w-full h-full">
+        {/* Face */}
+        <circle cx="50" cy="50" r="35" fill="#fdbcb4" />
+        {/* Hair */}
+        <path d="M 25 35 Q 50 20, 75 35" fill="#8B4513" strokeWidth="2" />
+        {/* Eyes */}
+        <circle cx="38" cy="45" r="3" fill="#333" />
+        <circle cx="62" cy="45" r="3" fill="#333" />
+        {/* Glasses */}
+        <circle cx="38" cy="45" r="8" fill="none" stroke="#333" strokeWidth="2" />
+        <circle cx="62" cy="45" r="8" fill="none" stroke="#333" strokeWidth="2" />
+        <line x1="46" y1="45" x2="54" y2="45" stroke="#333" strokeWidth="2" />
+        {/* Smile */}
+        <path d="M 35 58 Q 50 68, 65 58" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" />
+        {/* Tie indication */}
+        <polygon points="50,70 45,80 55,80" fill="#4169E1" />
+      </svg>
+    </div>
+    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-zinc-900 animate-pulse" />
+  </div>
+);
 
 // Enhanced UI Components
 const Card = ({ className = "", children, gradient = false }) => (
@@ -73,7 +102,7 @@ const percent = (n, d = 1) => (isFinite(n) ? `${n.toFixed(d)}%` : "—");
 
 // Google Sheets Integration
 const SHEET_ID = '16PVlalae-iOCX3VR1sSIB6_QCdTGjXSwmO6x8YttH1I';
-const GID = '451520574'; // Your specific sheet tab GID
+const GID = '451520574';
 const CORS_PROXY = 'https://corsproxy.io/?';
 
 // Enhanced account type mapping using main type and subtype
@@ -81,7 +110,6 @@ function getAccountTypeFromClassification(mainType, subType) {
   const mainTypeLower = (mainType || '').toLowerCase();
   const subTypeLower = (subType || '').toLowerCase();
   
-  // Check main type first (column D)
   if (mainTypeLower.includes('asset')) return 'Asset';
   if (mainTypeLower.includes('liability')) return 'Liability';
   if (mainTypeLower.includes('equity')) return 'Equity';
@@ -89,7 +117,6 @@ function getAccountTypeFromClassification(mainType, subType) {
   if (mainTypeLower.includes('expense')) return 'Expense';
   if (mainTypeLower.includes('cogs') || mainTypeLower.includes('cost of goods')) return 'COGS';
   
-  // Check subtype for more specific classification (column E)
   if (subTypeLower.includes('revenue') || subTypeLower.includes('sales')) return 'Revenue';
   if (subTypeLower.includes('direct cost') || subTypeLower.includes('cogs')) return 'COGS';
   if (subTypeLower.includes('operating expense') || subTypeLower.includes('overhead')) return 'Expense';
@@ -100,27 +127,22 @@ function getAccountTypeFromClassification(mainType, subType) {
   if (subTypeLower.includes('current liability')) return 'Liability';
   if (subTypeLower.includes('long term liability')) return 'Liability';
   
-  // Fallback to account name analysis if type columns are empty
   return null;
 }
 
-// Fallback function using account name (if type columns are empty)
 function getAccountTypeFromName(accountName) {
   const nameLower = accountName.toLowerCase();
   
-  // Revenue accounts
   if (nameLower.includes('revenue') || nameLower.includes('sales') || 
       nameLower.includes('income') && !nameLower.includes('tax')) {
     return 'Revenue';
   }
   
-  // COGS accounts
   if (nameLower.includes('cost of goods') || nameLower.includes('cogs') || 
       nameLower.includes('direct cost') || nameLower.includes('d - ')) {
     return 'COGS';
   }
   
-  // Asset accounts
   if (nameLower.includes('cash') || nameLower.includes('bank') || 
       nameLower.includes('receivable') || nameLower.includes('inventory') || 
       nameLower.includes('prepaid') || nameLower.includes('equipment') || 
@@ -128,20 +150,17 @@ function getAccountTypeFromName(accountName) {
     return 'Asset';
   }
   
-  // Liability accounts
   if (nameLower.includes('payable') || nameLower.includes('loan') || 
       nameLower.includes('debt') || nameLower.includes('credit card') || 
       nameLower.includes('mortgage')) {
     return 'Liability';
   }
   
-  // Equity accounts
   if (nameLower.includes('equity') || nameLower.includes('capital') || 
       nameLower.includes('retained earnings') || nameLower.includes('distribution')) {
     return 'Equity';
   }
   
-  // Other Income/Expense
   if (nameLower.includes('other income') || nameLower.includes('interest income')) {
     return 'OtherIncome';
   }
@@ -150,13 +169,11 @@ function getAccountTypeFromName(accountName) {
     return 'OtherExpense';
   }
   
-  // Default to Expense
   return 'Expense';
 }
 
 async function fetchGoogleSheetData() {
   try {
-    // Use export URL with specific GID for CSV format
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
     const proxyUrl = CORS_PROXY + encodeURIComponent(url);
     
@@ -170,7 +187,6 @@ async function fetchGoogleSheetData() {
     const text = await response.text();
     console.log('Raw CSV data received, length:', text.length);
     
-    // Parse CSV with proper quote handling
     const rows = text.split('\n').map(row => {
       const cells = [];
       let current = '';
@@ -192,42 +208,20 @@ async function fetchGoogleSheetData() {
       return cells.map(cell => cell.replace(/^"|"$/g, '').trim());
     });
     
-    // Headers are on row 5 (index 4)
     if (rows.length < 6) {
       throw new Error('Sheet has insufficient data');
     }
     
     const headers = rows[4];
     console.log('Headers found:', headers);
-    console.log('Column A (Account Name):', headers[0]);
-    console.log('Column B (Account Number):', headers[1]);
-    console.log('Column D (Main Type):', headers[3]);
-    console.log('Column E (Sub Type):', headers[4]);
     
-    // Find the most recent month's columns (rightmost debit/credit pair)
-    // Starting from column F (index 5), columns alternate debit/credit
-    let mostRecentDebitCol = -1;
-    let mostRecentCreditCol = -1;
+    // Column AB is index 27 (A=0, B=1, ... AB=27)
+    // Column AC is index 28
+    const mostRecentDebitCol = 27;  // Column AB
+    const mostRecentCreditCol = 28; // Column AC
     
-    // Scan from right to left to find the last valid debit/credit pair
-    for (let i = headers.length - 2; i >= 5; i -= 2) {
-      // Check if this could be a debit column (odd index from F onwards)
-      if ((i - 5) % 2 === 0) {
-        mostRecentDebitCol = i;
-        mostRecentCreditCol = i + 1;
-        console.log(`Using columns ${i} (debit) and ${i + 1} (credit) for most recent month`);
-        break;
-      }
-    }
+    console.log(`Using columns AB (${mostRecentDebitCol}) for debit and AC (${mostRecentCreditCol}) for credit`);
     
-    if (mostRecentDebitCol === -1) {
-      // Fallback to columns F and G (indices 5 and 6)
-      mostRecentDebitCol = 5;
-      mostRecentCreditCol = 6;
-      console.log('Using default columns F and G');
-    }
-    
-    // Process data rows (starting from row 6, index 5)
     const accountBalances = new Map();
     const dataRows = rows.slice(5).filter(row => row.length > mostRecentCreditCol && row[0]);
     
@@ -236,39 +230,30 @@ async function fetchGoogleSheetData() {
     dataRows.forEach((row, idx) => {
       const accountName = row[0];
       const accountNumber = row[1] || '';
-      const mainType = row[3] || ''; // Column D - Main classification
-      const subType = row[4] || '';  // Column E - Sub classification
+      const mainType = row[3] || '';
+      const subType = row[4] || '';
       
       if (!accountName || accountName.trim() === '') return;
       
-      // Get debit and credit values for the most recent month
       const debitStr = row[mostRecentDebitCol] || '0';
       const creditStr = row[mostRecentCreditCol] || '0';
       
-      // Parse amounts, handling parentheses for negative numbers
       const debit = parseFloat(String(debitStr).replace(/[$,\s()]/g, '').replace(/\((.+)\)/, '-$1')) || 0;
       const credit = parseFloat(String(creditStr).replace(/[$,\s()]/g, '').replace(/\((.+)\)/, '-$1')) || 0;
       
-      // Determine account type using classification columns first, then fallback to name
       let accountType = getAccountTypeFromClassification(mainType, subType);
       if (!accountType) {
         accountType = getAccountTypeFromName(accountName);
       }
       
-      // Calculate net balance based on account type
       let balance;
-      
-      // Normal debit balance accounts (Assets, Expenses, COGS)
       if (accountType === 'Asset' || accountType === 'Expense' || 
           accountType === 'COGS' || accountType === 'OtherExpense') {
         balance = debit - credit;
-      } 
-      // Normal credit balance accounts (Liabilities, Equity, Revenue)
-      else {
+      } else {
         balance = credit - debit;
       }
       
-      // Aggregate by account name
       const key = accountName;
       if (accountBalances.has(key)) {
         const existing = accountBalances.get(key);
@@ -291,26 +276,22 @@ async function fetchGoogleSheetData() {
         });
       }
       
-      // Log first few entries for debugging
       if (idx < 10) {
         console.log(`Row ${idx}: ${accountName} (${mainType}/${subType} -> ${accountType})`);
         console.log(`  Debit: ${debit}, Credit: ${credit}, Balance: ${balance}`);
       }
     });
     
-    // Convert map to array and filter out zero balances
     const items = Array.from(accountBalances.values())
       .filter(item => Math.abs(item.amount) > 0.01)
       .map(item => ({
         account: item.account,
         type: item.type,
-        amount: Math.abs(item.amount) // Use absolute values for display
+        amount: Math.abs(item.amount)
       }));
     
     console.log('Aggregated accounts:', items.length);
-    console.log('Sample aggregated data:', items.slice(0, 5));
     
-    // Log summary by type
     const summary = {};
     items.forEach(item => {
       if (!summary[item.type]) {
@@ -329,7 +310,6 @@ async function fetchGoogleSheetData() {
   }
 }
 
-// Enhanced Type Normalization (keeping for backward compatibility)
 const normalizeType = (tRaw = "") => {
   const t = String(tRaw).trim().toLowerCase();
   const typeMap = {
@@ -349,7 +329,6 @@ const normalizeType = (tRaw = "") => {
   return tRaw || "Expense";
 };
 
-// Enhanced TB Parser
 function parseTB(text) {
   const rows = text
     .split(/\n|\r/)
@@ -367,11 +346,9 @@ function parseTB(text) {
   return items;
 }
 
-// Enhanced Financial Summary with More Ratios
 function summarize(items) {
   const sumBy = (filterFn) => items.filter(filterFn).reduce((a, b) => a + b.amount, 0);
   
-  // P&L Items
   const revenue = Math.abs(sumBy((i) => i.type === "Revenue"));
   const cogs = Math.abs(sumBy((i) => i.type === "COGS"));
   const opex = Math.abs(sumBy((i) => i.type === "Expense"));
@@ -382,7 +359,6 @@ function summarize(items) {
   const ebitda = grossProfit - opex + otherIncome - otherExpense;
   const netIncome = ebitda;
 
-  // Balance Sheet Items
   const assets = Math.abs(sumBy((i) => i.type === "Asset"));
   const cash = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("cash"))
     .reduce((sum, item) => sum + item.amount, 0));
@@ -400,7 +376,6 @@ function summarize(items) {
   const equity = Math.abs(sumBy((i) => i.type === "Equity")) || (assets - liabilities);
   const debt = std + ltd;
 
-  // Liquidity Ratios
   const currentAssets = cash + ar + inv;
   const currentLiabilities = ap + std;
   const currentRatio = currentLiabilities !== 0 ? currentAssets / currentLiabilities : Infinity;
@@ -408,7 +383,6 @@ function summarize(items) {
   const cashRatio = currentLiabilities !== 0 ? cash / currentLiabilities : Infinity;
   const workingCapital = currentAssets - currentLiabilities;
 
-  // Profitability Ratios
   const grossMarginPct = revenue !== 0 ? (grossProfit / revenue) * 100 : 0;
   const operatingMarginPct = revenue !== 0 ? (operatingIncome / revenue) * 100 : 0;
   const ebitdaMarginPct = revenue !== 0 ? (ebitda / revenue) * 100 : 0;
@@ -417,7 +391,6 @@ function summarize(items) {
   const ROE = equity !== 0 ? (netIncome / equity) * 100 : 0;
   const ROCE = (assets - currentLiabilities) !== 0 ? (operatingIncome / (assets - currentLiabilities)) * 100 : 0;
 
-  // Efficiency Ratios
   const assetTurnover = assets !== 0 ? revenue / assets : 0;
   const DSO = revenue > 0 ? (ar / revenue) * 365 : null;
   const DIO = cogs > 0 ? (inv / cogs) * 365 : null;
@@ -425,22 +398,17 @@ function summarize(items) {
   const CCC = (DSO || 0) + (DIO || 0) - (DPO || 0);
   const invTurns = inv > 0 && cogs > 0 ? (cogs / inv) : null;
 
-  // Leverage Ratios
   const debtToAssets = assets !== 0 ? debt / assets : 0;
   const debtToEquity = equity !== 0 ? debt / equity : 0;
   const debtToEBITDA = ebitda !== 0 ? debt / ebitda : null;
   const interestCoverage = otherExpense > 0 ? ebitda / otherExpense : null;
   const equityMultiplier = equity !== 0 ? assets / equity : 0;
 
-  // DuPont Analysis
   const dupontROE = netMarginPct * assetTurnover * equityMultiplier;
 
   return {
-    // P&L
     revenue, cogs, opex, otherIncome, otherExpense, grossProfit, operatingIncome, ebitda, netIncome,
-    // Balance Sheet
     assets, cash, ar, inv, liabilities, ap, std, ltd, debt, equity, workingCapital,
-    // Ratios
     currentRatio, quickRatio, cashRatio,
     grossMarginPct, operatingMarginPct, ebitdaMarginPct, netMarginPct,
     ROA, ROE, ROCE, assetTurnover,
@@ -450,7 +418,347 @@ function summarize(items) {
   };
 }
 
-// Enhanced Metric Component
+// Margin Moves with Sam Component
+function MarginMovesWithSam({ kpi, onScenarioChange }) {
+  const [selectedScenario, setSelectedScenario] = useState('current');
+  const [customInputs, setCustomInputs] = useState({
+    revenueChange: 0,
+    cogsReduction: 0,
+    opexReduction: 0,
+    priceIncrease: 0,
+    volumeChange: 0
+  });
+
+  const getInsights = () => {
+    const insights = [];
+    
+    if (kpi.grossMarginPct < 28) {
+      insights.push({
+        type: 'critical',
+        title: 'Margin Crisis Alert',
+        message: `Your gross margin at ${kpi.grossMarginPct.toFixed(1)}% is critically below industry standards.`,
+        action: 'Immediate action needed: Review pricing strategy, renegotiate supplier contracts, or consider product mix optimization.',
+        impact: `A 2% price increase could add $${((kpi.revenue * 0.02) / 1000).toFixed(0)}K to your bottom line.`
+      });
+    }
+
+    if (kpi.DIO > 75) {
+      insights.push({
+        type: 'warning',
+        title: 'Inventory Drag',
+        message: `${kpi.DIO?.toFixed(0) || 'N/A'} days of inventory is tying up $${(kpi.inv / 1000).toFixed(0)}K in working capital.`,
+        action: 'Implement JIT inventory management or improve demand forecasting.',
+        impact: `Reducing DIO to 60 days would free up $${((kpi.inv * 0.2) / 1000).toFixed(0)}K in cash.`
+      });
+    }
+
+    if (kpi.ebitdaMarginPct < 12) {
+      insights.push({
+        type: 'warning',
+        title: 'EBITDA Squeeze',
+        message: `Your EBITDA margin of ${kpi.ebitdaMarginPct.toFixed(1)}% limits growth investments.`,
+        action: 'Focus on operational efficiency: automate repetitive tasks, optimize headcount, renegotiate fixed costs.',
+        impact: `Every 1% improvement in EBITDA margin = $${(kpi.revenue * 0.01 / 1000).toFixed(0)}K additional cash flow.`
+      });
+    }
+
+    if (kpi.CCC > 75) {
+      insights.push({
+        type: 'info',
+        title: 'Cash Cycle Opportunity',
+        message: `Your ${kpi.CCC?.toFixed(0) || 'N/A'}-day cash cycle is above optimal.`,
+        action: 'Negotiate better payment terms: 2/10 net 30 discounts, factor receivables, or extend payables.',
+        impact: `Improving CCC by 15 days could reduce working capital needs by $${((kpi.revenue / 365 * 15) / 1000).toFixed(0)}K.`
+      });
+    }
+
+    if (insights.length === 0) {
+      insights.push({
+        type: 'good',
+        title: 'Strong Performance',
+        message: 'Your financial metrics are healthy across the board.',
+        action: 'Consider growth investments or strategic acquisitions to leverage your strong position.',
+        impact: 'You have the financial flexibility to pursue aggressive growth strategies.'
+      });
+    }
+
+    return insights;
+  };
+
+  const calculateScenario = () => {
+    const scenario = { ...kpi };
+    
+    scenario.revenue = kpi.revenue * (1 + customInputs.revenueChange / 100);
+    scenario.cogs = kpi.cogs * (1 - customInputs.cogsReduction / 100);
+    scenario.opex = kpi.opex * (1 - customInputs.opexReduction / 100);
+    
+    if (customInputs.priceIncrease > 0) {
+      scenario.revenue *= (1 + customInputs.priceIncrease / 100);
+      const volumeImpact = -customInputs.priceIncrease * 0.3;
+      scenario.revenue *= (1 + volumeImpact / 100);
+    }
+    
+    scenario.grossProfit = scenario.revenue - scenario.cogs;
+    scenario.grossMarginPct = (scenario.grossProfit / scenario.revenue) * 100;
+    scenario.ebitda = scenario.grossProfit - scenario.opex;
+    scenario.ebitdaMarginPct = (scenario.ebitda / scenario.revenue) * 100;
+    
+    return scenario;
+  };
+
+  const scenarioKPI = calculateScenario();
+  const insights = getInsights();
+
+  const scenarios = {
+    'pricing-power': {
+      name: '3% Price Increase',
+      revenueChange: 3,
+      cogsReduction: 0,
+      opexReduction: 0,
+      description: 'Test pricing elasticity'
+    },
+    'operational-excellence': {
+      name: 'Operational Excellence',
+      revenueChange: 0,
+      cogsReduction: 5,
+      opexReduction: 10,
+      description: 'Cost reduction focus'
+    },
+    'growth-mode': {
+      name: 'Growth Investment',
+      revenueChange: 20,
+      cogsReduction: -2,
+      opexReduction: -15,
+      description: 'Invest for growth'
+    },
+    'turnaround': {
+      name: 'Turnaround Plan',
+      revenueChange: -10,
+      cogsReduction: 8,
+      opexReduction: 20,
+      description: 'Survival mode'
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card gradient={true}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <SamAvatar size={48} />
+            <div>
+              <h3 className="text-lg font-semibold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                Margin Moves with Sam
+              </h3>
+              <p className="text-xs text-zinc-400">Your AI CFO Advisor • Live Analysis</p>
+            </div>
+          </div>
+          <Badge tone="good" pulse={true}>
+            <Brain className="w-3 h-3 mr-1" />
+            Active
+          </Badge>
+        </div>
+        
+        <div className="space-y-3">
+          {insights.map((insight, idx) => (
+            <motion.div 
+              key={idx}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.1 }}
+              className={`p-4 rounded-lg border ${
+                insight.type === 'critical' ? 'bg-red-900/20 border-red-800' :
+                insight.type === 'warning' ? 'bg-amber-900/20 border-amber-800' :
+                insight.type === 'good' ? 'bg-emerald-900/20 border-emerald-800' :
+                'bg-blue-900/20 border-blue-800'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg ${
+                  insight.type === 'critical' ? 'bg-red-800' :
+                  insight.type === 'warning' ? 'bg-amber-800' :
+                  insight.type === 'good' ? 'bg-emerald-800' :
+                  'bg-blue-800'
+                }`}>
+                  {insight.type === 'good' ? 
+                    <CheckCircle2 className="w-4 h-4" /> :
+                    <AlertTriangle className="w-4 h-4" />
+                  }
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-sm mb-1">{insight.title}</h4>
+                  <p className="text-xs text-zinc-400 mb-2">{insight.message}</p>
+                  <div className="bg-black/30 rounded p-2">
+                    <p className="text-xs text-zinc-300 mb-1">
+                      <span className="text-green-400">→ Action:</span> {insight.action}
+                    </p>
+                    <p className="text-xs text-zinc-300">
+                      <span className="text-blue-400">💰 Impact:</span> {insight.impact}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </Card>
+
+      <Card gradient={true}>
+        <SectionTitle 
+          icon={Calculator} 
+          title="What-If Scenario Modeler" 
+          subtitle="Test strategic moves in real-time"
+        />
+        
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+          {Object.entries(scenarios).map(([key, scenario]) => (
+            <button
+              key={key}
+              onClick={() => {
+                setCustomInputs({
+                  revenueChange: scenario.revenueChange,
+                  cogsReduction: scenario.cogsReduction,
+                  opexReduction: scenario.opexReduction,
+                  priceIncrease: 0,
+                  volumeChange: 0
+                });
+                setSelectedScenario(key);
+              }}
+              className={`p-3 rounded-lg border transition-all ${
+                selectedScenario === key 
+                  ? 'bg-blue-900/30 border-blue-600' 
+                  : 'bg-zinc-900/30 border-zinc-800 hover:border-zinc-700'
+              }`}
+            >
+              <p className="text-xs font-semibold mb-1">{scenario.name}</p>
+              <p className="text-xs text-zinc-500">{scenario.description}</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+          <div>
+            <label className="text-xs text-zinc-400">Revenue Δ%</label>
+            <input
+              type="number"
+              value={customInputs.revenueChange}
+              onChange={(e) => {
+                setCustomInputs({...customInputs, revenueChange: parseFloat(e.target.value) || 0});
+                setSelectedScenario('custom');
+              }}
+              className="w-full mt-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-zinc-400">COGS ↓%</label>
+            <input
+              type="number"
+              value={customInputs.cogsReduction}
+              onChange={(e) => {
+                setCustomInputs({...customInputs, cogsReduction: parseFloat(e.target.value) || 0});
+                setSelectedScenario('custom');
+              }}
+              className="w-full mt-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-zinc-400">Opex ↓%</label>
+            <input
+              type="number"
+              value={customInputs.opexReduction}
+              onChange={(e) => {
+                setCustomInputs({...customInputs, opexReduction: parseFloat(e.target.value) || 0});
+                setSelectedScenario('custom');
+              }}
+              className="w-full mt-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-zinc-400">Price ↑%</label>
+            <input
+              type="number"
+              value={customInputs.priceIncrease}
+              onChange={(e) => {
+                setCustomInputs({...customInputs, priceIncrease: parseFloat(e.target.value) || 0});
+                setSelectedScenario('custom');
+              }}
+              className="w-full mt-1 px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-sm"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setCustomInputs({
+                revenueChange: 0,
+                cogsReduction: 0,
+                opexReduction: 0,
+                priceIncrease: 0,
+                volumeChange: 0
+              });
+              setSelectedScenario('current');
+            }}
+            className="mt-5 px-3 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs"
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="p-3 bg-zinc-900/50 rounded-lg">
+            <p className="text-xs text-zinc-400 mb-2">Gross Margin Impact</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-semibold">{kpi.grossMarginPct.toFixed(1)}%</span>
+              <span className="text-xs">→</span>
+              <span className={`text-lg font-semibold ${
+                scenarioKPI.grossMarginPct > kpi.grossMarginPct ? 'text-green-400' : 
+                scenarioKPI.grossMarginPct < kpi.grossMarginPct ? 'text-red-400' : ''
+              }`}>
+                {scenarioKPI.grossMarginPct.toFixed(1)}%
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Δ {(scenarioKPI.grossMarginPct - kpi.grossMarginPct).toFixed(1)} pts
+            </p>
+          </div>
+
+          <div className="p-3 bg-zinc-900/50 rounded-lg">
+            <p className="text-xs text-zinc-400 mb-2">EBITDA Impact</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-semibold">{dollars(kpi.ebitda)}</span>
+              <span className="text-xs">→</span>
+              <span className={`text-lg font-semibold ${
+                scenarioKPI.ebitda > kpi.ebitda ? 'text-green-400' : 
+                scenarioKPI.ebitda < kpi.ebitda ? 'text-red-400' : ''
+              }`}>
+                {dollars(scenarioKPI.ebitda)}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Δ {dollars(scenarioKPI.ebitda - kpi.ebitda)}
+            </p>
+          </div>
+
+          <div className="p-3 bg-zinc-900/50 rounded-lg">
+            <p className="text-xs text-zinc-400 mb-2">Cash Flow Impact (Annual)</p>
+            <div className="flex items-baseline gap-2">
+              <span className={`text-lg font-semibold ${
+                scenarioKPI.ebitda > kpi.ebitda ? 'text-green-400' : 
+                scenarioKPI.ebitda < kpi.ebitda ? 'text-red-400' : 
+                'text-zinc-400'
+              }`}>
+                {scenarioKPI.ebitda > kpi.ebitda ? '+' : ''}{dollars((scenarioKPI.ebitda - kpi.ebitda) * 12)}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500 mt-1">
+              Additional annual cash generation
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+// Metric Component
 function Metric({ label, value, sublabel, trend, tooltip, onClick }) {
   const [showTooltip, setShowTooltip] = useState(false);
   const up = trend && trend > 0;
@@ -508,11 +816,10 @@ function DebugPanel({ data, isOpen, onToggle }) {
   );
 }
 
-// Enhanced Alerts with Actionable Insights
+// Alerts Component
 function Alerts({ kpi, targets }) {
   const items = [];
   
-  // Liquidity Alerts
   if (kpi.currentRatio < targets.currentRatioMin) {
     items.push({
       tone: "bad",
@@ -533,7 +840,6 @@ function Alerts({ kpi, targets }) {
     });
   }
   
-  // Profitability Alerts
   if (kpi.grossMarginPct < targets.grossMarginPctMin) {
     items.push({
       tone: "warn",
@@ -544,18 +850,16 @@ function Alerts({ kpi, targets }) {
     });
   }
   
-  // Efficiency Alerts
   if (kpi.CCC > targets.CCCMax) {
     items.push({
       tone: "warn",
       icon: RefreshCw,
       title: "Cash Conversion Cycle",
-      text: `CCC ${kpi.CCC.toFixed(0)} days > ${targets.CCCMax} days`,
+      text: `CCC ${kpi.CCC?.toFixed(0) || 'N/A'} days > ${targets.CCCMax} days`,
       action: "Optimize inventory levels and accelerate collections."
     });
   }
   
-  // Leverage Alerts
   if (kpi.debtToEBITDA !== null && kpi.debtToEBITDA > targets.debtToEBITDAMax) {
     items.push({
       tone: "bad",
@@ -613,13 +917,12 @@ function Alerts({ kpi, targets }) {
 export default function DigitalCFODashboard() {
   const [tbText, setTbText] = useState(defaultTBText());
   const [growth, setGrowth] = useState(12);
-  const [marginImprovement, setMarginImprovement] = useState(0);
   const [selectedView, setSelectedView] = useState('overview');
   const [debugOpen, setDebugOpen] = useState(false);
   const [isLoadingSheets, setIsLoadingSheets] = useState(false);
   const [sheetsError, setSheetsError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds default
+  const [refreshInterval, setRefreshInterval] = useState(30000);
   const [lastUpdateTime, setLastUpdateTime] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
@@ -641,9 +944,8 @@ export default function DigitalCFODashboard() {
   const items = useMemo(() => parseTB(tbText), [tbText]);
   const kpi = useMemo(() => summarize(items), [items]);
 
-  // Load Google Sheets Data
   const loadSheetsData = useCallback(async () => {
-    if (isLoadingSheets) return; // Prevent concurrent loads
+    if (isLoadingSheets) return;
     
     setIsLoadingSheets(true);
     setSheetsError(null);
@@ -651,7 +953,6 @@ export default function DigitalCFODashboard() {
     try {
       const data = await fetchGoogleSheetData();
       if (data && data.length > 0) {
-        // Convert to TB format
         const tbLines = ['Account,Type,Amount'];
         data.forEach(item => {
           tbLines.push(`${item.account},${item.type},${item.amount}`);
@@ -671,14 +972,11 @@ export default function DigitalCFODashboard() {
     }
   }, [isLoadingSheets]);
 
-  // Auto-refresh effect
   useEffect(() => {
-    // Load immediately on mount
     if (isInitialLoad) {
       loadSheetsData();
     }
     
-    // Set up auto-refresh interval if enabled
     if (autoRefresh && refreshInterval > 0) {
       const interval = setInterval(() => {
         console.log('Auto-refreshing Google Sheets data...');
@@ -689,7 +987,6 @@ export default function DigitalCFODashboard() {
     }
   }, [autoRefresh, refreshInterval, loadSheetsData, isInitialLoad]);
 
-  // Build visualization data
   const waterfallData = useMemo(() => [
     { name: "Revenue", value: kpi.revenue, fill: "#10b981" },
     { name: "COGS", value: -kpi.cogs, fill: "#ef4444" },
@@ -719,7 +1016,6 @@ export default function DigitalCFODashboard() {
     { name: 'ROE', value: kpi.ROE },
   ], [kpi]);
 
-  // Scenario Analysis
   const scenarioAnalysis = useMemo(() => {
     const base = { revenue: kpi.revenue, ebitda: kpi.ebitda, margin: kpi.ebitdaMarginPct };
     const optimistic = {
@@ -743,7 +1039,6 @@ export default function DigitalCFODashboard() {
   return (
     <div className="min-h-screen w-full text-zinc-100 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black py-6">
       <div className="max-w-7xl mx-auto px-4">
-        {/* Enhanced Header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-3">
@@ -770,7 +1065,6 @@ export default function DigitalCFODashboard() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Auto-refresh controls */}
             <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -827,7 +1121,6 @@ export default function DigitalCFODashboard() {
           </div>
         </div>
 
-        {/* Sheets Status Display */}
         {sheetsError && (
           <Card className="mb-4 border-amber-800/40 bg-amber-900/20">
             <div className="flex items-center gap-2">
@@ -839,14 +1132,13 @@ export default function DigitalCFODashboard() {
           </Card>
         )}
         
-        {/* Real-time Status Indicator */}
         {autoRefresh && (
           <Card className="mb-4 border-green-800/40 bg-green-900/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <p className="text-sm text-green-300">
-                  Real-time sync active • Refreshing every {refreshInterval / 1000} seconds
+                  Real-time sync active • Refreshing every {refreshInterval / 1000} seconds • Reading columns AB & AC
                 </p>
               </div>
               <button
@@ -859,7 +1151,6 @@ export default function DigitalCFODashboard() {
           </Card>
         )}
 
-        {/* View Selector Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto">
           {['overview', 'profitability', 'liquidity', 'efficiency', 'leverage', 'scenarios'].map(view => (
             <button
@@ -876,12 +1167,11 @@ export default function DigitalCFODashboard() {
           ))}
         </div>
 
-        {/* TB Input Section */}
         <Card className="mb-6" gradient={true}>
           <SectionTitle 
             icon={FileSpreadsheet} 
             title="Trial Balance Input" 
-            subtitle="Account,Type,Amount format (Auto-aggregated from ledger)"
+            subtitle="Account,Type,Amount format (Auto-aggregated from ledger columns AB & AC)"
             action={
               <Badge tone="info" pulse={isLoadingSheets}>
                 {items.length} accounts loaded
@@ -896,7 +1186,6 @@ export default function DigitalCFODashboard() {
           />
         </Card>
 
-        {/* Dynamic Content Based on View */}
         <AnimatePresence mode="wait">
           {selectedView === 'overview' && (
             <motion.div
@@ -905,7 +1194,16 @@ export default function DigitalCFODashboard() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {/* Key Metrics Grid */}
+              {/* Margin Moves with Sam - Featured at Top */}
+              <div className="mb-6">
+                <MarginMovesWithSam 
+                  kpi={kpi} 
+                  onScenarioChange={(scenario) => {
+                    console.log('Scenario changed:', scenario);
+                  }}
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <Metric 
                   label="Revenue" 
@@ -934,7 +1232,6 @@ export default function DigitalCFODashboard() {
                 />
               </div>
 
-              {/* Main Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
                 <Card gradient={true}>
                   <SectionTitle icon={BarChart2} title="P&L Waterfall" />
@@ -972,7 +1269,6 @@ export default function DigitalCFODashboard() {
                 </Card>
               </div>
 
-              {/* Alerts Section */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="lg:col-span-2">
                   <SectionTitle icon={Shield} title="Financial Health Alerts" />
@@ -995,7 +1291,7 @@ export default function DigitalCFODashboard() {
                             />
                           </div>
                           <span className="text-sm font-medium w-12 text-right">
-                            {item.value.toFixed(2)}
+                            {isFinite(item.value) ? item.value.toFixed(2) : '—'}
                           </span>
                         </div>
                       </div>
@@ -1063,14 +1359,134 @@ export default function DigitalCFODashboard() {
               </Card>
             </motion.div>
           )}
+
+          {selectedView === 'liquidity' && (
+            <motion.div
+              key="liquidity"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                <Metric label="Cash" value={dollars(kpi.cash)} sublabel="Immediate liquidity" />
+                <Metric label="Working Capital" value={dollars(kpi.workingCapital)} sublabel="Operating cushion" />
+                <Metric label="Cash Conversion" value={`${kpi.CCC?.toFixed(0) || '—'} days`} sublabel="Days to convert" />
+              </div>
+
+              <Card>
+                <SectionTitle icon={Activity} title="Cash Flow Metrics" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">DSO</p>
+                    <p className="text-lg font-semibold">{kpi.DSO?.toFixed(0) || '—'} days</p>
+                  </div>
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">DIO</p>
+                    <p className="text-lg font-semibold">{kpi.DIO?.toFixed(0) || '—'} days</p>
+                  </div>
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">DPO</p>
+                    <p className="text-lg font-semibold">{kpi.DPO?.toFixed(0) || '—'} days</p>
+                  </div>
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">Inventory Turns</p>
+                    <p className="text-lg font-semibold">{kpi.invTurns?.toFixed(1) || '—'}x</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {selectedView === 'efficiency' && (
+            <motion.div
+              key="efficiency"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                  <SectionTitle icon={Activity} title="Operating Efficiency" />
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-zinc-400">Asset Turnover</span>
+                      <span className="text-sm font-semibold">{kpi.assetTurnover.toFixed(2)}x</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-zinc-400">Operating Margin</span>
+                      <span className="text-sm font-semibold">{kpi.operatingMarginPct.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-zinc-400">ROCE</span>
+                      <span className="text-sm font-semibold">{kpi.ROCE.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card>
+                  <SectionTitle icon={RefreshCw} title="Working Capital Cycle" />
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-zinc-400">Cash Conversion Cycle</span>
+                      <span className="text-sm font-semibold">{kpi.CCC?.toFixed(0) || '—'} days</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-zinc-400">Receivables Period</span>
+                      <span className="text-sm font-semibold">{kpi.DSO?.toFixed(0) || '—'} days</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-zinc-400">Payables Period</span>
+                      <span className="text-sm font-semibold">{kpi.DPO?.toFixed(0) || '—'} days</span>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </motion.div>
+          )}
+
+          {selectedView === 'leverage' && (
+            <motion.div
+              key="leverage"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                <Metric label="Total Debt" value={dollars(kpi.debt)} sublabel="Short + Long term" />
+                <Metric label="Debt/Equity" value={`${kpi.debtToEquity.toFixed(2)}x`} sublabel="Leverage ratio" />
+                <Metric label="Debt/EBITDA" value={`${kpi.debtToEBITDA?.toFixed(2) || '—'}x`} sublabel="Coverage multiple" />
+              </div>
+
+              <Card>
+                <SectionTitle icon={Landmark} title="Capital Structure" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">Total Assets</p>
+                    <p className="text-lg font-semibold">{dollars(kpi.assets)}</p>
+                  </div>
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">Total Liabilities</p>
+                    <p className="text-lg font-semibold">{dollars(kpi.liabilities)}</p>
+                  </div>
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">Equity</p>
+                    <p className="text-lg font-semibold">{dollars(kpi.equity)}</p>
+                  </div>
+                  <div className="p-3 bg-zinc-900/50 rounded-lg">
+                    <p className="text-xs text-zinc-400">Interest Coverage</p>
+                    <p className="text-lg font-semibold">{kpi.interestCoverage?.toFixed(1) || '—'}x</p>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
         </AnimatePresence>
 
-        {/* Debug Panel */}
         <DebugPanel data={kpi} isOpen={debugOpen} onToggle={() => setDebugOpen(!debugOpen)} />
 
-        {/* Footer */}
         <div className="text-center text-xs text-zinc-500 mt-8">
-          BizGro KPI 2.0 Digital CFO Dashboard • {autoRefresh ? '🟢 Real-time sync active' : '⭕ Manual refresh mode'}
+          BizGro KPI 2.0 Digital CFO Dashboard with Margin Moves with Sam™ 
+          • {autoRefresh ? '🟢 Real-time sync active' : '⭕ Manual refresh mode'}
           {lastUpdateTime && (
             <span className="ml-2">
               • Next refresh: {autoRefresh ? new Date(lastUpdateTime.getTime() + refreshInterval).toLocaleTimeString() : 'Manual'}
@@ -1082,7 +1498,6 @@ export default function DigitalCFODashboard() {
   );
 }
 
-// Default demo data
 function defaultTBText() {
   return `Account,Type,Amount
 Revenue - Service,Revenue,1500000
