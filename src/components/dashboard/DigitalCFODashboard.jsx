@@ -411,6 +411,10 @@ export default function DigitalCFODashboard() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [isLoadingSheets, setIsLoadingSheets] = useState(false);
   const [sheetsError, setSheetsError] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds default
+  const [lastUpdateTime, setLastUpdateTime] = useState(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const [target, setTarget] = useState({
     grossMarginPctMin: 30,
@@ -432,6 +436,8 @@ export default function DigitalCFODashboard() {
 
   // Load Google Sheets Data
   const loadSheetsData = useCallback(async () => {
+    if (isLoadingSheets) return; // Prevent concurrent loads
+    
     setIsLoadingSheets(true);
     setSheetsError(null);
     
@@ -444,7 +450,8 @@ export default function DigitalCFODashboard() {
           tbLines.push(`${item.account},${item.type},${item.amount}`);
         });
         setTbText(tbLines.join('\n'));
-        console.log('Successfully loaded', data.length, 'items from Google Sheets');
+        setLastUpdateTime(new Date());
+        console.log('Successfully loaded', data.length, 'items from Google Sheets at', new Date().toLocaleTimeString());
       } else {
         setSheetsError('No data found in sheet');
       }
@@ -453,8 +460,27 @@ export default function DigitalCFODashboard() {
       setSheetsError(error.message);
     } finally {
       setIsLoadingSheets(false);
+      setIsInitialLoad(false);
     }
-  }, []);
+  }, [isLoadingSheets]);
+
+  // Auto-refresh effect
+  useEffect(() => {
+    // Load immediately on mount
+    if (isInitialLoad) {
+      loadSheetsData();
+    }
+    
+    // Set up auto-refresh interval if enabled
+    if (autoRefresh && refreshInterval > 0) {
+      const interval = setInterval(() => {
+        console.log('Auto-refreshing Google Sheets data...');
+        loadSheetsData();
+      }, refreshInterval);
+      
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, refreshInterval, loadSheetsData, isInitialLoad]);
 
   // Build visualization data
   const waterfallData = useMemo(() => [
@@ -520,12 +546,47 @@ export default function DigitalCFODashboard() {
               <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
                 Digital CFO Dashboard
               </h1>
+              {autoRefresh && (
+                <Badge tone="good" pulse={true}>
+                  <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                  Live
+                </Badge>
+              )}
             </div>
             <p className="text-zinc-400 text-sm mt-2">
               Advanced financial analysis with Google Sheets integration
+              {lastUpdateTime && (
+                <span className="ml-2 text-zinc-500">
+                  • Last updated: {lastUpdateTime.toLocaleTimeString()}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Auto-refresh controls */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-xl">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="w-4 h-4 rounded border-zinc-700 bg-zinc-800 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-zinc-300">Auto-refresh</span>
+              </label>
+              {autoRefresh && (
+                <select
+                  value={refreshInterval}
+                  onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                  className="ml-2 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-xs text-zinc-300"
+                >
+                  <option value="10000">10s</option>
+                  <option value="30000">30s</option>
+                  <option value="60000">1m</option>
+                  <option value="300000">5m</option>
+                </select>
+              )}
+            </div>
             <button
               onClick={loadSheetsData}
               disabled={isLoadingSheets}
@@ -539,7 +600,7 @@ export default function DigitalCFODashboard() {
               ) : (
                 <>
                   <Cloud className="w-4 h-4" />
-                  Load from Sheets
+                  Refresh Now
                 </>
               )}
             </button>
@@ -559,7 +620,7 @@ export default function DigitalCFODashboard() {
           </div>
         </div>
 
-        {/* Sheets Error Display */}
+        {/* Sheets Status Display */}
         {sheetsError && (
           <Card className="mb-4 border-amber-800/40 bg-amber-900/20">
             <div className="flex items-center gap-2">
@@ -567,6 +628,26 @@ export default function DigitalCFODashboard() {
               <p className="text-sm text-amber-300">
                 Google Sheets Error: {sheetsError}
               </p>
+            </div>
+          </Card>
+        )}
+        
+        {/* Real-time Status Indicator */}
+        {autoRefresh && (
+          <Card className="mb-4 border-green-800/40 bg-green-900/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <p className="text-sm text-green-300">
+                  Real-time sync active • Refreshing every {refreshInterval / 1000} seconds
+                </p>
+              </div>
+              <button
+                onClick={() => setAutoRefresh(false)}
+                className="text-xs text-green-400 hover:text-green-300 underline"
+              >
+                Pause
+              </button>
             </div>
           </Card>
         )}
@@ -782,7 +863,12 @@ export default function DigitalCFODashboard() {
 
         {/* Footer */}
         <div className="text-center text-xs text-zinc-500 mt-8">
-          BizGro KPI 2.0 Digital CFO Dashboard • Google Sheets Integration Active
+          BizGro KPI 2.0 Digital CFO Dashboard • {autoRefresh ? '🟢 Real-time sync active' : '⭕ Manual refresh mode'}
+          {lastUpdateTime && (
+            <span className="ml-2">
+              • Next refresh: {autoRefresh ? new Date(lastUpdateTime.getTime() + refreshInterval).toLocaleTimeString() : 'Manual'}
+            </span>
+          )}
         </div>
       </div>
     </div>
