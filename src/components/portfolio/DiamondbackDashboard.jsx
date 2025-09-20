@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  ScatterChart, Scatter, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend
+  ScatterChart, Scatter, Cell, PieChart, Pie, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from 'recharts';
 
 // Google Sheets configuration
@@ -42,7 +42,7 @@ const classFromPalette = (color) => {
   return map[color] || map.blue;
 };
 
-// Reconciliation data structure (static examples you provided)
+// Reconciliation data structure
 const reconciliationData = {
   projectRevenue: {
     cyBilledToDate: 26400884.11,
@@ -157,13 +157,13 @@ const CustomWaterfallTooltip = ({ active, payload }) => {
 // Custom tooltip for percentages in risk charts
 const CustomPercentTooltip = ({ active, payload }) => {
   if (active && payload && payload[0]) {
-    const data = payload[0].payload || {};
+    const data = payload[0].payload;
     return (
       <div className="bg-slate-900 border border-slate-600 rounded p-3">
-        <p className="text-white font-bold">{data.Project || data.name || ''}</p>
-        {(payload || []).map((entry, index) => (
+        <p className="text-white font-bold">{data.Project || data.name}</p>
+        {payload.map((entry, index) => (
           <p key={index} className="text-gray-300 text-sm">
-            {entry?.name}: {typeof entry?.value === 'number' ? `${entry.value.toFixed(1)}%` : ''}
+            {entry.name}: {entry.value?.toFixed(1)}%
           </p>
         ))}
       </div>
@@ -175,13 +175,13 @@ const CustomPercentTooltip = ({ active, payload }) => {
 // Custom dollar tooltip
 const CustomDollarTooltip = ({ active, payload }) => {
   if (active && payload && payload[0]) {
-    const data = payload[0].payload || {};
+    const data = payload[0].payload;
     return (
       <div className="bg-slate-900 border border-slate-600 rounded p-3">
-        <p className="text-white font-bold">{data.Project || data.name || ''}</p>
-        {(payload || []).map((entry, index) => (
+        <p className="text-white font-bold">{data.Project || data.name}</p>
+        {payload.map((entry, index) => (
           <p key={index} className="text-gray-300 text-sm">
-            {entry?.name}: {formatDollars(entry?.value || 0)}
+            {entry.name}: {formatDollars(entry.value)}
           </p>
         ))}
       </div>
@@ -191,8 +191,9 @@ const CustomDollarTooltip = ({ active, payload }) => {
 };
 
 /* ============================================
-   ReconciliationWaterfall Component
+   ReconciliationWaterfall Component (ADDED)
    ============================================ */
+// Add this component inside DiamondbackDashboard.jsx (before the main component)
 const ReconciliationWaterfall = ({
   rvsPriorOU = -252972.12,
   updatedPYTotal = 787215.85,
@@ -226,14 +227,14 @@ const ReconciliationWaterfall = ({
 
   const CustomWFTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload.length) return null;
-    const datum = payload[0].payload || {};
+    const datum = payload[0].payload;
     return (
       <div className="bg-slate-900 border border-slate-600 rounded p-3">
         <p className="text-gray-300 text-sm">{datum.label}</p>
         {'total' in datum ? (
           <p className="text-white font-bold">Total: {formatDollars(datum.total)}</p>
         ) : null}
-        {(payload || []).map((p, idx) => (
+        {payload.map((p, idx) => (
           <p key={idx} className="text-gray-400 text-xs">
             {p.dataKey === 'deltaPos' && p.value ? `+ ${formatDollars(p.value)}` : null}
             {p.dataKey === 'deltaNeg' && p.value ? `- ${formatDollars(p.value)}` : null}
@@ -274,70 +275,6 @@ const ReconciliationWaterfall = ({
   );
 };
 
-/* ================================
-   ProgressSCurve (Interactive)
-   ================================ */
-const ProgressSCurve = ({ title = 'S-Curve Progress (Cumulative)', series = [] }) => {
-  const safeSeries = Array.isArray(series) ? series : [];
-  return (
-    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-      <h3 className="text-lg font-semibold text-gray-200 mb-4">{title}</h3>
-      <ResponsiveContainer width="100%" height={380}>
-        <LineChart data={safeSeries}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-          <XAxis dataKey="label" stroke="#94a3b8" />
-          <YAxis stroke="#94a3b8" tickFormatter={formatDollars} />
-          <Tooltip formatter={(v) => formatDollars(v)} />
-          <Legend />
-          <Line type="monotone" dataKey="Earned" stroke="#3b82f6" strokeWidth={3} dot={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="Billed" stroke="#10b981" strokeWidth={3} dot={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="Contract" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" isAnimationActive={false} />
-        </LineChart>
-      </ResponsiveContainer>
-      <p className="text-xs text-gray-500 mt-3">
-        S-curve shows cumulative Earned (RET) vs Billed (BTD) against Total Contract (TC). Above Earned = front-loaded billing;
-        below Earned = billing lag.
-      </p>
-    </div>
-  );
-};
-
-/* =====================================================
-   Glossary panel (compact list of key WIP definitions)
-   ===================================================== */
-const GlossaryPanel = () => {
-  const items = [
-    { k: 'Total Contract (TC)', v: 'Total contract value including approved change orders.' },
-    { k: 'Estimated Costs / EAC', v: 'Estimated cost at completion; forecast of total job cost.' },
-    { k: '% Complete (cost)', v: '%Complete = Actual Costs ÷ EAC (cost-based method).' },
-    { k: 'Revenue Earned to Date (RET)', v: 'Earned Revenue = %Complete × Total Contract.' },
-    { k: 'Revenue Billed to Date (BTD)', v: 'Cumulative billings invoiced to the customer.' },
-    { k: 'Overbilled', v: 'BTD − RET > 0 (liability / deferred revenue).' },
-    { k: 'Underbilled', v: 'RET − BTD > 0 (asset / unbilled receivable).' },
-    { k: 'Profit to Date (PTD)', v: 'RET − Actual Costs To Date.' },
-    { k: 'Margin to Date (MTD)', v: 'PTD ÷ RET.' },
-    { k: 'Estimated Profit (EPAC)', v: 'TC − EAC.' },
-    { k: 'Estimated Margin (EMAC)', v: 'EPAC ÷ TC.' },
-    { k: 'Backlog Remaining', v: 'TC − RET (unearned contract value).' },
-    { k: 'RVS prior O/U', v: 'Prior-year roll-forward net over/underbilling balance.' },
-    { k: 'CPI (Cost Performance Index)', v: 'EV ÷ AC; >1 = under budget; <1 = over budget.' },
-    { k: 'SPI (Schedule Performance Index)', v: 'EV ÷ PV; >1 = ahead of schedule; <1 = behind.' },
-  ];
-  return (
-    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-      <h3 className="text-lg font-semibold text-gray-200 mb-4">Glossary of Terms</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {items.map(({ k, v }) => (
-          <div key={k} className="p-3 bg-slate-700/40 rounded-lg">
-            <p className="text-amber-300 font-semibold">{k}</p>
-            <p className="text-gray-300 text-sm mt-1">{v}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 const DiamondbackDashboard = () => {
   const [wipData, setWipData] = useState([]);
   const [summaryMetrics, setSummaryMetrics] = useState({}); // For P-T columns
@@ -345,7 +282,6 @@ const DiamondbackDashboard = () => {
   const [error, setError] = useState(null);
   const [selectedView, setSelectedView] = useState('overview');
   const [selectedProject, setSelectedProject] = useState(null);
-  const [sCurveProject, setSCurveProject] = useState(null);
 
   useEffect(() => {
     fetchWIPData();
@@ -363,6 +299,8 @@ const DiamondbackDashboard = () => {
       const directUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
       const csvUrl = proxyUrl + encodeURIComponent(directUrl);
       
+      console.log('Fetching from:', csvUrl);
+
       const response = await fetch(csvUrl, { 
         cache: 'no-store',
         headers: {
@@ -374,7 +312,7 @@ const DiamondbackDashboard = () => {
 
       const csvText = await response.text();
 
-      // robust-ish CSV parsing (manual, handles quotes)
+      // robust-ish CSV parsing (still simpler than PapaParse)
       const rows = [];
       let i = 0, field = '', inQuotes = false, row = [];
       while (i < csvText.length) {
@@ -418,9 +356,12 @@ const DiamondbackDashboard = () => {
       // Extract summary metrics from columns P-T (indices 15-19)
       const summaryData = {};
       if (rows[0] && rows[0].length > 19) {
+        // P & Q pair
         const labelP = rows[0][15];
         const valueQ = toNum(rows[0][16]);
         if (labelP) summaryData[labelP] = valueQ;
+        
+        // S & T pair
         const labelS = rows[0][18];
         const valueT = toNum(rows[0][19]);
         if (labelS) summaryData[labelS] = valueT;
@@ -439,7 +380,6 @@ const DiamondbackDashboard = () => {
 
       setWipData(formattedData);
       setLoading(false);
-      // console logs are fine during dev; remove if needed
       console.log('Loaded', formattedData.length, 'projects from CSV (columns A-N only)');
       console.log('Summary metrics from P-T:', summaryData);
     } catch (err) {
@@ -455,14 +395,17 @@ const DiamondbackDashboard = () => {
       const jsonUrl = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${SHEET_GID}`;
       const resp = await fetch(jsonUrl, { cache: 'no-store' });
       const text = await resp.text();
+      // Strip the JS wrapper: google.visualization.Query.setResponse(...)
       const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);?$/);
       if (!match) throw new Error('Unexpected JSON format from gviz endpoint');
       const payload = JSON.parse(match[1]);
 
       const cols = (payload.table.cols || []).map(c => c.label || c.id || '');
+      // Use only first 14 columns
       const projectCols = cols.slice(0, 14);
       
-      const dataRowsToProcess = (payload.table.rows || []).slice(1); // Skip totals row
+      // Skip the first row (totals) in the gviz data too
+      const dataRowsToProcess = (payload.table.rows || []).slice(1); // Skip first data row which contains totals
       const formattedData = dataRowsToProcess.map(r => {
         const obj = {};
         (r.c || []).slice(0, 14).forEach((cell, idx) => {
@@ -594,11 +537,11 @@ Suggestions:
 
   const enrichedProjects = wipData.map(calculateProjectMetrics);
 
-  // Customer analytics builder
+  // Calculate customer analytics
   const calculateCustomerAnalytics = () => {
     const customerData = {};
-    (enrichedProjects || []).forEach(p => {
-      const customer = p?.['Customer'];
+    enrichedProjects.forEach(p => {
+      const customer = p['Customer'];
       if (!customer) return;
       if (!customerData[customer]) {
         customerData[customer] = {
@@ -615,74 +558,26 @@ Suggestions:
       customerData[customer].totalVolume += toNum(p['Total Contract']);
       customerData[customer].totalEarned += toNum(p['Revenue Earned to Date']);
       customerData[customer].totalCosts += toNum(p['Job Costs to Date'] || p['Actual Costs To Date']);
-      customerData[customer].margins.push(p.mtd || 0);
+      customerData[customer].margins.push(p.mtd);
     });
-    const arr = Object.values(customerData);
-    arr.forEach(c => {
-      c.avgMargin = c.margins.length ? (c.margins.reduce((a, b) => a + b, 0) / c.margins.length) : 0;
+    Object.values(customerData).forEach(c => {
+      c.avgMargin = c.margins.reduce((a, b) => a + b, 0) / c.margins.length || 0;
       c.marginCategory = c.avgMargin > 25 ? 'high' : c.avgMargin > 15 ? 'medium' : 'low';
-      c.volumeShare = (metrics.totalContract ? (c.totalVolume / metrics.totalContract) * 100 : 0);
+      c.volumeShare = (c.totalVolume / (metrics.totalContract || 1)) * 100 || 0;
     });
-    return arr;
+    return Object.values(customerData);
   };
 
-  // ✅ FIX: ensure customerAnalytics is defined before usage; recompute only when needed
-  const customerAnalytics = React.useMemo(() => {
-    return calculateCustomerAnalytics();
-  }, [enrichedProjects, metrics.totalContract]);
+  const customerAnalytics = calculateCustomerAnalytics();
 
-  // Prepare risk distribution data (safe)
+  // Prepare risk distribution data
   const riskDistribution = [
-    { name: 'Low Risk', value: (enrichedProjects || []).filter(p => p.riskLevel === 'low').length, color: '#10b981' },
-    { name: 'Medium Risk', value: (enrichedProjects || []).filter(p => p.riskLevel === 'medium').length, color: '#f59e0b' },
-    { name: 'High Risk', value: (enrichedProjects || []).filter(p => p.riskLevel === 'high').length, color: '#ef4444' }
+    { name: 'Low Risk', value: enrichedProjects.filter(p => p.riskLevel === 'low').length, color: '#10b981' },
+    { name: 'Medium Risk', value: enrichedProjects.filter(p => p.riskLevel === 'medium').length, color: '#f59e0b' },
+    { name: 'High Risk', value: enrichedProjects.filter(p => p.riskLevel === 'high').length, color: '#ef4444' }
   ];
 
-  // --- S-Curve builders ---
-  const buildProjectSCurve = (p) => {
-    if (!p) return [];
-    const tc  = toNum(p['Total Contract']);
-    const ret = toNum(p['Revenue Earned to Date']);
-    const btd = toNum(p['Revenue Billed to Date']);
-    const ratio = ret > 0 ? (btd / ret) : 1;
-
-    const checkpoints = [
-      { label: 'Start', f: 0.00 },
-      { label: 'Q1',    f: 0.25 },
-      { label: 'Q2',    f: 0.50 },
-      { label: 'Q3',    f: 0.75 },
-      { label: 'Now',   f: 1.00 },
-    ];
-
-    return checkpoints.map(({ label, f }) => ({
-      label,
-      Earned: ret * f,
-      Billed: Math.max(0, Math.min(btd, (ret * f) * ratio)),
-      Contract: tc,
-    }));
-  };
-
-  const buildPortfolioSCurve = () => {
-    const tc  = metrics.totalContract || 0;
-    const ret = metrics.earnedToDate || 0;
-    const btd = metrics.billedToDate || 0;
-    const ratio = ret > 0 ? (btd / ret) : 1;
-    const checkpoints = [
-      { label: 'Start', f: 0.00 },
-      { label: 'Q1',    f: 0.25 },
-      { label: 'Q2',    f: 0.50 },
-      { label: 'Q3',    f: 0.75 },
-      { label: 'Now',   f: 1.00 },
-    ];
-    return checkpoints.map(({ label, f }) => ({
-      label,
-      Earned: ret * f,
-      Billed: Math.max(0, Math.min(btd, (ret * f) * ratio)),
-      Contract: tc,
-    }));
-  };
-
-  // --- loading / error guards ---
+  // --- render branches ---
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -700,7 +595,7 @@ Suggestions:
         <div className="text-red-400 text-center max-w-2xl">
           <i className="fas fa-exclamation-triangle text-4xl mb-4"></i>
           <h2 className="text-2xl font-bold mb-2">Configuration Required</h2>
-        <p className="mb-4 whitespace-pre-wrap">{error}</p>
+          <p className="mb-4 whitespace-pre-wrap">{error}</p>
           <button
             onClick={fetchWIPData}
             className="mt-6 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -738,9 +633,9 @@ Suggestions:
         </div>
       </div>
 
-      {/* View Selector (added 's-curve', 'glossary') */}
+      {/* View Selector */}
       <div className="flex space-x-4 overflow-x-auto">
-        {['overview', 'projects', 'risk', 'trends', 'reconciliation', 's-curve', 'glossary'].map((view) => (
+        {['overview', 'projects', 'risk', 'trends', 'reconciliation'].map((view) => (
           <button
             key={view}
             onClick={() => setSelectedView(view)}
@@ -782,7 +677,7 @@ Suggestions:
           </div>
 
           {/* Summary Metrics from P-T columns */}
-          {Object.keys(summaryMetrics || {}).length > 0 && (
+          {Object.keys(summaryMetrics).length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(summaryMetrics).map(([label, value]) => (
                 <MetricCard key={label} title={label} value={value} color="purple" />
@@ -796,13 +691,13 @@ Suggestions:
               title="Estimated Margin @ Completion"
               value={`${(metrics.estimatedMargin || 0).toFixed(1)}%`}
               subtitle={`Profit: ${Math.round(metrics.estimatedProfit || 0).toLocaleString()}`}
-              trend={(metrics.estimatedMargin || 0) - 20}
+              trend={(metrics.estimatedMargin || 0) - 20} // assumes 20% target
               color="indigo"
             />
             <MetricCard title="Projects in Progress" value={metrics.projectsInProgress} subtitle={`of ${metrics.totalProjects} total`} color="orange" />
           </div>
 
-          {/* Over/Under Waterfall */}
+          {/* Over/Under Waterfall with dollar formatting */}
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Billing Reconciliation Waterfall</h3>
             <ResponsiveContainer width="100%" height={300}>
@@ -845,7 +740,7 @@ Suggestions:
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700">
-                {(enrichedProjects || []).map((project, index) => {
+                {enrichedProjects.map((project, index) => {
                   const tc = toNum(project['Total Contract']);
                   const o = Math.max(toNum(project['Revenue Billed to Date']) - toNum(project['Revenue Earned to Date']), 0);
                   const u = Math.max(toNum(project['Revenue Earned to Date']) - toNum(project['Revenue Billed to Date']), 0);
@@ -854,7 +749,7 @@ Suggestions:
 
                   return (
                     <tr
-                      key={`${project['Project'] || 'proj'}-${index}`}
+                      key={index}
                       className="hover:bg-slate-700/30 cursor-pointer transition-colors"
                       onClick={() => setSelectedProject(project)}
                     >
@@ -868,7 +763,7 @@ Suggestions:
                           <div className="w-24 bg-slate-600 rounded-full h-2 mr-2">
                             <div
                               className="bg-blue-500 h-2 rounded-full"
-                              style={{ width: `${Math.max(0, Math.min(project.percentComplete || 0, 100)).toFixed(1)}%` }}
+                              style={{ width: `${Math.max(0, Math.min(project.percentComplete, 100)).toFixed(1)}%` }}
                             />
                           </div>
                           <span className="text-gray-300 text-sm">
@@ -891,7 +786,7 @@ Suggestions:
                       </td>
                       <td
                         className={`px-4 py-3 text-right font-medium ${
-                          (project.mtd || 0) > 20 ? 'text-green-400' : (project.mtd || 0) > 15 ? 'text-amber-400' : 'text-red-400'
+                          project.mtd > 20 ? 'text-green-400' : project.mtd > 15 ? 'text-amber-400' : 'text-red-400'
                         }`}
                       >
                         {(project.mtd || 0).toFixed(1)}%
@@ -902,13 +797,6 @@ Suggestions:
                     </tr>
                   );
                 })}
-                {(enrichedProjects || []).length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-6 text-center text-gray-400">
-                      No projects to display.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -919,7 +807,7 @@ Suggestions:
       {selectedView === 'risk' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Risk Scatter Plot */}
+            {/* Risk Scatter Plot with percentage tooltips */}
             <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
               <h3 className="text-lg font-semibold text-gray-200 mb-4">Risk Matrix: % Complete vs Margin</h3>
               <ResponsiveContainer width="100%" height={400}>
@@ -928,10 +816,10 @@ Suggestions:
                   <XAxis dataKey="percentComplete" name="% Complete" stroke="#94a3b8" domain={[0, 100]} unit="%" />
                   <YAxis dataKey="mtd" name="Margin TD" stroke="#94a3b8" domain={[-10, 40]} unit="%" />
                   <Tooltip content={<CustomPercentTooltip />} />
-                  <Scatter name="Projects" data={enrichedProjects || []} fill="#8884d8">
-                    {(enrichedProjects || []).map((entry, index) => (
+                  <Scatter name="Projects" data={enrichedProjects} fill="#8884d8">
+                    {enrichedProjects.map((entry, index) => (
                       <Cell
-                        key={`cell-risk-${index}`}
+                        key={`cell-${index}`}
                         fill={entry.riskLevel === 'high' ? '#ef4444' : entry.riskLevel === 'medium' ? '#f59e0b' : '#10b981'}
                       />
                     ))}
@@ -946,25 +834,25 @@ Suggestions:
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={riskDistribution || []}
+                    data={riskDistribution}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ percent }) => `${Number.isFinite(percent) ? (percent * 100).toFixed(0) : 0}%`}
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {(riskDistribution || []).map((entry, index) => (
-                      <Cell key={`rd-${index}`} fill={entry.color} />
+                    {riskDistribution.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
               <div className="mt-4 space-y-2">
-                {(riskDistribution || []).map((item, idx) => (
-                  <div key={`${item.name}-${idx}`} className="flex justify-between items-center">
+                {riskDistribution.map((item) => (
+                  <div key={item.name} className="flex justify-between items-center">
                     <div className="flex items-center">
                       <div className="w-4 h-4 rounded mr-2" style={{ backgroundColor: item.color }} />
                       <span className="text-gray-300">{item.name}</span>
@@ -972,9 +860,6 @@ Suggestions:
                     <span className="text-gray-400">{item.value} projects</span>
                   </div>
                 ))}
-                {(riskDistribution || []).length === 0 && (
-                  <p className="text-gray-400 text-sm">No risk data available.</p>
-                )}
               </div>
             </div>
           </div>
@@ -983,12 +868,12 @@ Suggestions:
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Top Risk Projects</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {(enrichedProjects || [])
+              {enrichedProjects
                 .slice()
-                .sort((a, b) => Math.abs((b.overUnderPercent || 0)) - Math.abs((a.overUnderPercent || 0)))
+                .sort((a, b) => Math.abs(b.overUnderPercent) - Math.abs(a.overUnderPercent))
                 .slice(0, 10)
                 .map((project, index) => (
-                  <div key={`trp-${index}`} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg">
                     <div className="flex-1">
                       <p className="font-medium text-gray-200">{project['Project']}</p>
                       <p className="text-sm text-gray-400">{project['Customer']}</p>
@@ -1005,24 +890,21 @@ Suggestions:
                     </div>
                   </div>
                 ))}
-              {(enrichedProjects || []).length === 0 && (
-                <p className="text-gray-400">No projects available.</p>
-              )}
             </div>
           </div>
 
-          {/* O/U Distribution */}
+          {/* O/U Distribution with percentage tooltips */}
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Over/Under Distribution by Project (%)</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={(enrichedProjects || []).slice(0, 20)}>
+              <BarChart data={enrichedProjects.slice(0, 20)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                 <XAxis dataKey="Project" stroke="#94a3b8" angle={-45} textAnchor="end" height={100} />
                 <YAxis stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
                 <Tooltip content={<CustomPercentTooltip />} />
                 <Bar dataKey="overUnderPercent" name="O/U % of Contract">
-                  {(enrichedProjects || []).slice(0, 20).map((entry, index) => (
-                    <Cell key={`ou-${index}`} fill={(entry.overUnderPercent || 0) > 0 ? '#10b981' : '#ef4444'} />
+                  {enrichedProjects.slice(0, 20).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={(entry.overUnderPercent || 0) > 0 ? '#10b981' : '#ef4444'} />
                   ))}
                 </Bar>
               </BarChart>
@@ -1041,57 +923,57 @@ Suggestions:
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={(customerAnalytics || []).slice().sort((a, b) => b.totalVolume - a.totalVolume).slice(0, 8)}
+                    data={customerAnalytics
+                      .sort((a, b) => b.totalVolume - a.totalVolume)
+                      .slice(0, 8)}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ percent }) => `${Number.isFinite(percent) ? (percent * 100).toFixed(0) : 0}%`}
+                    label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="totalVolume"
                     nameKey="name"
                   >
-                    {(customerAnalytics || []).slice(0, 8).map((entry, index) => (
+                    {customerAnalytics.slice(0, 8).map((entry, index) => (
                       <Cell
-                        key={`cv-${index}`}
-                        fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'][index % 8]}
+                        key={`cell-${index}`}
+                        fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'][index]}
                       />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => formatDollars(value || 0)} />
+                  <Tooltip formatter={(value) => formatDollars(value)} />
                 </PieChart>
               </ResponsiveContainer>
-              {(customerAnalytics || []).length === 0 && (
-                <p className="text-gray-400 text-sm mt-2">No customer data available.</p>
-              )}
             </div>
 
-            {/* Customer Margin Performance */}
+            {/* Customer Margin Analysis */}
             <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
               <h3 className="text-lg font-semibold text-gray-200 mb-4">Customer Margin Performance</h3>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={(customerAnalytics || []).slice().sort((a, b) => b.avgMargin - a.avgMargin).slice(0, 10)}>
+                <BarChart
+                  data={customerAnalytics
+                    .sort((a, b) => b.avgMargin - a.avgMargin)
+                    .slice(0, 10)}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis dataKey="name" stroke="#94a3b8" angle={-45} textAnchor="end" height={80} />
                   <YAxis stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
                   <Tooltip content={<CustomPercentTooltip />} />
                   <Bar dataKey="avgMargin" name="Avg Margin %">
-                    {(customerAnalytics || []).slice(0, 10).map((entry, index) => (
+                    {customerAnalytics.slice(0, 10).map((entry, index) => (
                       <Cell
-                        key={`cm-${index}`}
+                        key={`cell-${index}`}
                         fill={entry.avgMargin > 25 ? '#10b981' : entry.avgMargin > 15 ? '#f59e0b' : '#ef4444'}
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              {(customerAnalytics || []).length === 0 && (
-                <p className="text-gray-400 text-sm mt-2">No customer margin data.</p>
-              )}
             </div>
           </div>
 
-          {/* Contract Size vs Profit Margin */}
+          {/* Contract Size vs Margin with corrected currency */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
               <h3 className="text-lg font-semibold text-gray-200 mb-4">Contract Size vs Profit Margin</h3>
@@ -1114,36 +996,33 @@ Suggestions:
                   <Tooltip content={<CustomDollarTooltip />} />
                   <Scatter 
                     name="Projects" 
-                    data={(enrichedProjects || []).map(p => ({
+                    data={enrichedProjects.map(p => ({
                       ...p,
                       contractValue: toNum(p['Total Contract']),
                       Project: p['Project']
                     }))} 
                     fill="#8b5cf6"
                   >
-                    {(enrichedProjects || []).map((entry, index) => (
+                    {enrichedProjects.map((entry, index) => (
                       <Cell
-                        key={`cs-${index}`}
-                        fill={(entry.mtd || 0) > 20 ? '#10b981' : (entry.mtd || 0) > 10 ? '#f59e0b' : '#ef4444'}
+                        key={`cell-${index}`}
+                        fill={entry.mtd > 20 ? '#10b981' : entry.mtd > 10 ? '#f59e0b' : '#ef4444'}
                       />
                     ))}
                   </Scatter>
                 </ScatterChart>
               </ResponsiveContainer>
-              {(enrichedProjects || []).length === 0 && (
-                <p className="text-gray-400 text-sm mt-2">No project data for scatter display.</p>
-              )}
             </div>
 
             {/* Top 5 Projects Performance Radar */}
             <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
               <h3 className="text-lg font-semibold text-gray-200 mb-4">Top 5 Projects - Performance Metrics</h3>
               <ResponsiveContainer width="100%" height={400}>
-                <RadarChart data={(enrichedProjects || []).slice(0, 5).map(p => ({
+                <RadarChart data={enrichedProjects.slice(0, 5).map(p => ({
                   project: (p['Project'] || '').substring(0, 15),
-                  margin: p.mtd || 0,
-                  completion: p.percentComplete || 0,
-                  efficiency: Math.min(100, ((p.mtd || 0) / 20) * 100)
+                  margin: p.mtd,
+                  completion: p.percentComplete,
+                  efficiency: Math.min(100, (p.mtd / 20) * 100) // relative to 20% target
                 }))}>
                   <PolarGrid stroke="#334155" />
                   <PolarAngleAxis dataKey="project" stroke="#94a3b8" />
@@ -1153,9 +1032,6 @@ Suggestions:
                   <Tooltip content={<CustomPercentTooltip />} />
                 </RadarChart>
               </ResponsiveContainer>
-              {(enrichedProjects || []).length === 0 && (
-                <p className="text-gray-400 text-sm mt-2">No projects to visualize.</p>
-              )}
             </div>
           </div>
 
@@ -1175,25 +1051,24 @@ Suggestions:
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700">
-                  {(customerAnalytics || [])
-                    .slice()
-                    .sort((a, b) => (b.totalVolume || 0) - (a.totalVolume || 0))
+                  {customerAnalytics
+                    .sort((a, b) => b.totalVolume - a.totalVolume)
                     .slice(0, 15)
                     .map((customer, index) => (
-                      <tr key={`cust-${index}`} className="hover:bg-slate-700/30 transition-colors">
+                      <tr key={index} className="hover:bg-slate-700/30 transition-colors">
                         <td className="px-4 py-3 text-gray-300">{customer.name}</td>
                         <td className="px-4 py-3 text-right text-gray-300">{customer.projectCount}</td>
                         <td className="px-4 py-3 text-right text-gray-300">
-                          {formatDollars(customer.totalVolume || 0)}
+                          {formatDollars(customer.totalVolume)}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-300">
-                          {(customer.volumeShare || 0).toFixed(1)}%
+                          {customer.volumeShare.toFixed(1)}%
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${
-                          (customer.avgMargin || 0) > 25 ? 'text-green-400' : 
-                          (customer.avgMargin || 0) > 15 ? 'text-amber-400' : 'text-red-400'
+                          customer.avgMargin > 25 ? 'text-green-400' : 
+                          customer.avgMargin > 15 ? 'text-amber-400' : 'text-red-400'
                         }`}>
-                          {(customer.avgMargin || 0).toFixed(1)}%
+                          {customer.avgMargin.toFixed(1)}%
                         </td>
                         <td className="px-4 py-3 text-center">
                           <RiskFlag level={customer.marginCategory === 'high' ? 'low' : 
@@ -1201,13 +1076,6 @@ Suggestions:
                         </td>
                       </tr>
                     ))}
-                  {(customerAnalytics || []).length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-6 text-center text-gray-400">
-                        No customer analytics available.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -1456,14 +1324,17 @@ Suggestions:
             </div>
           </div>
 
-          {/* Two ReconciliationWaterfall charts */}
+          {/* >>> ADDED: Two ReconciliationWaterfall charts <<< */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Current Period Waterfall */}
             <ReconciliationWaterfall
               title="Billed → Earned → Net O/U (Current)"
               rvsPriorOU={reconciliationData.current.billedToDate}
               updatedPYTotal={-reconciliationData.current.earnedToDate}
               currentPeriodOUTotal={reconciliationData.current.overUnderTotal}
             />
+            
+            {/* Historical Reconciliation Waterfall */}
             <ReconciliationWaterfall
               title="Prior Year O/U Reconciliation"
               rvsPriorOU={reconciliationData.priorYear.rvsOverUnder}
@@ -1472,7 +1343,7 @@ Suggestions:
             />
           </div>
 
-          {/* Revenue Reconciliation Waterfall */}
+          {/* Waterfall Chart for Reconciliation */}
           <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <h3 className="text-lg font-semibold text-gray-200 mb-4">Revenue Reconciliation Waterfall</h3>
             <ResponsiveContainer width="100%" height={350}>
@@ -1496,57 +1367,6 @@ Suggestions:
         </div>
       )}
 
-      {/* S-Curve Tab (Interactive / Project drill or Portfolio) */}
-      {selectedView === 's-curve' && (
-        <div className="space-y-6">
-          <ProgressSCurve
-            title={
-              sCurveProject
-                ? `S-Curve: ${sCurveProject['Project']} (${sCurveProject['Customer'] || ''})`
-                : 'S-Curve: Portfolio (Cumulative)'
-            }
-            series={sCurveProject ? buildProjectSCurve(sCurveProject) : buildPortfolioSCurve()}
-          />
-
-          {/* Quick switch back to portfolio / or pick another project */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setSCurveProject(null)}
-              className="px-3 py-2 bg-slate-700 text-gray-200 rounded-lg hover:bg-slate-600 transition-colors"
-            >
-              <i className="fas fa-layer-group mr-2"></i> View Portfolio Curve
-            </button>
-            {(enrichedProjects || []).length > 0 && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <span>Drill into project:</span>
-                <select
-                  className="bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-gray-200"
-                  value={sCurveProject ? sCurveProject['Project'] : ''}
-                  onChange={(e) => {
-                    const p = (enrichedProjects || []).find(x => x['Project'] === e.target.value) || null;
-                    setSCurveProject(p);
-                  }}
-                >
-                  <option value="">— select —</option>
-                  {(enrichedProjects || []).map(p => (
-                    <option key={`sel-${p['Project']}`} value={p['Project']}>
-                      {p['Project']}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Glossary Tab */}
-      {selectedView === 'glossary' && (
-        <div className="space-y-6">
-          <GlossaryPanel />
-        </div>
-      )}
-
       {/* Selected Project Modal */}
       {selectedProject && (
         <div
@@ -1562,19 +1382,9 @@ Suggestions:
                 <h2 className="text-2xl font-bold text-gray-200">{selectedProject['Project']}</h2>
                 <p className="text-gray-400">{selectedProject['Customer']}</p>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Drill to S-Curve */}
-                <button
-                  onClick={() => { setSCurveProject(selectedProject); setSelectedView('s-curve'); }}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <i className="fas fa-chart-line mr-2"></i>
-                  View S-Curve
-                </button>
-                <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
-                  <i className="fas fa-times text-xl"></i>
-                </button>
-              </div>
+              <button onClick={() => setSelectedProject(null)} className="text-gray-400 hover:text-gray-200">
+                <i className="fas fa-times text-xl"></i>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -1621,11 +1431,11 @@ Suggestions:
                       <span className="text-gray-300">Over/Under</span>
                       <span
                         className={`font-bold ${
-                          (selectedProject.overbilled || 0) > 0 ? 'text-green-400' : 'text-amber-400'
+                          selectedProject.overbilled > 0 ? 'text-green-400' : 'text-amber-400'
                         }`}
                       >
-                        {(selectedProject.overbilled || 0) > 0 ? '+' : '-'}$
-                        {Math.round(Math.abs(selectedProject.overbilled || selectedProject.underbilled || 0)).toLocaleString()}
+                        {selectedProject.overbilled > 0 ? '+' : '-'}$
+                        {Math.round(Math.abs(selectedProject.overbilled || selectedProject.underbilled)).toLocaleString()}
                       </span>
                     </div>
                   </div>
