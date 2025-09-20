@@ -23,20 +23,14 @@ const SamAvatar = ({ size = 40 }) => (
   >
     <div className="rounded-full bg-zinc-900 p-1 w-full h-full flex items-center justify-center">
       <svg viewBox="0 0 100 100" className="w-full h-full">
-        {/* Face */}
         <circle cx="50" cy="50" r="35" fill="#fdbcb4" />
-        {/* Hair */}
         <path d="M 25 35 Q 50 20, 75 35" fill="#8B4513" strokeWidth="2" />
-        {/* Eyes */}
         <circle cx="38" cy="45" r="3" fill="#333" />
         <circle cx="62" cy="45" r="3" fill="#333" />
-        {/* Glasses */}
         <circle cx="38" cy="45" r="8" fill="none" stroke="#333" strokeWidth="2" />
         <circle cx="62" cy="45" r="8" fill="none" stroke="#333" strokeWidth="2" />
         <line x1="46" y1="45" x2="54" y2="45" stroke="#333" strokeWidth="2" />
-        {/* Smile */}
         <path d="M 35 58 Q 50 68, 65 58" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" />
-        {/* Tie indication */}
         <polygon points="50,70 45,80 55,80" fill="#4169E1" />
       </svg>
     </div>
@@ -172,6 +166,7 @@ function getAccountTypeFromName(accountName) {
   return 'Expense';
 }
 
+// Updated Google Sheets Integration with better data processing
 async function fetchGoogleSheetData() {
   try {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${GID}`;
@@ -214,47 +209,89 @@ async function fetchGoogleSheetData() {
     
     const headers = rows[4];
     console.log('Headers found:', headers);
+    console.log('Total columns:', headers.length);
     
-    // Column AB is index 27 (A=0, B=1, ... AB=27)
-    // Column AC is index 28
+    // Column AB is index 27, Column AC is index 28
     const mostRecentDebitCol = 27;  // Column AB
     const mostRecentCreditCol = 28; // Column AC
     
     console.log(`Using columns AB (${mostRecentDebitCol}) for debit and AC (${mostRecentCreditCol}) for credit`);
     
+    // Process data rows with detailed tracking
     const accountBalances = new Map();
-    const dataRows = rows.slice(5).filter(row => row.length > mostRecentCreditCol && row[0]);
+    const dataRows = rows.slice(5).filter(row => row.length > mostRecentCreditCol && row[0] && row[0].trim() !== '');
     
     console.log('Processing', dataRows.length, 'data rows');
     
+    // Track totals by type for verification
+    const typeTotals = {
+      Asset: { debit: 0, credit: 0 },
+      Liability: { debit: 0, credit: 0 },
+      Equity: { debit: 0, credit: 0 },
+      Revenue: { debit: 0, credit: 0 },
+      COGS: { debit: 0, credit: 0 },
+      Expense: { debit: 0, credit: 0 },
+      OtherIncome: { debit: 0, credit: 0 },
+      OtherExpense: { debit: 0, credit: 0 }
+    };
+    
     dataRows.forEach((row, idx) => {
-      const accountName = row[0];
+      const accountName = row[0].trim();
       const accountNumber = row[1] || '';
-      const mainType = row[3] || '';
-      const subType = row[4] || '';
+      const mainType = row[3] || ''; // Column D
+      const subType = row[4] || '';  // Column E
       
-      if (!accountName || accountName.trim() === '') return;
+      if (!accountName) return;
       
+      // Parse debit and credit values
       const debitStr = row[mostRecentDebitCol] || '0';
       const creditStr = row[mostRecentCreditCol] || '0';
       
-      const debit = parseFloat(String(debitStr).replace(/[$,\s()]/g, '').replace(/\((.+)\)/, '-$1')) || 0;
-      const credit = parseFloat(String(creditStr).replace(/[$,\s()]/g, '').replace(/\((.+)\)/, '-$1')) || 0;
+      // Handle various number formats including parentheses for negatives
+      const parseAmount = (str) => {
+        const cleaned = String(str)
+          .replace(/[$,\s]/g, '')
+          .replace(/\((.+)\)/, '-$1')
+          .replace(/[^\d.-]/g, '');
+        return parseFloat(cleaned) || 0;
+      };
       
+      const debit = Math.abs(parseAmount(debitStr));
+      const credit = Math.abs(parseAmount(creditStr));
+      
+      // Skip if both are zero
+      if (debit === 0 && credit === 0) return;
+      
+      // Determine account type
       let accountType = getAccountTypeFromClassification(mainType, subType);
       if (!accountType) {
         accountType = getAccountTypeFromName(accountName);
       }
       
+      // Track totals for debugging
+      if (typeTotals[accountType]) {
+        typeTotals[accountType].debit += debit;
+        typeTotals[accountType].credit += credit;
+      }
+      
+      // Calculate balance based on normal balance rules
       let balance;
+      
+      // Assets, Expenses, COGS normally have debit balances
       if (accountType === 'Asset' || accountType === 'Expense' || 
           accountType === 'COGS' || accountType === 'OtherExpense') {
         balance = debit - credit;
-      } else {
+      } 
+      // Liabilities, Equity, Revenue normally have credit balances
+      else {
         balance = credit - debit;
       }
       
-      const key = accountName;
+      // Use absolute value for aggregation
+      balance = Math.abs(balance);
+      
+      // Aggregate by account name
+      const key = `${accountName}_${accountType}`;
       if (accountBalances.has(key)) {
         const existing = accountBalances.get(key);
         accountBalances.set(key, {
@@ -263,7 +300,9 @@ async function fetchGoogleSheetData() {
           type: accountType,
           mainType: mainType,
           subType: subType,
-          amount: existing.amount + balance
+          amount: existing.amount + balance,
+          debit: existing.debit + debit,
+          credit: existing.credit + credit
         });
       } else {
         accountBalances.set(key, {
@@ -272,35 +311,53 @@ async function fetchGoogleSheetData() {
           type: accountType,
           mainType: mainType,
           subType: subType,
-          amount: balance
+          amount: balance,
+          debit: debit,
+          credit: credit
         });
       }
       
-      if (idx < 10) {
-        console.log(`Row ${idx}: ${accountName} (${mainType}/${subType} -> ${accountType})`);
-        console.log(`  Debit: ${debit}, Credit: ${credit}, Balance: ${balance}`);
+      // Detailed logging for first few rows
+      if (idx < 20) {
+        console.log(`Row ${idx}: ${accountName} (${accountType})`);
+        console.log(`  Debit: ${debit.toFixed(2)}, Credit: ${credit.toFixed(2)}, Balance: ${balance.toFixed(2)}`);
       }
     });
     
+    // Log type totals for verification
+    console.log('Type Totals:', typeTotals);
+    
+    // Convert to array and prepare final data
     const items = Array.from(accountBalances.values())
-      .filter(item => Math.abs(item.amount) > 0.01)
+      .filter(item => item.amount > 0.01)
       .map(item => ({
         account: item.account,
         type: item.type,
-        amount: Math.abs(item.amount)
+        amount: item.amount,
+        debit: item.debit,
+        credit: item.credit
       }));
     
-    console.log('Aggregated accounts:', items.length);
+    console.log('Final aggregated accounts:', items.length);
     
+    // Summary by type
     const summary = {};
     items.forEach(item => {
       if (!summary[item.type]) {
-        summary[item.type] = { count: 0, total: 0 };
+        summary[item.type] = { 
+          count: 0, 
+          total: 0,
+          debitTotal: 0,
+          creditTotal: 0
+        };
       }
       summary[item.type].count++;
       summary[item.type].total += item.amount;
+      summary[item.type].debitTotal += item.debit || 0;
+      summary[item.type].creditTotal += item.credit || 0;
     });
-    console.log('Summary by type:', summary);
+    
+    console.log('Final Summary by Type:', summary);
     
     return items;
     
@@ -346,76 +403,144 @@ function parseTB(text) {
   return items;
 }
 
+// Helper function for empty KPI object
+function getEmptyKPI() {
+  return {
+    revenue: 0, cogs: 0, opex: 0, otherIncome: 0, otherExpense: 0,
+    grossProfit: 0, operatingIncome: 0, ebitda: 0, netIncome: 0,
+    assets: 0, cash: 0, ar: 0, inv: 0, fixedAssets: 0,
+    liabilities: 0, ap: 0, std: 0, ltd: 0, debt: 0, equity: 0,
+    currentAssets: 0, currentLiabilities: 0, workingCapital: 0,
+    currentRatio: 0, quickRatio: 0, cashRatio: 0,
+    grossMarginPct: 0, operatingMarginPct: 0, ebitdaMarginPct: 0, netMarginPct: 0,
+    ROA: 0, ROE: 0, ROCE: 0, assetTurnover: 0,
+    DSO: 0, DIO: 0, DPO: 0, CCC: 0, invTurns: 0,
+    debtToAssets: 0, debtToEquity: 0, debtToEBITDA: null,
+    interestCoverage: null, equityMultiplier: 0, dupontROE: 0
+  };
+}
+
+// Enhanced summarize function with better account identification
 function summarize(items) {
-  const sumBy = (filterFn) => items.filter(filterFn).reduce((a, b) => a + b.amount, 0);
+  if (!items || items.length === 0) {
+    console.log('No items to summarize');
+    return getEmptyKPI();
+  }
   
-  const revenue = Math.abs(sumBy((i) => i.type === "Revenue"));
-  const cogs = Math.abs(sumBy((i) => i.type === "COGS"));
-  const opex = Math.abs(sumBy((i) => i.type === "Expense"));
-  const otherIncome = Math.abs(sumBy((i) => i.type === "OtherIncome"));
-  const otherExpense = Math.abs(sumBy((i) => i.type === "OtherExpense"));
+  // Helper function for safe summation
+  const sumBy = (filterFn) => {
+    const filtered = items.filter(filterFn);
+    const sum = filtered.reduce((a, b) => a + (b.amount || 0), 0);
+    console.log(`Summing ${filtered.length} items:`, sum);
+    return Math.abs(sum);
+  };
+  
+  // Helper function for finding specific accounts
+  const sumByAccountName = (type, namePatterns) => {
+    const filtered = items.filter(i => {
+      if (i.type !== type) return false;
+      const accountLower = i.account.toLowerCase();
+      return namePatterns.some(pattern => accountLower.includes(pattern));
+    });
+    const sum = filtered.reduce((a, b) => a + (b.amount || 0), 0);
+    console.log(`Found ${filtered.length} accounts matching ${namePatterns.join('/')}:`, sum);
+    return Math.abs(sum);
+  };
+  
+  // P&L Items
+  const revenue = sumBy((i) => i.type === "Revenue");
+  const cogs = sumBy((i) => i.type === "COGS");
+  const opex = sumBy((i) => i.type === "Expense");
+  const otherIncome = sumBy((i) => i.type === "OtherIncome");
+  const otherExpense = sumBy((i) => i.type === "OtherExpense");
+  
+  // Calculate P&L metrics
   const grossProfit = revenue - cogs;
   const operatingIncome = grossProfit - opex;
-  const ebitda = grossProfit - opex + otherIncome - otherExpense;
-  const netIncome = ebitda;
-
-  const assets = Math.abs(sumBy((i) => i.type === "Asset"));
-  const cash = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("cash"))
-    .reduce((sum, item) => sum + item.amount, 0));
-  const ar = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("accounts receivable"))
-    .reduce((sum, item) => sum + item.amount, 0));
-  const inv = Math.abs(items.filter(i => i.type === "Asset" && i.account.toLowerCase().includes("inventory"))
-    .reduce((sum, item) => sum + item.amount, 0));
-  const liabilities = Math.abs(sumBy((i) => i.type === "Liability"));
-  const ap = Math.abs(items.filter(i => i.type === "Liability" && i.account.toLowerCase().includes("accounts payable"))
-    .reduce((sum, item) => sum + item.amount, 0));
-  const std = Math.abs(items.filter(i => i.type === "Liability" && i.account.toLowerCase().includes("short term"))
-    .reduce((sum, item) => sum + item.amount, 0));
-  const ltd = Math.abs(items.filter(i => i.type === "Liability" && i.account.toLowerCase().includes("long term"))
-    .reduce((sum, item) => sum + item.amount, 0));
-  const equity = Math.abs(sumBy((i) => i.type === "Equity")) || (assets - liabilities);
+  const ebitda = operatingIncome + otherIncome - otherExpense;
+  const netIncome = ebitda; // Simplified for this model
+  
+  // Balance Sheet Items - with more specific account identification
+  const assets = sumBy((i) => i.type === "Asset");
+  
+  // More specific account searches
+  const cash = sumByAccountName("Asset", ["cash", "bank", "checking", "savings"]);
+  const ar = sumByAccountName("Asset", ["accounts receivable", "a/r", "receivable", "trade debtor"]);
+  const inv = sumByAccountName("Asset", ["inventory", "stock", "merchandise", "finished goods"]);
+  const fixedAssets = sumByAccountName("Asset", ["equipment", "machinery", "vehicle", "furniture", "building", "land"]);
+  
+  const liabilities = sumBy((i) => i.type === "Liability");
+  
+  const ap = sumByAccountName("Liability", ["accounts payable", "a/p", "payable", "trade creditor"]);
+  const std = sumByAccountName("Liability", ["short term", "current portion", "line of credit", "overdraft"]);
+  const ltd = sumByAccountName("Liability", ["long term", "mortgage", "term loan", "notes payable"]);
+  
+  const equity = sumBy((i) => i.type === "Equity");
   const debt = std + ltd;
-
+  
+  // Current assets and liabilities for liquidity ratios
   const currentAssets = cash + ar + inv;
   const currentLiabilities = ap + std;
-  const currentRatio = currentLiabilities !== 0 ? currentAssets / currentLiabilities : Infinity;
-  const quickRatio = currentLiabilities !== 0 ? (cash + ar) / currentLiabilities : Infinity;
-  const cashRatio = currentLiabilities !== 0 ? cash / currentLiabilities : Infinity;
+  
+  // Prevent division by zero
+  const safeDivide = (num, den, def = 0) => {
+    if (!den || den === 0) return def;
+    return num / den;
+  };
+  
+  // Liquidity Ratios
+  const currentRatio = safeDivide(currentAssets, currentLiabilities, 0);
+  const quickRatio = safeDivide(cash + ar, currentLiabilities, 0);
+  const cashRatio = safeDivide(cash, currentLiabilities, 0);
   const workingCapital = currentAssets - currentLiabilities;
-
-  const grossMarginPct = revenue !== 0 ? (grossProfit / revenue) * 100 : 0;
-  const operatingMarginPct = revenue !== 0 ? (operatingIncome / revenue) * 100 : 0;
-  const ebitdaMarginPct = revenue !== 0 ? (ebitda / revenue) * 100 : 0;
-  const netMarginPct = revenue !== 0 ? (netIncome / revenue) * 100 : 0;
-  const ROA = assets !== 0 ? (netIncome / assets) * 100 : 0;
-  const ROE = equity !== 0 ? (netIncome / equity) * 100 : 0;
-  const ROCE = (assets - currentLiabilities) !== 0 ? (operatingIncome / (assets - currentLiabilities)) * 100 : 0;
-
-  const assetTurnover = assets !== 0 ? revenue / assets : 0;
-  const DSO = revenue > 0 ? (ar / revenue) * 365 : null;
-  const DIO = cogs > 0 ? (inv / cogs) * 365 : null;
-  const DPO = cogs > 0 ? (ap / cogs) * 365 : null;
-  const CCC = (DSO || 0) + (DIO || 0) - (DPO || 0);
-  const invTurns = inv > 0 && cogs > 0 ? (cogs / inv) : null;
-
-  const debtToAssets = assets !== 0 ? debt / assets : 0;
-  const debtToEquity = equity !== 0 ? debt / equity : 0;
-  const debtToEBITDA = ebitda !== 0 ? debt / ebitda : null;
-  const interestCoverage = otherExpense > 0 ? ebitda / otherExpense : null;
-  const equityMultiplier = equity !== 0 ? assets / equity : 0;
-
-  const dupontROE = netMarginPct * assetTurnover * equityMultiplier;
-
-  return {
-    revenue, cogs, opex, otherIncome, otherExpense, grossProfit, operatingIncome, ebitda, netIncome,
-    assets, cash, ar, inv, liabilities, ap, std, ltd, debt, equity, workingCapital,
+  
+  // Profitability Ratios (as percentages)
+  const grossMarginPct = safeDivide(grossProfit, revenue, 0) * 100;
+  const operatingMarginPct = safeDivide(operatingIncome, revenue, 0) * 100;
+  const ebitdaMarginPct = safeDivide(ebitda, revenue, 0) * 100;
+  const netMarginPct = safeDivide(netIncome, revenue, 0) * 100;
+  const ROA = safeDivide(netIncome, assets, 0) * 100;
+  const ROE = safeDivide(netIncome, equity, 0) * 100;
+  const ROCE = safeDivide(operatingIncome, assets - currentLiabilities, 0) * 100;
+  
+  // Efficiency Ratios
+  const assetTurnover = safeDivide(revenue, assets, 0);
+  const DSO = revenue > 0 ? safeDivide(ar * 365, revenue, 0) : 0;
+  const DIO = cogs > 0 ? safeDivide(inv * 365, cogs, 0) : 0;
+  const DPO = cogs > 0 ? safeDivide(ap * 365, cogs, 0) : 0;
+  const CCC = DSO + DIO - DPO;
+  const invTurns = safeDivide(cogs, inv, 0);
+  
+  // Leverage Ratios
+  const debtToAssets = safeDivide(debt, assets, 0);
+  const debtToEquity = safeDivide(debt, equity, 0);
+  const debtToEBITDA = ebitda > 0 ? safeDivide(debt, ebitda, 0) : null;
+  const interestCoverage = otherExpense > 0 ? safeDivide(ebitda, otherExpense, null) : null;
+  const equityMultiplier = safeDivide(assets, equity, 0);
+  
+  // DuPont Analysis
+  const dupontROE = (netMarginPct / 100) * assetTurnover * equityMultiplier * 100;
+  
+  const result = {
+    // P&L
+    revenue, cogs, opex, otherIncome, otherExpense, 
+    grossProfit, operatingIncome, ebitda, netIncome,
+    // Balance Sheet
+    assets, cash, ar, inv, fixedAssets,
+    liabilities, ap, std, ltd, debt, equity, 
+    currentAssets, currentLiabilities, workingCapital,
+    // Ratios
     currentRatio, quickRatio, cashRatio,
     grossMarginPct, operatingMarginPct, ebitdaMarginPct, netMarginPct,
     ROA, ROE, ROCE, assetTurnover,
     DSO, DIO, DPO, CCC, invTurns,
-    debtToAssets, debtToEquity, debtToEBITDA, interestCoverage, equityMultiplier,
+    debtToAssets, debtToEquity, debtToEBITDA, 
+    interestCoverage, equityMultiplier,
     dupontROE
   };
+  
+  console.log('Calculated KPIs:', result);
+  return result;
 }
 
 // Margin Moves with Sam Component
@@ -442,11 +567,11 @@ function MarginMovesWithSam({ kpi, onScenarioChange }) {
       });
     }
 
-    if (kpi.DIO > 75) {
+    if (kpi.DIO && kpi.DIO > 75) {
       insights.push({
         type: 'warning',
         title: 'Inventory Drag',
-        message: `${kpi.DIO?.toFixed(0) || 'N/A'} days of inventory is tying up $${(kpi.inv / 1000).toFixed(0)}K in working capital.`,
+        message: `${kpi.DIO.toFixed(0)} days of inventory is tying up $${(kpi.inv / 1000).toFixed(0)}K in working capital.`,
         action: 'Implement JIT inventory management or improve demand forecasting.',
         impact: `Reducing DIO to 60 days would free up $${((kpi.inv * 0.2) / 1000).toFixed(0)}K in cash.`
       });
@@ -462,11 +587,11 @@ function MarginMovesWithSam({ kpi, onScenarioChange }) {
       });
     }
 
-    if (kpi.CCC > 75) {
+    if (kpi.CCC && kpi.CCC > 75) {
       insights.push({
         type: 'info',
         title: 'Cash Cycle Opportunity',
-        message: `Your ${kpi.CCC?.toFixed(0) || 'N/A'}-day cash cycle is above optimal.`,
+        message: `Your ${kpi.CCC.toFixed(0)}-day cash cycle is above optimal.`,
         action: 'Negotiate better payment terms: 2/10 net 30 discounts, factor receivables, or extend payables.',
         impact: `Improving CCC by 15 days could reduce working capital needs by $${((kpi.revenue / 365 * 15) / 1000).toFixed(0)}K.`
       });
@@ -820,7 +945,7 @@ function DebugPanel({ data, isOpen, onToggle }) {
 function Alerts({ kpi, targets }) {
   const items = [];
   
-  if (kpi.currentRatio < targets.currentRatioMin) {
+  if (kpi.currentRatio > 0 && kpi.currentRatio < targets.currentRatioMin) {
     items.push({
       tone: "bad",
       icon: AlertTriangle,
@@ -830,7 +955,7 @@ function Alerts({ kpi, targets }) {
     });
   }
   
-  if (kpi.cashRatio < 0.2) {
+  if (kpi.cashRatio > 0 && kpi.cashRatio < 0.2) {
     items.push({
       tone: "warn",
       icon: AlertCircle,
@@ -840,7 +965,7 @@ function Alerts({ kpi, targets }) {
     });
   }
   
-  if (kpi.grossMarginPct < targets.grossMarginPctMin) {
+  if (kpi.grossMarginPct > 0 && kpi.grossMarginPct < targets.grossMarginPctMin) {
     items.push({
       tone: "warn",
       icon: TrendDown,
@@ -850,12 +975,12 @@ function Alerts({ kpi, targets }) {
     });
   }
   
-  if (kpi.CCC > targets.CCCMax) {
+  if (kpi.CCC > 0 && kpi.CCC > targets.CCCMax) {
     items.push({
       tone: "warn",
       icon: RefreshCw,
       title: "Cash Conversion Cycle",
-      text: `CCC ${kpi.CCC?.toFixed(0) || 'N/A'} days > ${targets.CCCMax} days`,
+      text: `CCC ${kpi.CCC.toFixed(0)} days > ${targets.CCCMax} days`,
       action: "Optimize inventory levels and accelerate collections."
     });
   }
@@ -1139,7 +1264,7 @@ export default function DigitalCFODashboard() {
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <p className="text-sm text-green-300">
                   Real-time sync active • Refreshing every {refreshInterval / 1000} seconds • Reading columns AB & AC
-                </p>
+                  </p>
               </div>
               <button
                 onClick={() => setAutoRefresh(false)}
@@ -1227,7 +1352,7 @@ export default function DigitalCFODashboard() {
                 <Metric 
                   label="Cash Position" 
                   value={dollars(kpi.cash)} 
-                  sublabel={`${percent((kpi.cash / kpi.revenue) * 100)} of revenue`}
+                  sublabel={`${kpi.revenue > 0 ? percent((kpi.cash / kpi.revenue) * 100) : '—'} of revenue`}
                   tooltip="Total cash and cash equivalents"
                 />
               </div>
@@ -1291,7 +1416,7 @@ export default function DigitalCFODashboard() {
                             />
                           </div>
                           <span className="text-sm font-medium w-12 text-right">
-                            {isFinite(item.value) ? item.value.toFixed(2) : '—'}
+                            {isFinite(item.value) && item.value > 0 ? item.value.toFixed(2) : '—'}
                           </span>
                         </div>
                       </div>
@@ -1332,34 +1457,6 @@ export default function DigitalCFODashboard() {
             </motion.div>
           )}
 
-          {selectedView === 'scenarios' && (
-            <motion.div
-              key="scenarios"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <Card>
-                <SectionTitle icon={Zap} title="Scenario Analysis" subtitle="Compare different business outcomes" />
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RBarChart data={scenarioAnalysis}>
-                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                      <XAxis dataKey="scenario" />
-                      <YAxis yAxisId="left" tickFormatter={(v) => dollars(v)} />
-                      <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} />
-                      <Tooltip formatter={(v, name) => name === 'margin' ? `${v.toFixed(1)}%` : dollars(v)} />
-                      <Bar yAxisId="left" dataKey="revenue" fill="#3b82f6" />
-                      <Bar yAxisId="left" dataKey="ebitda" fill="#10b981" />
-                      <Line yAxisId="right" type="monotone" dataKey="margin" stroke="#f59e0b" />
-                      <Legend />
-                    </RBarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
           {selectedView === 'liquidity' && (
             <motion.div
               key="liquidity"
@@ -1370,7 +1467,7 @@ export default function DigitalCFODashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 <Metric label="Cash" value={dollars(kpi.cash)} sublabel="Immediate liquidity" />
                 <Metric label="Working Capital" value={dollars(kpi.workingCapital)} sublabel="Operating cushion" />
-                <Metric label="Cash Conversion" value={`${kpi.CCC?.toFixed(0) || '—'} days`} sublabel="Days to convert" />
+                <Metric label="Cash Conversion" value={`${kpi.CCC > 0 ? kpi.CCC.toFixed(0) : '—'} days`} sublabel="Days to convert" />
               </div>
 
               <Card>
@@ -1378,19 +1475,19 @@ export default function DigitalCFODashboard() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="p-3 bg-zinc-900/50 rounded-lg">
                     <p className="text-xs text-zinc-400">DSO</p>
-                    <p className="text-lg font-semibold">{kpi.DSO?.toFixed(0) || '—'} days</p>
+                    <p className="text-lg font-semibold">{kpi.DSO > 0 ? `${kpi.DSO.toFixed(0)} days` : '—'}</p>
                   </div>
                   <div className="p-3 bg-zinc-900/50 rounded-lg">
                     <p className="text-xs text-zinc-400">DIO</p>
-                    <p className="text-lg font-semibold">{kpi.DIO?.toFixed(0) || '—'} days</p>
+                    <p className="text-lg font-semibold">{kpi.DIO > 0 ? `${kpi.DIO.toFixed(0)} days` : '—'}</p>
                   </div>
                   <div className="p-3 bg-zinc-900/50 rounded-lg">
                     <p className="text-xs text-zinc-400">DPO</p>
-                    <p className="text-lg font-semibold">{kpi.DPO?.toFixed(0) || '—'} days</p>
+                    <p className="text-lg font-semibold">{kpi.DPO > 0 ? `${kpi.DPO.toFixed(0)} days` : '—'}</p>
                   </div>
                   <div className="p-3 bg-zinc-900/50 rounded-lg">
                     <p className="text-xs text-zinc-400">Inventory Turns</p>
-                    <p className="text-lg font-semibold">{kpi.invTurns?.toFixed(1) || '—'}x</p>
+                    <p className="text-lg font-semibold">{kpi.invTurns > 0 ? `${kpi.invTurns.toFixed(1)}x` : '—'}</p>
                   </div>
                 </div>
               </Card>
@@ -1428,15 +1525,15 @@ export default function DigitalCFODashboard() {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-zinc-400">Cash Conversion Cycle</span>
-                      <span className="text-sm font-semibold">{kpi.CCC?.toFixed(0) || '—'} days</span>
+                      <span className="text-sm font-semibold">{kpi.CCC > 0 ? `${kpi.CCC.toFixed(0)} days` : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-zinc-400">Receivables Period</span>
-                      <span className="text-sm font-semibold">{kpi.DSO?.toFixed(0) || '—'} days</span>
+                      <span className="text-sm font-semibold">{kpi.DSO > 0 ? `${kpi.DSO.toFixed(0)} days` : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-zinc-400">Payables Period</span>
-                      <span className="text-sm font-semibold">{kpi.DPO?.toFixed(0) || '—'} days</span>
+                      <span className="text-sm font-semibold">{kpi.DPO > 0 ? `${kpi.DPO.toFixed(0)} days` : '—'}</span>
                     </div>
                   </div>
                 </Card>
@@ -1454,7 +1551,7 @@ export default function DigitalCFODashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
                 <Metric label="Total Debt" value={dollars(kpi.debt)} sublabel="Short + Long term" />
                 <Metric label="Debt/Equity" value={`${kpi.debtToEquity.toFixed(2)}x`} sublabel="Leverage ratio" />
-                <Metric label="Debt/EBITDA" value={`${kpi.debtToEBITDA?.toFixed(2) || '—'}x`} sublabel="Coverage multiple" />
+                <Metric label="Debt/EBITDA" value={kpi.debtToEBITDA ? `${kpi.debtToEBITDA.toFixed(2)}x` : '—'} sublabel="Coverage multiple" />
               </div>
 
               <Card>
@@ -1474,8 +1571,36 @@ export default function DigitalCFODashboard() {
                   </div>
                   <div className="p-3 bg-zinc-900/50 rounded-lg">
                     <p className="text-xs text-zinc-400">Interest Coverage</p>
-                    <p className="text-lg font-semibold">{kpi.interestCoverage?.toFixed(1) || '—'}x</p>
+                    <p className="text-lg font-semibold">{kpi.interestCoverage ? `${kpi.interestCoverage.toFixed(1)}x` : '—'}</p>
                   </div>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
+          {selectedView === 'scenarios' && (
+            <motion.div
+              key="scenarios"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Card>
+                <SectionTitle icon={Zap} title="Scenario Analysis" subtitle="Compare different business outcomes" />
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RBarChart data={scenarioAnalysis}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                      <XAxis dataKey="scenario" />
+                      <YAxis yAxisId="left" tickFormatter={(v) => dollars(v)} />
+                      <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} />
+                      <Tooltip formatter={(v, name) => name === 'margin' ? `${v.toFixed(1)}%` : dollars(v)} />
+                      <Bar yAxisId="left" dataKey="revenue" fill="#3b82f6" />
+                      <Bar yAxisId="left" dataKey="ebitda" fill="#10b981" />
+                      <Line yAxisId="right" type="monotone" dataKey="margin" stroke="#f59e0b" />
+                      <Legend />
+                    </RBarChart>
+                  </ResponsiveContainer>
                 </div>
               </Card>
             </motion.div>
